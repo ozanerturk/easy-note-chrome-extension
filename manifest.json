@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Take Note!",
-    "description": "Replace default new tab page in Chrome with a useful new tab page.",
+    "description": "Immediatelly start taking note in your new chrome tab. Your notes will be stored in chrome",
     "version": "1.0",
     "chrome_url_overrides": {
         "newtab": "tab.html"
