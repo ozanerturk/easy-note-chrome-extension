@@ -22,12 +22,8 @@ html {
     /* Hide horizontal scrollbar */
 }
 
-.CodeMirror{
+#content {
     flex: 1;
-    zoom:1.6;
-    width: 80%;
-    height: 100%;
-    margin: 0 auto;
-    margin-top: 50px;
-    margin-bottom: 50px;
+    padding: 100px;
+    zoom: 1.5;
 }

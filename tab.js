@@ -1,54 +1,62 @@
 
-var simplemde;
-
+var editor;
 (function () {
-    const localStorageID = chrome.runtime.id;
-    var textArea = document.getElementById("MyID")
-    console.log(textArea)
-    simplemde = new SimpleMDE({
-        autofocus: true,
-        autosave: {
-            enabled: false,
-            uniqueId: "MyUniqueID",
-            delay: 100,
-        },
-        element: document.getElementById("MyID"),
-        forceSync: false,
-        indentWithTabs: false,
-        initialValue: "Hello world!",
-        lineWrapping: false,
-        parsingConfig: {
-            allowAtxHeaderWithoutSpace: true,
-            strikethrough: false,
-            underscoresBreakWords: true,
-        },
-        placeholder: "Type here...",
-        status: ["autosave", "lines", "words", "cursor", {
-            className: "keystrokes",
-            defaultValue: function (el) {
-                this.keystrokes = 0;
-                el.innerHTML = "0 Keystrokes";
+    const localStorageID = (chrome && chrome.runtime && chrome.runtime.id) || "TakeNoteAppStorage"
+    content = document.getElementById("content")
+    editor = new EditorJS({
+        holder: content,
+        tools: {
+            image: SimpleImage,
+            header: {
+                class: Header,
+                inlineToolbar: true,
+                shortcut: 'CMD+SHIFT+H'
             },
-            onUpdate: function (el) {
-                el.innerHTML = ++this.keystrokes + " Keystrokes";
+            list: {
+                class: List,
+                inlineToolbar: true,
+                shortcut: 'CMD+SHIFT+L'
+            },
+            checklist: {
+                class: Checklist,
+                inlineToolbar: true,
+            },
+            paragraph: {
+                config: {
+                    placeholder: 'Start taking note'
+                }
+            },
+        },
+        data: {
+            blocks:[{ "type": "header", "data": { "text": "HEADER", "level": 2 } }, { "type": "paragraph", "data": { "text": "<i>Italic text</i>" } }, { "type": "list", "data": { "style": "unordered", "items": ["Item1", "Item2", "Item3"] } }, { "type": "checklist", "data": { "items": [{ "text": "Buy eggs", "checked": false }, { "text": "Clean room", "checked": true }, { "text": "Do Homework", "checked": true }] } }, { "type": "paragraph", "data": { "text": "<a href=\"https://google.com\">https://google.com</a>" } }]
+        },
+        onReady: function () {
+            var storedJsonString = localStorage.getItem(localStorageID)
+            if (storedJsonString) {
+                let parsed = JSON.parse(storedJsonString)
+                if (parsed.blocks && parsed.blocks.length) {
+                    editor.render(parsed)
+                }
             }
-        }], // Another optional usage, with a custom status bar item that counts keystrokes
-        styleSelectedText: false,
-        tabSize: 4,
-        toolbar: false,
-        toolbarTips: false,
+        },
+        onChange: function () {
+            editor.save().then(data => {
+                localStorage.setItem(localStorageID, JSON.stringify(data))
+            });
+
+        }
     });
-    simplemde.codemirror.on('change', () => {
-        localStorage.setItem(localStorageID, simplemde.value())
-    });
-    window.addEventListener('storage', function (e) {
+
+    window.addEventListener('storage', async function (e) {
         if (e.storageArea === localStorage) {
             if (e.key === localStorageID) {
-                var stored = localStorage.getItem(localStorageID)
-                if (simplemde.value() != stored)
-                    simplemde.value(stored)
+                var data = await editor.save();
+                var stored = JSON.parse(localStorage.getItem(localStorageID))
+                if (JSON.stringify(stored.blocks) != JSON.stringify(data.blocks)) {
+                    editor.render(stored)
+                } else {
+                }
             }
         }
     });
-    simplemde.value(localStorage.getItem(localStorageID))
 }());

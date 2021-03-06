@@ -1,10 +1,16 @@
 {
     "manifest_version": 2,
-    "name": "Take Note!",
+    "name": "Easy Note",
     "description": "Immediatelly start taking note in your new chrome tab. Your notes will be stored in chrome",
     "version": "1.0",
     "chrome_url_overrides": {
         "newtab": "tab.html"
+    },
+    "browser_action": {
+        "default_icon": "icon.png",
+        "icons": {
+            "128": "icon.png"
+        }
     },
     "permissions": [
         "storage"
