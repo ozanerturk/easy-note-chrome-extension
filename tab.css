@@ -1,0 +1,33 @@
+body {
+    display: flex;
+    margin: 0px;
+    padding: 0px;
+    flex: 1;
+    flex-direction: column;
+    max-width: 100%;
+    min-width: 100% !important;
+    overflow-y: hidden !important;
+    /* Hide vertical scrollbar */
+    overflow-x: hidden !important;
+    /* Hide horizontal scrollbar */
+}
+
+html {
+    display: flex;
+    min-height: 100%;
+    max-height: 100%;
+    overflow-y: hidden !important;
+    /* Hide vertical scrollbar */
+    overflow-x: hidden !important;
+    /* Hide horizontal scrollbar */
+}
+
+.CodeMirror{
+    flex: 1;
+    zoom:1.6;
+    width: 80%;
+    height: 100%;
+    margin: 0 auto;
+    margin-top: 50px;
+    margin-bottom: 50px;
+}
