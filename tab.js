@@ -63,9 +63,12 @@ document.body.onload = () => {
                 currentX = e.clientX;
                 currentY = e.clientY;
             }
-
-            dragItem.style.left = currentX - xOffset
-            dragItem.style.top = currentY - yOffset
+            let x = (currentX - xOffset)
+            x = x - (x%10)
+            let y = (currentY - yOffset)
+            y = y - (y%10)
+            dragItem.style.left = x
+            dragItem.style.top = y
 
         }
     }
