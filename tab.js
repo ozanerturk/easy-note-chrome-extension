@@ -29,11 +29,11 @@ document.body.onload = () => {
             currentX = dragItem.style.left;
             currentY = dragItem.style.top;
             if (e.type === "touchstart") {
-                initialX = e.touches[0].clientX;
-                initialY = e.touches[0].clientY;
+                initialX = e.touches[0].pageX;
+                initialY = e.touches[0].pageY;
             } else {
-                initialX = e.clientX;
-                initialY = e.clientY;
+                initialX = e.pageX;
+                initialY = e.pageY;
             }
         }
 
@@ -57,11 +57,11 @@ document.body.onload = () => {
         if (dragItem) {
             e.preventDefault();
             if (e.type === "touchmove") {
-                currentX = e.touches[0].clientX;
-                currentY = e.touches[0].clientY;
+                currentX = e.touches[0].pageX;
+                currentY = e.touches[0].pageY;
             } else {
-                currentX = e.clientX;
-                currentY = e.clientY;
+                currentX = e.pageX;
+                currentY = e.pageY;
             }
             let x = (currentX - xOffset)
             x = x - (x%10)
@@ -258,8 +258,9 @@ document.body.onload = () => {
     const noteManager = new NoteManager()
 
     document.body.ondblclick = (e) => {
+        console.log(e)
         if (e.target.tagName == "BODY") {
-            noteManager.addNote("newNote", event.clientX, event.clientY)
+            noteManager.addNote("newNote", e.pageX, e.pageY)
 
         }
     }
