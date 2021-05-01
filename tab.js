@@ -92,7 +92,7 @@ document.body.onload = () => {
         buildDropdown() {
 
             this.dropdownButton = document.createElement("div")
-            this.dropdownButton.innerHTML = "⌄"
+            this.dropdownButton.innerHTML = "[]"
             this.dropdownButton.classList.add("dropbtn");
 
             this.dropdownContent = document.createElement("div")
