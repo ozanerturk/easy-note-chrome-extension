@@ -9,6 +9,7 @@
 }
 
 /* The container <div> - needed to position the dropdown content */
+
 .dropdown {
     line-height: 0px;
     float: right;
@@ -19,16 +20,18 @@
 }
 
 /* Dropdown Content (Hidden by Default) */
+
 .dropdown-content {
     display: none;
     position: absolute;
     background-color: #f9f9f9;
-    min-width: 160px;
+    width: 160px;
     box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
     z-index: 1;
 }
 
 /* Links inside the dropdown */
+
 .dropdown-content a {
     color: black;
     padding: 12px 16px;
@@ -37,23 +40,25 @@
 }
 
 /* Change color of dropdown links on hover */
+
 .dropdown-content a:hover {
     background-color: #f1f1f1
 }
 
 /* Show the dropdown menu on hover */
+
 .dropdown:hover .dropdown-content {
     display: block;
 }
 
 /* Change the background color of the dropdown button when the dropdown content is shown */
+
 .dropdown:hover .dropbtn {
     background-color: #3e8e41;
 }
 
 .note {
     position: absolute;
-    min-width: 300px;
     border: 1px solid rgba(0, 0, 0, 0);
 }
 
@@ -65,7 +70,23 @@
     opacity: 1;
 }
 
+.note:hover .resizer {
+    opacity: 1;
+}
+
+.note-body-wrapper {
+    min-width: 100px;
+    min-height: 50px;
+}
+
+[contentEditable=true]:empty:before {
+    content: attr(data-text);
+    font-style: italic;
+    color: #979797;
+}
+
 /* THEME RED START*/
+
 .note.theme-red:hover {
     border: 1px solid rgb(211, 49, 49);
 }
@@ -81,6 +102,7 @@
 /*THEME RED END*/
 
 /* THEME green START*/
+
 .note.theme-green:hover {
     border: 1px solid rgb(43, 189, 62);
 }
@@ -96,6 +118,7 @@
 /*THEME green END*/
 
 /* THEME yellow START*/
+
 .note.theme-yellow:hover {
     border: 1px solid rgb(212, 194, 24);
 }
@@ -108,7 +131,39 @@
     background: rgb(255, 241, 114);
 }
 
-/*THEME green END*/
+/*THEME yellow END*/
+
+/* THEME orange START*/
+
+.note.theme-orange:hover {
+    border: 1px solid rgb(216, 123, 36);
+}
+
+.note.theme-orange:hover .note-header {
+    background: rgb(216, 123, 36);
+}
+
+.note.theme-orange {
+    background: rgb(255, 186, 60);
+}
+
+/*THEME orange END*/
+
+.resizer {
+    opacity: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #4286f4;
+    position: absolute;
+}
+
+.resizer.bottom-right {
+    right: -5px;
+    bottom: -5px;
+    cursor: nwse-resize;
+}
 
 .note:hover .note-header::before {
     content: '.  .  .';
@@ -116,7 +171,11 @@
 }
 
 .note-body {
-    padding: 10px
+    padding: 10px;
+    height: calc(100% - 20px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    word-wrap: break-word;
 }
 
 .note-header {
@@ -132,4 +191,39 @@ body {
     font-size: 12px;
     font-family: Arial, Helvetica, sans-serif;
     background-color: #f7f7f7;
+}
+
+img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/*
+ *  STYLE 4
+ */
+
+.note-body::-webkit-scrollbar-track {
+    background-color: #b6b6b6;
+}
+
+.note-body::-webkit-scrollbar {
+    width: 1px;
+    background-color: #db4b4b;
+}
+
+.note-body::-webkit-scrollbar-thumb {
+    background-color: #5d5b5b;
+}
+
+.note:hover .note-body::-webkit-scrollbar-track {
+    background-color: #b6b6b6;
+}
+
+.note:hover .note-body::-webkit-scrollbar {
+    width: 4px;
+    background-color: #db4b4b;
+}
+
+.note:hover .note-body::-webkit-scrollbar-thumb {
+    background-color: #5d5b5b;
 }
