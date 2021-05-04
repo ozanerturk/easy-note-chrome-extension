@@ -310,7 +310,6 @@ document.body.onload = () => {
     }
 
     window.addEventListener('storage', async function (e) {
-        console.log("hh")
         if (e.storageArea === localStorage) {
             if (e.key === localStorageID) {
                 if (JSON.parse(localStorage.getItem(localStorageID)).tabId == tabId) {
@@ -378,7 +377,6 @@ document.body.onload = () => {
 
             function resize(e) {
                 if (currentResizer.classList.contains('bottom-right')) {
-                    console.log(width, height)
                     isResizing = true;
                     width = parseInt(original_width + (e.pageX - original_mouse_x))
                     height = parseInt(original_height + (e.pageY - original_mouse_y))
