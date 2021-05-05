@@ -173,8 +173,7 @@
 .note-body {
     padding: 10px;
     height: calc(100% - 20px);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
     word-wrap: break-word;
 }
 
@@ -208,6 +207,7 @@ img {
 
 .note-body::-webkit-scrollbar {
     width: 1px;
+    height: 1px;
     background-color: #db4b4b;
 }
 
@@ -221,6 +221,7 @@ img {
 
 .note:hover .note-body::-webkit-scrollbar {
     width: 4px;
+    height: 10px;
     background-color: #db4b4b;
 }
 

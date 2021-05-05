@@ -5,6 +5,7 @@ const localStorageID_migrated = "EasyNote_2b72694a-dcd2-49f1-8b5c-464d15699c21_m
 const localStorage_ID_old = "EasyNote_2b72694a-dcd2-49f1-8b5c-464d15699c21"
 
 
+
 document.body.onload = () => {
     var container = document.querySelector("body");
     var dragItem = undefined
@@ -15,6 +16,7 @@ document.body.onload = () => {
     var xOffset = 0;
     var yOffset = 0
 
+   
     container.addEventListener("touchstart", dragStart, false);
     container.addEventListener("touchend", dragEnd, false);
     container.addEventListener("touchmove", drag, false);
@@ -23,7 +25,10 @@ document.body.onload = () => {
     container.addEventListener("mouseup", dragEnd, false);
     container.addEventListener("mousemove", drag, false);
 
-
+    container.addEventListener("mouseup", function (event) {
+        var hasValue = window.getSelection().isCollapsed;
+        console.log(window.getSelection(), currentX, currentY)
+    }, false);
 
     function dragStart(e) {
 
@@ -96,6 +101,7 @@ document.body.onload = () => {
             this.height = height;
             this.element = undefined;
             this.onUpdated = onUpdated
+
         }
         changeTheme(theme) {
             let isChanged = theme != this.theme;
@@ -184,6 +190,7 @@ document.body.onload = () => {
                 this.text = this.body.innerHTML.trim()
                 this.onUpdated(this);
             })
+           
             this.bodyWrapper.append(this.body);
             this.bodyWrapper.append(this.resizer);
 
@@ -395,6 +402,8 @@ document.body.onload = () => {
             function stopResize() {
 
                 if (isResizing) {
+                    element.style.width = width - (width % 10)
+                    element.style.height = height - (height % 10)
                     isResizing = false;
                     window.removeEventListener('mousemove', resize)
                     let n = noteManager.notes.find(x => x.uniqueId == element.parentElement.getAttribute("data-uniqueId"))
