@@ -1,11 +1,20 @@
 <html>
 
-<body>
+<head>
+
+    <meta charset="utf-8">
+</head>
+
+<body class="grid">
     <script src="index-min.js"></script>
     <script src="uuidv4.min.js"></script>
-    <link rel="stylesheet" href="./quill/quill.bubble.css" />
-    <script src="./quill/quill.min.js"></script>
+    <script src="quill/quill.min.js"></script>
+    <link rel="stylesheet" href="quill/quill.snow.css">
     <link rel="stylesheet" href="tab.css">
+    <div class="options" style="position:fixed; bottom: 30px; right:30px;">
+        <input id="grid_enabled" name="grid_enabled" type="checkbox" checked></input>
+        <label for="grid_enabled">Enable Grid</label>
+    </div>
 </body>
 <script src="tab.js"></script>
 
