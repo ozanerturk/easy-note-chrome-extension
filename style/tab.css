@@ -1,0 +1,113 @@
+
+/* create note style box  */
+html,body{
+    padding: 0px;
+    margin: 0px;
+}
+.note {
+    position: absolute;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    
+}
+.note .title {
+    background-color: #ccc;
+    padding: 5px;
+    font-weight: bold;
+}
+.note .delete:hover{
+    cursor: pointer;
+    outline: 1px solid rgb(135, 209, 66);
+}
+.dialog{
+    /* centered diaglog*/
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 20px;
+    width: 300px;
+    overflow: auto;
+}
+/* create animation to slide in to scene for undo-snack */
+.undo-snack button{
+    margin-left:10px
+}
+.snack-list{
+    position: fixed;
+    left: 50%;
+    bottom: 0px;
+    transform: translate(-50%, 0%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-width: 300px;
+}
+.undo-snack{
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 11px;
+    overflow: auto;
+    animation: slidein 0.2s;
+    animation-fill-mode: forwards;
+    }
+@keyframes slidein {
+    from {
+        bottom: -50px;
+    }
+    to {
+        bottom: 10px;
+    }
+}
+.note .delete{
+    position: relative;
+    left:-30px;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    background-color: #ccc;
+    border:0px;
+
+}
+.note .resize-handle{
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    user-select: none;
+    width: 10px;
+    height: 10px;
+    background-color: #ccc;
+    cursor: se-resize;
+}
+.note .drag-handle {
+    cursor: move;
+    background-color: red;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+    user-select: none;
+    line-height:2px;
+    height:10px;
+        font-size: 15px;
+}
+/*note title is a bar with full width   */
+
+.note .title {
+    background-color: #ccc;
+    border-bottom: 1px solid #ccc;
+    padding: 5px;
+    margin: 0px;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+/* make a style for note box content  */
+.note_content {
+    font-size: 12px;
+    margin-bottom: 5px;
+}
