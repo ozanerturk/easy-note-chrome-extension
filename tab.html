@@ -1,18 +1,33 @@
 <html>
 
 <head>
-    <script src="./scripts/dexie.js"></script>
+    <script defer src="./scripts/dayjs.min.js"></script>
+    <script defer src="./scripts/defaults.js"></script>
+    <script defer src="./scripts/configuration.js"></script>
+    <script defer src="./scripts/note.js"></script>
+    <script defer src="./scripts/noteView.js"></script>
+    <script defer src="./scripts/eventEmitter.js"></script>
+    <script defer src="./scripts/database.js"></script>
+    <script defer src="./scripts/firebase_client.js"></script>
+    <script defer src="./scripts/firebase-app.js"></script>
+    <script defer src="./scripts/firebase-auth.js"></script>
+    <script defer src="./scripts/firebase-firestore.js"></script>
+    <script defer src="./scripts/dexie.js"></script>
+    <script defer src="./scripts/tab.js"></script>
+    <link rel="stylesheet" href="./style/tab.css">
 
     <meta charset="utf-8">
 </head>
 
-<body class="grid">
-    <link rel="stylesheet" href="./style/tab.css">
+<body id="world" class="grid">
+    <div class="user"><img id="userImage"/> <span id="username"></span>
+        <button id="login"> login</button>
+        <button id="logout"> logout</button>
+    </div>
     <div class="snack-list">
-        
+
     </div>
 </body>
-<script src="./scripts/tab.js"></script>
 
 
 </html>

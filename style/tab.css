@@ -3,17 +3,23 @@
 html,body{
     padding: 0px;
     margin: 0px;
+    user-select: none;
 }
 .note {
     position: absolute;
     background-color: #f0f0f0;
     border: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
     
 }
 .note .title {
-    background-color: #ccc;
+    
+    border-bottom: 3px solid #ccc;
     padding: 5px;
+    font-size: 20px;
     font-weight: bold;
+    user-select: text;
 }
 .note .delete:hover{
     cursor: pointer;
@@ -34,6 +40,15 @@ html,body{
 /* create animation to slide in to scene for undo-snack */
 .undo-snack button{
     margin-left:10px
+}
+.user{
+    border-radius: 10px;
+    width: 70px;
+    height: 30px;
+    background-color: #ccc;
+    position: fixed;
+    right: 10px;
+    top: 10px;;
 }
 .snack-list{
     position: fixed;
@@ -66,7 +81,7 @@ html,body{
     }
 }
 .note .delete{
-    position: relative;
+    position: absolute;
     left:-30px;
     border-radius: 50%;
     width: 20px;
@@ -97,17 +112,12 @@ html,body{
 }
 /*note title is a bar with full width   */
 
-.note .title {
-    background-color: #ccc;
-    border-bottom: 1px solid #ccc;
-    padding: 5px;
-    margin: 0px;
-    font-weight: bold;
-    font-size: 14px;
-    margin-bottom: 5px;
-}
 /* make a style for note box content  */
-.note_content {
+.note .content {
     font-size: 12px;
     margin-bottom: 5px;
+    user-select: text;
+    flex:1;
+    color:green;
+    overflow-y: scroll;
 }

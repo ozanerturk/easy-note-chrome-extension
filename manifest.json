@@ -1,15 +1,22 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "Easy Note v2",
     "description": "Immediatelly start taking note in your new chrome tab. Your notes will be stored in chrome",
     "version": "1.2.0",
+    "permissions": [
+        "identity"
+    ],
     "chrome_url_overrides": {
         "newtab": "tab.html"
     },
-    "browser_action": {
-        "default_icon": "icon.png",
-        "icons": {
-            "128": "icon.png"
-        }
-    }
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' ; object-src 'self'"
+    },
+    "oauth2": {
+        "client_id": "559352844761-vhrgqvgbiptiddmg3dufq438boa9hla0.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/userinfo.email","https://www.googleapis.com/auth/userinfo.profile","https://www.googleapis.com/auth/firebase"
+        ]
+    },
+    "key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAudGSAsyWABjzrhAkPer/\n 69hSy9ymX4kGQRD4nQI4m67TWf8U4EH7UDYRtpZKRagV92LgF2eh6Zp88/+uTwYQ\nvz52cUGumojOnXx4VHWZu9O63+HAX5p8NMdmzbE/FxltDWW/deHjCCunja6ItNgX\nAR+3thNh3hpGsmDSv6py19CD7xl06K78BXVkLo+eAQ08rvgFJq2ty4I8SHxOO1jX\nmYaC+WfviQ5cqFl/X+IRk86nAMeTNZzVhOFmjCSs3bnQqqyeDYmwMfxawJQiRepB\nR+rCEAreI4hKupkc62l4jxQR5k6jEVWG2x1cjNBeH5VSsnshK/wqOCkf3UGRp/IY\nTQIDAQAB\n-----END PUBLIC KEY-----"
 }
