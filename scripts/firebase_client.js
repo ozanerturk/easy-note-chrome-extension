@@ -1,7 +1,7 @@
-class FirebaseClient {
+class FirebaseClient extends MyEventEmitter {
 
     constructor() {
-
+        super();
         this.firebaseConfig = {
             apiKey: "AIzaSyAD5Ag3FYxGWrv0pYgjQcXdiHzYfi--k1Q",
             authDomain: "easynote-aaaa1.firebaseapp.com",
@@ -14,13 +14,15 @@ class FirebaseClient {
     }
 
     async init() {
+        this.synced = [];
         this.app = firebase.initializeApp(this.firebaseConfig);
         this.firebaseDatabase = firebase.firestore();
+        this.firebaseDatabase.useEmulator("localhost", 8080);
 
     }
     async saveUser(user) {
         //get uid
-        console.log(user);
+        console.log("user saved", user);
         this.uid = firebase.auth().currentUser.uid;
         let res = await this.firebaseDatabase.collection("user").doc(this.uid).set({
             name: "",
@@ -31,80 +33,73 @@ class FirebaseClient {
     };
 
     async saveNote(note) {
+        //no need to check if remote copy is more recent than local, since it will be updated by syncChange
+        console.log("update remote note", note);
+        let noteModel = {
+            id: note.id,
+            title: note.title || '',
+            content: note.content || '',
+            x: note.x || 0,
+            y: note.y || 0,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            deleted: note.deleted || false
 
-        //get note from firebase && its good because if we are online, local copy is more recent than remote copy
-        let existNote = await this.firebaseDatabase.collection('user')
-            .doc(this.uid)
-            .collection('notes')
-            .doc(String(note.id)).get();
-        if (!existNote.data() || (note.updatedAt > existNote.data().updatedAt)) {
-            if (note.updatedAt ) {
-                //remote copy is older than local copy
-                let noteModel = {
-                    id: String(note.id),
-                    title: note.title || '',
-                    content: note.content || '',
-                    x: note.x || 0,
-                    y: note.y || 0,
-                    createdAt: dayjs(note.createdAt).unix(),
-                    updatedAt: dayjs(note.updatedAt).unix(),
-
-                };
-                let collection = `user/${this.uid}/notes`;
-                this.firebaseDatabase
-                    .collection(collection)
-                    .doc(noteModel.id)
-                    .set(noteModel);
-            }
-        }
+        };
+        let collection = `user/${this.uid}/notes`;
+        await this.firebaseDatabase
+            .collection(collection)
+            .doc(noteModel.id)
+            .set(noteModel);
         return;
     }
-    attachDatabase(database) {
 
-        database.on("created", (note) => {
-            this.saveNote(note);
-        });
-        database.on("updated", (note) => {
-            this.saveNote(note);
-        });
-        database.on("deleted", (note) => {
-            this.saveNote(note);
-        });
 
-    }
-
-    async syncChange(change) {
+    async syncChange(doc) {
+        //caution, sync does not make confilict resolution, so if there are two copies of the same note, the latest one will be kept
         //check if note is already existed
-        let note = await database.getNote(change.doc.id);
+        let note = await database.getNote(doc.id);
+        console.log("local note", note, " for", doc.id);
         if (!note) {
             //if not, create new note
             let noteModel = {
-                id: Number(change.doc.id),
-                title: change.doc.data().title || '',
-                content: change.doc.data().content || '',
-                x: change.doc.data().x || 0,
-                y: change.doc.data().y || 0,
-                createdAt: dayjs(change.doc.data().createdAt).unix(),
-                updatedAt: dayjs(change.doc.data().updatedAt).unix(),
-
+                id: doc.id,
+                title: doc.data().title || '',
+                content: doc.data().content || '',
+                x: doc.data().x || 0,
+                y: doc.data().y || 0,
+                createdAt: doc.data().createdAt.toDate(),
+                updatedAt: doc.data().updatedAt.toDate(),
+                deleted: doc.data().deleted || false
             };
-            database.addNote(noteModel);
+
+            console.log("[FIREBASECLIENT]","new note created", doc.data().id);
+            await database.addNote(noteModel);
         }
-        else {//if yes, update note
+        else {
+            //if note exists, update the note
             //check if local copy is more recent than remote copy
-            if (dayjs(change.doc.data().updatedAt).unix() > note.updatedAt) {
-                //if yes, update local copy
-                note.title = change.doc.data().title || '';
-                note.content = change.doc.data().content || '';
-                note.x = change.doc.data().x || 0;
-                note.y = change.doc.data().y || 0;
-                note.createdAt = dayjs(change.doc.data().createdAt).unix();
-                note.updatedAt = dayjs(change.doc.data().updatedAt).unix();
-                database.updateNote(note);
-            } else if (dayjs(change.doc.data().updatedAt).unix() < note.updatedAt) {
-                //if no, update remote copy
-                this.saveNote(note);
+            let remoteDate = dayjs(doc.data().updatedAt.toDate());
+            let localDate = dayjs(note.updatedAt);
+            console.log(remoteDate, localDate);
+
+            if (remoteDate.isAfter(localDate)) {
+                //if remote copy is more recent, update local copy
+                // console.log("[FIREBASECLIENT]","remote note is more recent", doc.id, doc.data().updatedAt.toDate());
+                note.title = doc.data().title || '';
+                note.content = doc.data().content || '';
+                note.x = doc.data().x || 0;
+                note.y = doc.data().y || 0;
+                note.createdAt = doc.data().createdAt.toDate();
+                note.updatedAt = doc.data().updatedAt.toDate();
+                note.deleted = doc.data().deleted || false;
+                await database.updateNote(note);
+            } else if (localDate.isAfter(remoteDate)) {
+                //if local copy more recent, update remote copy
+                console.log("local note is more recent", note);
+                await this.saveNote(note);
             } else {
+                console.log("same timestamp");
                 // same timestamp no nothing
             }
         }
@@ -114,7 +109,7 @@ class FirebaseClient {
         let deletedNotes = await this.firebaseDatabase.collection('user')
             .doc(this.uid)
             .collection('notes')
-            .where('updatedAt', '<', dayjs().subtract(2, 'day').unix())
+            .where('updatedAt', '<', dayjs().subtract(2, 'day').toDate())
             .where('deleted', '==', true)
             .get();
         deletedNotes.forEach(async (doc) => {
@@ -125,46 +120,53 @@ class FirebaseClient {
                 .delete();
         });
     }
-    sync() {
-
-        //get remote copies
-        //compare with local copies
-        //if there are remote copies more recent than the local copies, update local copies
-        //if there are local copies more recent than the remote copies, update remote copies
+    async sync(database) {
         //delete copies signed as deleted more than 2 days
+        await this.retention();
 
         //get remote copies
-
-        this.firebaseDatabase.collection('user')
+        let snapshot = await this.firebaseDatabase.collection('user')
             .doc(this.uid)
             .collection('notes')
-            .onSnapshot(async (snapshot) => {
-                let syncedRemoteIds = [];
-                snapshot.docChanges().forEach(async change => {
-                    syncedRemoteIds.push(change.doc.id);
-                    if (change.type === 'added') {
-                        //remote copies retrieved here.
-                        await this.syncChange(change);
-                    }
-                    if (change.type === 'modified') {
-                        await this.syncChange(change);
-                    }
-                    if (change.type === 'removed') {
-                        let note = await database.getNote(change.doc.id);
-                        if (!note) {
-                            await database.deleteNote(note, false);
-                        }
-                    }
-                });
-                //todo: one time call
-                this.retention();
-                let localNotes = await database.loadNotes();
-                console.log("localNotes",localNotes)
-                localNotes.filter(x=>syncedRemoteIds.includes(String(x.id)))
-                localNotes.forEach(n=>{
-                    this.saveNote(n)
-                })
-            });
+            .where('deleted', '==', false)
+            .get();
+
+        console.log("remote notes received length", snapshot.docs.length);
+
+        let syncedIds = [];
+        await snapshot.forEach(async doc => {
+            //sync local copies with remotes
+            syncedIds.push(doc.id);
+            await this.syncChange(doc);
+        });
+        console.log("has been synced count:", syncedIds.length);
+
+        let localNotes = await database.loadNotes();
+
+        //if there are local copies more recent than the remote copies, update remote copies
+        //filter local notes not contains remotenotes
+        let localNotesFiltered = localNotes.filter(note => {
+            return !syncedIds.includes(note.id);
+        });
+        console.log("localNotesFiltered", localNotesFiltered);
+        await localNotesFiltered.forEach(async n => {
+            await this.saveNote(n);
+        });
+
+
+
+        //after sync complete we can listen for local changes
+
+        database.on("created", (note) => {
+            this.saveNote(note);
+        });
+        database.on("updated", (note) => {
+            this.saveNote(note);
+        });
+        database.on("deleted", (note) => {
+            this.saveNote(note);
+        });
+        console.log("sync completed");
     }
 
     login() {
@@ -176,7 +178,6 @@ class FirebaseClient {
 
                     if (user) {
                         this.saveUser(user);
-                        this.sync();
                     }
                     resolve(user);
                     console.log('User state change detected from the Background script of the Chrome Extension:', user);

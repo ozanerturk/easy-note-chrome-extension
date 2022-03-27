@@ -2,24 +2,31 @@
 
 
 class NoteManager {
-
+    //note manager only manages nodeViews
+    //listens changes on noteViews and update the database
+    //listens database changes and reflects to noteViews 
     noteViews = [];
     constructor(database) {
+        //todo: here I can see database and broadcast channel are coubled to notemanager, 
+        //but I don't know how to fix it for now
         this.initBroadcastChannel();
         this.database = database;
         this.database.on("deleted", (note) => {
+            this.deleteNoteView(note);
             this.channel.postMessage({
                 type: 'delete',
                 note: JSON.parse(JSON.stringify(note))
             });
         });
         this.database.on('updated', (note) => {
+            this.updateNoteView(note);
             this.channel.postMessage({
                 type: 'updated',
                 note: JSON.parse(JSON.stringify(note))
             });
         });
         this.database.on("created", (note) => {
+            this.addNoteView(note);
             this.channel.postMessage({
                 type: 'add',
                 note: JSON.parse(JSON.stringify(note))
@@ -30,61 +37,20 @@ class NoteManager {
     async init() {
         await this.database.init();
         let notes = await this.database.loadNotes();
-        notes.map(x => new Note({ ...x })).forEach(note => {
-            this.addNoteView(note);
-        });
-    }
 
-    initBroadcastChannel() {
-        this.channel = new BroadcastChannel('BroadcastChannel');
-        this.channel.onmessage = async (event) => {
-            const message = event.data;
-            console.log('A message occurred', message);
-            if (message.type == 'delete') {
-                let noteViewIndex = this.noteViews.findIndex(x => x.note.id == message.note.id);
-                if (noteViewIndex != -1) {
-                    let deletedNoteView = this.noteViews.splice(noteViewIndex, 1);
-                    deletedNoteView[0].dom.remove();
-                }
-
-
-            }
-            else if (message.type == 'add') {
-                let note = new Note({ ...message.note });
+        notes.map(x => new Note({ ...x }))
+            .forEach(note => {
                 this.addNoteView(note);
-            } else if (message.type == 'updated') {
-                let note = await this.database.getNote(message.note.id);
-                console.log(note);
-                if (note) {
-                    let noteView = this.noteViews.find(x => x.note.id == message.note.id);
-                    noteView.note = note;
-                    noteView.updateStyle();
-                }
-            }
-        };
-    };
-
-    async deleteNote(note) {
-        if (note.id != null) {
-            await this.database.deleteNote(note);
-
-        }
+            });
     }
-    async updateNote({ id, x, y, width, height, title, content }) {
-        if (id != null) {
-            let note = await this.database.getNote(id);
-            if (note) {
-                note.update({ x, y, width, height, title, content });
-                await this.database.updateNote(note);
-            }
-        }
-    }
+
     async addNoteView(note) {
         let noteView = new NoteView(note);
         noteView.onDelete = () => {
-            this.deleteNote(note);
+            //todo: why we trigger delete note in notemanager ? who should responsible for this action ?
+            this.database.deleteNote(note);
         };
-        noteView.onChanged = ({
+        noteView.on("changed", ({
             x,
             y,
             width,
@@ -93,33 +59,49 @@ class NoteManager {
             content
 
         }) => {
-            this.updateNote({ id: note.id, x, y, width, height, title, content });
-        };
+            //check if there is any changes
+            if (note.x != x || note.y != y || note.width != width || note.height != height || note.title != title || note.content != content) {
+                console.log(note.id)
+                let noteToUpdate = new Note({ id: note.id, x, y, width, height, title, content,createdAt:note.createdAt,updatedAt:new Date() });
+                this.database.updateNote(noteToUpdate);
+            }
+        });
         this.noteViews.push(noteView);
         noteView.render();
     }
-
-    async addNote({ x, y, createdAt, updatedAt, content } = {
-        x: 0,
-        y: 0,
-        createdAt: dayjs().unix(),
-        updatedAt: dayjs().unix(),
-        content: ''
-    }) {
-        let note = {
-            x,
-            y,
-            createdAt,
-            updatedAt,
-            content
-        };
-        note = await this.database.addNote(note);
-        this.addNoteView(note);
-        //create note view
+    deleteNoteView(note) {
+        let noteViewIndex = this.noteViews.findIndex(x => x.noteId == note.id);
+        if (noteViewIndex != -1) {
+            let deletedNoteView = this.noteViews.splice(noteViewIndex, 1);
+            deletedNoteView[0].dom.remove();
+        }
     }
-
-
-}
+    updateNoteView(note) {
+        let noteViewIndex = this.noteViews.findIndex(x => x.noteId == note.id);
+        if (noteViewIndex != -1) {
+            let noteView = this.noteViews[noteViewIndex];
+            noteView.updateModel(note);
+        }
+    }
+    initBroadcastChannel() {
+        //broadcast channels updates noteViews according to the changes in other tabs
+        this.channel = new BroadcastChannel('BroadcastChannel');
+        this.channel.onmessage = async (event) => {
+            const message = event.data;
+            if (message.type == 'delete') {
+                let note = new Note({ ...message.note });
+                this.deleteNoteView(note);
+            }
+            else if (message.type == 'add') {
+                let note = new Note({ ...message.note });
+                this.addNoteView(note);
+            } else if (message.type == 'updated') {
+                let note = new Note({ ...message.note });
+                this.updateNoteView(note);
+            }
+        };
+    };
+};
 
 
 const userImage = document.getElementById("userImage");
@@ -130,18 +112,19 @@ logout.style.display = "none";
 
 const database = new Database();
 const firebaseClient = new FirebaseClient();
+//firebaseclient can manipulate database, but not the note manager
+//note manager listens database events and reflect the changes to nodeViews
 firebaseClient.init().then(() => {
-    firebaseClient.attachDatabase(database);
-   
+
 });
+
 
 let nm = new NoteManager(database);
 nm.init().then(() => {
     let world = document.getElementById('world');
     world.addEventListener('dblclick', (e) => {
-        console.log(e);
         if (e.target == world) {
-            nm.addNote({ x: e.clientX, y: e.clientY, title: "", content: "" });
+            database.addNote({ x: e.clientX, y: e.clientY, title: "", content: "" });
         }
     });
     world.addEventListener('click', (e) => {
@@ -151,6 +134,7 @@ nm.init().then(() => {
 
     });
 });
+
 
 
 login.addEventListener('click', () => {
@@ -167,6 +151,7 @@ login.addEventListener('click', () => {
             login.style.display = 'block';
             logout.style.display = 'none';
         }
+        firebaseClient.sync(database)
     });
 
 });

@@ -10,8 +10,8 @@ class Note {
         title: "",
         content: "",
         color: "#ffffff",
-        createdAt: dayjs().unix(),
-        updatedAt: dayjs().unix()
+        createdAt: new Date(),
+        updatedAt: new Date()
 
     }) {
         //generate id from IndexedDB
@@ -50,7 +50,7 @@ class Note {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.updatedAt = dayjs().unix();
+        this.updatedAt = new Date();
     }
 
 }

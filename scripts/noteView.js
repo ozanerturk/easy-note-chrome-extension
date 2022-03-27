@@ -1,15 +1,21 @@
-class NoteView {
+class NoteView  extends MyEventEmitter{
 
     constructor(note) {
-
+        super();
         this.configuration = new Configuration();//todo get configuration
         //create box dom 
-        this.note = note;
+        this.noteId = note.id;
+        this.title = note.title;
+        this.content = note .content;
+        this.width = note.width;
+        this.height = note.height;
         this.x = note.x;
         this.y = note.y;
+        this.color = note.color;
+
         this.dom = document.createElement('div');
         this.dom.classList.add('note');
-        this.dom.style.backgroundColor = this.note.color;
+        this.dom.style.backgroundColor = this.color;
         //create drag handle dom
         this.dragHandle = document.createElement('div');
         this.dragHandle.classList.add('drag-handle');
@@ -33,7 +39,7 @@ class NoteView {
         //create title dom
         this.titleDom = document.createElement('div');
         this.titleDom.classList.add('title');
-        this.titleDom.innerHTML = this.note.title;
+        this.titleDom.innerHTML = this.title;
         this.titleDom.ondblclick = (e) => {
             this.titleDom.contentEditable = true;
             this.titleDom.focus();
@@ -48,7 +54,7 @@ class NoteView {
         //create content dom
         this.contentDom = document.createElement('div');
         this.contentDom.classList.add('content');
-        this.contentDom.innerHTML = this.note.content;
+        this.contentDom.innerHTML = this.content;
         
         
         this.contentDom.ondblclick = (e) => {
@@ -62,10 +68,10 @@ class NoteView {
         this.dom.appendChild(this.contentDom);
         //watch content and title changes and update note
         this.titleDom.addEventListener('input', (e) => {
-            this.note.title = e.target.innerHTML;
+            this.title = e.target.innerHTML;
         });
         this.contentDom.addEventListener('input', (e) => {
-            this.note.content = e.target.innerHTML;
+            this.content = e.target.innerHTML;
         });
         //create delete button
         this.deleteButton = document.createElement('button');
@@ -154,16 +160,32 @@ class NoteView {
         this.updateStyle();
 
     }
+    updateModel(note){
+        this.title = note.title;
+        this.content = note.content;
+        this.width = note.width;
+        this.height = note.height;
+        this.x = note.x;
+        this.y = note.y;
+        this.color = note.color;
+        this.titleDom.innerHTML = this.title;
+        this.contentDom.innerHTML = this.content;
+        this.dom.style.backgroundColor = this.color;
+        this.updateStyle();
+    }
     updateStyle() {
         //set width and height
-        this.dom.style.width = this.note.width+"px";
-        this.dom.style.height = this.note.height+"px";
+        this.dom.style.width = this.width+"px";
+        this.dom.style.height = this.height+"px";
         //set position
-        this.dom.style.left = this.note.x + "px";
-        this.dom.style.top = this.note.y + "px";
+        this.dom.style.left = this.x + "px";
+        this.dom.style.top = this.y + "px";
 
     }
 
+    remove(){
+        this.dom.remove();
+    }
     resizeStart(e) {
         if (this.resizeStarted == false) {
             this.resizeStartX = e.clientX;
@@ -195,8 +217,8 @@ class NoteView {
             this.dom.style.width = width + "px";
             this.dom.style.height = height + "px";
 
-            this.note.width = width;
-            this.note.height = height;
+            this.width = width;
+            this.height = height;
         }
 
     }
@@ -229,8 +251,8 @@ class NoteView {
             this.y = this.y + (this.configuration.step - (this.y % this.configuration.step));
             this.dom.style.left = this.x + 'px';
             this.dom.style.top = this.y + 'px';
-            this.note.x = this.x;
-            this.note.y = this.y;
+            this.x = this.x;
+            this.y = this.y;
         }
     }
 
@@ -252,11 +274,11 @@ class NoteView {
     }
 
     triggerChange() {
-        this.onChanged({
-            x: this.note.x,
-            y: this.note.y,
-            width: this.note.width,
-            height: this.note.height,
+        this.emit("changed",{
+            x: this.x,
+            y: this.y,
+            width: this.width,
+            height: this.height,
             content: this.contentDom.innerHTML,
             title: this.titleDom.innerHTML
         });

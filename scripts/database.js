@@ -1,12 +1,11 @@
 class Database extends MyEventEmitter {
-    notes = [];
 
 
     constructor() {
         super();
         this.db = new Dexie("EasyNoteDatabase");
         this.db.version(1).stores({
-            notes: `++id,createdAt,updatedAt`,
+            notes: `id,createdAt,updatedAt`,
         });
 
     }
@@ -17,8 +16,7 @@ class Database extends MyEventEmitter {
     }
 
     async getNote(id) {
-        let res = await this.db.notes.get(Number(id));
-        console.log(res);
+        let res = await this.db.notes.get(id);
         if (res) {
             return new Note(res);
         }
@@ -28,39 +26,34 @@ class Database extends MyEventEmitter {
     async loadNotes() {
 
         let notes = (await this.db.notes.toArray()).filter(x => !x.deleted);
-        this.notes = notes;
         return notes;
     }
 
-    async addNote(note, publishEvent = true) {
-        note = { ...note, createdAt: dayjs().unix(), updatedAt: dayjs().unix() };
+    async addNote(note) {
+        let id = note.id || uuidv4();
+        note = { ...note, id, createdAt: new Date(), updatedAt: new Date() };
         await this.db.notes.add(note);
-        this.notes.push(note);
-        if (publishEvent) {
-            this.emit("created", note);
-        }
+        this.emit("created", note);
+        console.log("[DATABASE]","note is created",note);
         return note;
     }
 
-    async updateNote(note, publishEvent = true) {
-        note = { ...note, updatedAt: dayjs().unix() };
+    async updateNote(note) {
+        note = { ...note, updatedAt: new Date() };
         this.db.notes.update(note.id, note);
-        if (publishEvent) {
-            this.emit("updated", note);
-        }
+        this.emit("updated", note);
+        console.log("[DATABASE]","note is updated",note);
         return note;
     }
 
-    async deleteNote(note, publishEvent = true) {
-        let res = await this.db.notes.get(Number(note.id));
-        console.log(res);
+    async deleteNote(note) {
+        let res = await this.db.notes.get(note.id);
         if (res) {
-            note = { ...note, updatedAt: dayjs().unix(), deleted: true };
+            note = { ...note, updatedAt: new Date(), deleted: true };
             this.db.notes.update(note.id, note);
         }
-        if (publishEvent) {
-            this.emit("deleted", note);
-        }
+        this.emit("deleted", note);
+        console.log("[DATABASE]","note is deleted",note);
         return note;
     }
 
