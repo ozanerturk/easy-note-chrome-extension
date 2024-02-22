@@ -5,15 +5,111 @@
     <meta charset="utf-8">
 </head>
 
-<body class="grid">
+<body>
     <script src="index-min.js"></script>
     <script src="uuidv4.min.js"></script>
-    <script src="quill/quill.min.js"></script>
+    <script src="quill/quill.js"></script>
     <link rel="stylesheet" href="quill/quill.snow.css">
     <link rel="stylesheet" href="tab.css">
-    <div class="options" style="position:fixed; bottom: 30px; right:30px;">
-        <input id="grid_enabled" name="grid_enabled" type="checkbox" checked></input>
-        <label for="grid_enabled">Enable Grid</label>
+    <!-- we can keep fonts to download from google because browsers will cache them -->
+    <link
+        href="https://fonts.googleapis.com/css?family=Poppins|Lato|Raleway|Montserrat|Helvetica|Arial|Times+New+Roman|Georgia|Courier+New|Lucida+Console|Monaco|Courier|Andale+Mono|Terminal|Source+Code+Pro|Menlo|Consolas|Inter|Noto+Sans|Nunito|Ubuntu|Quicksand|Merriweather|Droid+Serif:bold"
+        rel="stylesheet">
+
+    <template>
+        <span class="ql-formats">
+            <select class="ql-size"></select>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-bold"></button>
+            <button class="ql-italic"></button>
+            <button class="ql-underline"></button>
+            <button class="ql-strike"></button>
+        </span>
+        <span class="ql-formats">
+            <select class="ql-color"></select>
+            <select class="ql-background"></select>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-script" value="sub"></button>
+            <button class="ql-script" value="super"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-header" value="1"></button>
+            <button class="ql-header" value="2"></button>
+            <button class="ql-blockquote"></button>
+            <button class="ql-code-block"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-list" value="ordered"></button>
+            <button class="ql-list" value="bullet"></button>
+            <button class="ql-indent" value="-1"></button>
+            <button class="ql-indent" value="+1"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-direction" value="rtl"></button>
+            <select class="ql-align"></select>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-link"></button>
+            <button class="ql-image"></button>
+            <button class="ql-video"></button>
+            <button class="ql-formula"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-clean"></button>
+        </span>
+    </template>
+    <button id="preferencesbtn">Prefs</button>
+    <div id="preferences">
+        <label for="background">Background</label>
+        <select id="background">
+            <option value="no-grid">nogrid</option>
+            <option value="grid">grid</option>
+            <option value="grid-small">grid-small</option>
+            <option value="grid-large">grid-large</option>
+            <option value="grid-dots">dots</option>
+        </select>
+        <!-- default font select -->
+        <br>
+        <label for="font">Font</label>
+        <select id="font">
+            <option value="Poppins">Poppins</option>
+            <option value="Lato">Lato</option>
+            <option value="Raleway">Raleway</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Lucida Console">Lucida Console</option>
+            <option value="Monaco">Monaco</option>
+            <option value="Courier">Courier</option>
+            <option value="Andale Mono">Andale Mono</option>
+            <option value="Terminal">Terminal</option>
+            <option value="Source Code Pro">Source Code Pro</option>
+            <option value="Menlo">Menlo</option>
+            <option value="Consolas">Consolas</option>
+            <option value="Inter">Inter</option>
+            <option value="Noto Sans">Noto Sans</option>
+            <option value="Nunito">Nunito</option>
+            <option value="Ubuntu">Ubuntu</option>
+            <option value="Quicksand">Quicksand</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Droid Serif">Droid Serif</option>
+        </select>
+
+        <br>
+
+        <!-- backup restore -->
+        <label for="backup-input">Backup</label>
+        <button id="backup" >Backup</button>
+        <br>
+        <label for="restoreFile">Restore</label>
+        <input id="restoreFile" type="file">
+        <button id="restore">Restore</button>
+
     </div>
 </body>
 <script src="tab.js"></script>

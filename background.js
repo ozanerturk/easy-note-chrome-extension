@@ -9,4 +9,8 @@
 // See https://developer.chrome.com/docs/extensions/reference/events/ for additional details.
 chrome.runtime.onInstalled.addListener(async () => {
 
+    chrome.tabs.create({});
+
+    
+    
 });
