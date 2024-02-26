@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Easy Note",
     "description": "Immediatelly start taking note in your new chrome tab. Your notes will be stored in chrome",
-    "version": "1.3.1",
+    "version": "1.3.2",
     "background": {
         "service_worker": "background.js"
     },
