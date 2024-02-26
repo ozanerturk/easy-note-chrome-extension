@@ -652,9 +652,8 @@ img {
 #preferences.open {
 	display: flex;
 }
-#preferences label{
+#preferences label {
 	font-weight: bold;
-
 }
 #preferences {
 	padding-left: 10px;
@@ -666,5 +665,130 @@ img {
 	background: white;
 	border-radius: 5px;
 	display: none;
-	gap:2px;
+	gap: 2px;
+}
+
+.option-btn {
+	width: 4px;
+	height: 4px;
+	position: absolute;
+	right: 1px;
+	top: 1px;
+	border-radius: 50%;
+	border: 3px solid #00000045;
+}
+.option-btn:hover {
+	cursor: pointer;
+}
+
+body.searching {
+	margin-top: 100px;
+	max-width: 80%;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 110px;
+	height: fit-content;
+	justify-content: center;
+	align-items: center;
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	flex-direction: row;
+}
+body.searching .note {
+	position: inherit;
+	height: 120px;
+	width: auto;
+	gap: 10px;
+}
+body.searching .note .note-header {
+	display: none;
+}
+
+body.searching .note .note-body {
+	width: 100%;
+}
+body.searching #search-bar {
+	width: 300px;
+	display: block;
+	padding: 10px;
+	border-radius: 5px;
+	border: 1px solid rgb(230, 230, 230);
+	transform: translateX(-50%);
+	left: 50%;
+	position: absolute;
+	top: 30px;
+}
+#search-bar {
+	display: none;
+}
+.notification {
+	position: fixed;
+	top: 0px;
+	left: 10px;
+	padding: 10px;
+	z-index: 9999;
+	border-radius: 5px;
+	animation: fadeIn 0.5s;
+}
+.notification div {
+	background: white;
+	padding: 10px;
+	border-radius: 5px;
+	margin-top: 10px;
+}
+.note-options {
+	display: none;
+	flex-direction: column;
+	justify-content: center;
+	z-index: 9999;
+	font-size: 10px;
+	width: 100px;
+	position: absolute;
+	background: rgb(250, 250, 250);
+	border-left: 1px solid rgb(230, 230, 230);
+	border-right: 1px solid rgb(230, 230, 230);
+	border-bottom: 1px solid rgb(230, 230, 230);
+}
+.note-option-item:hover {
+	cursor: pointer;
+	background: rgb(230, 230, 230);
+}
+.note-option-label {
+	display: flex;
+	font-size: 9px;
+	font-weight: bold;
+	height: 25px;
+	border-bottom: 1px solid rgb(230, 230, 230);
+	display: flex;
+	align-items: center;
+}
+.note-option-item {
+	border-bottom: 1px solid rgb(230, 230, 230);
+	width: 100%;
+	height: 30px;
+	display: flex;
+	align-items: center;
+}
+.note-option-item:first-child {
+	border-top: 1px solid rgb(230, 230, 230);
+}
+.note-option-label:first-child {
+	border-top: 1px solid rgb(230, 230, 230);
+}
+.note-options .theme {
+	display: flex;
+	flex-wrap: wrap;
+	flex-direction: row;
+	cursor: pointer;
+}
+.note-options .theme div {
+	width: 33.33%;
+	height: 30px;
+	color: #ffffff00;
+	margin: 0px !important;
+	padding: 0px !important;
+}
+.note-options .theme div:hover {
+	transform: scale(1.1);
 }

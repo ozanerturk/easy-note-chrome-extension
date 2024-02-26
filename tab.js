@@ -2,6 +2,93 @@
 const tabId = uuidv4();
 const localStorageID = "EasyNote_2b72694a-dcd2-49f1-8b5c-464d15699c21_bus"
 const VERSION = "1.3.0"
+
+const PREFERENCES = {
+    _: {},
+    get(key, defaultValue) {
+        return this._[key] || defaultValue
+    },
+    set(key, value) {
+        this._[key] = value
+    },
+    init(prefs) {
+        this._ = prefs
+    }
+}
+
+const SERACH = {
+    serach_input: null,
+    backspace_count: 0,
+    init(e) {
+        this.serach_input = e
+        this.serach_input.addEventListener("keydown", (e) => {
+            if (e.key == "Backspace") {
+                if (this.serach_input.value == "") {
+                    this.backspace_count++
+                    console.log(this.backspace_count)
+                }
+                if (this.backspace_count) {
+                    this.backspace_count = 0;
+                    SERACH.hide()
+                } else {
+                    this.serach_input.setAttribute("placeholder", "Press Backspace to clear search")
+                }
+            }
+        })
+        this.serach_input.addEventListener("input", (e) => {
+            SERACH.filter()
+        })
+
+    },
+    hide() {
+        this.serach_input.value = ""
+        this.serach_input.style.display = "none"
+        let notes = document.querySelectorAll(".note")
+
+        notes.forEach(x => {
+            x.style.display = "block"
+        })
+        document.body.classList.remove("searching")
+        document.body.focus()
+    },
+    show(m) {
+        this.serach_input.value = m
+        this.serach_input.style.display = "flex"
+        document.body.classList.add("searching")
+        this.serach_input.focus()
+        this.filter()
+    },
+    filter() {
+        let notes = document.querySelectorAll(".note")
+        notes.forEach(x => {
+            if (x.innerText.toLowerCase().includes(this.serach_input.value.toLowerCase())) {
+                x.style.display = "block"
+            } else {
+                x.style.display = "none"
+            }
+        })
+    }
+}
+
+const NOTIFICATION = {
+    message(msg, duration = 1500) {
+        let notification_div = document.querySelector(".notification")
+        let message = document.createElement("div")
+        if (msg instanceof HTMLElement) {
+            message.appendChild(msg)
+        } else {
+            message.innerHTML = msg
+        }
+        notification_div.appendChild(message)
+
+        setTimeout(() => {
+            notification_div.removeChild(message)
+        }, duration)
+
+        return message
+    }
+}
+
 // Function to backup IndexedDB data
 async function backupIndexedDB(db, backupFileName) {
 
@@ -66,6 +153,113 @@ async function restoreIndexedDB(db, fileInput) {
     location.reload()
 }
 document.body.onload = () => {
+
+    let clicked_note = null
+    const serach_input = document.querySelector("#search-bar")
+    SERACH.init(serach_input)
+
+    const note_options = document.querySelector(".note-options")
+    const note_options_copy_btn = document.querySelector(".note-options #copy")
+    const note_options_sendToBack_btn = document.querySelector(".note-options #toBack")
+    const note_options_sendToFront_btn = document.querySelector(".note-options #toFront")
+    const note_options_delete_btn = document.querySelector(".note-options #delete")
+
+
+
+    const note_theme_btns = document.querySelectorAll(".note-options .theme div")
+    note_theme_btns.forEach(x => {
+        x.addEventListener("click", () => {
+            if (clicked_note) {
+                clicked_note.changeTheme(x.dataset.value)
+                noteManager.saveChanges()
+                note_options.style.display = "none"
+            }
+        })
+    })
+
+    note_options_delete_btn.addEventListener("click", () => {
+        if (clicked_note) {
+            clicked_note.element.style.display = "none"
+            //remove clicked_note
+            let cancel_btn = document.createElement("button")
+            cancel_btn.focus()
+            cancel_btn.style.cursor = "pointer"
+            cancel_btn.style.border = "none"
+            cancel_btn.style.padding = "5px"
+
+            duration = 3
+            let message = NOTIFICATION.message(cancel_btn, duration * 1000)
+            cancel_btn.innerHTML = "F5 to save your ass  in " + duration + " seconds"
+
+            let interval = setInterval(function () {
+                duration -= 1
+                cancel_btn.innerHTML = "F5 to save your ass  in " + duration + " seconds"
+            }, 1000)
+            let deleteTask = setTimeout((clicked_note) => {
+                let index = noteManager.notes.findIndex(x => x.uniqueId == clicked_note.uniqueId)
+                if (index != -1) {
+                    noteManager.notes.splice(index, 1)
+                    noteManager.saveChanges()
+                    clicked_note.element.remove()
+                    clicked_note = null
+                    clearInterval(interval)
+                    message.remove()
+                }
+            }, duration * 1000, clicked_note)
+
+            cancel_btn.addEventListener("click", () => {
+                clicked_note.element.style.display = "block"
+                clearTimeout(deleteTask)
+                clearInterval(interval)
+                message.remove()
+                cancel_btn.remove()
+            })
+
+        }
+    })
+
+    note_options_copy_btn.addEventListener("click", () => {
+        if (clicked_note) {
+            //copy clicked_note text to clipboard
+            let text = clicked_note.quill.getText(0, Number.MAX_SAFE_INTEGER)
+            navigator.clipboard.writeText(text)
+            NOTIFICATION.message("Text copied to clipboard")
+        }
+    })
+
+    note_options_sendToBack_btn.addEventListener("click", () => {
+        if (clicked_note) {
+            //pop clicked_note and push it to the end
+            let index = noteManager.notes.indexOf(clicked_note)
+            console.log(index)
+            noteManager.notes.splice(index, 1)
+            noteManager.notes.unshift(clicked_note)
+            noteManager.saveChanges()
+            //move element to beginning of document
+            clicked_note.element.remove()
+            document.body.prepend(clicked_note.element)
+            clicked_note = null
+
+        }
+    })
+    note_options_sendToFront_btn.addEventListener("click", () => {
+        if (clicked_note) {
+            //pop clicked_note and push it to the end
+            let index = noteManager.notes.indexOf(clicked_note)
+            console.log(index)
+            noteManager.notes.splice(index, 1)
+            noteManager.notes.push(clicked_note)
+            noteManager.saveChanges()
+            //move element to beginning of document
+            clicked_note.element.remove()
+            document.body.append(clicked_note.element)
+            clicked_note = null
+        }
+    })
+
+
+
+    const noteoptions = document.querySelector(".ss-content.note-options")
     document.title = `Easy Note - ${VERSION}`
     // Add fonts to whitelist
     const Font = Quill.import('formats/font');
@@ -114,14 +308,13 @@ document.body.onload = () => {
     }, false);
     window.addEventListener("click", () => {
         if (maximizedNote) {
-            console.log(maximizedNote)
             maximizedNote.element.classList.remove("note-maximized")
         }
     })
     function dragStart(e) {
-
         if (e.target.classList.contains("note-header")) {
-            console.log(e.target.parentElement)
+            e.preventDefault();
+
             if (e.target.parentElement.classList.contains("note-maximized")) {
                 return;
             }
@@ -217,7 +410,6 @@ document.body.onload = () => {
             if (this.innerHTML == undefined) {
                 this.quill.setContents(this.contents)
             } else {
-                console.log("here", this.innerHTML)
                 this.contents = this.quill.getContents()
                 this.onUpdated()
             }
@@ -242,124 +434,7 @@ document.body.onload = () => {
                 this.onUpdated(this)
             }
         }
-        buildDropdown() {
 
-            this.dropdownButton = document.createElement("div")
-            this.dropdownButton.innerHTML = "[]"
-            this.dropdownButton.classList.add("dropbtn");
-
-            this.dropdownContent = document.createElement("div")
-            this.dropdownContent.classList.add("dropdown-content");
-
-            this.theme1 = document.createElement("a")
-            this.theme1.innerHTML = ""
-            this.theme1.onclick = () => {
-                this.changeTheme("Default");
-            }
-
-            this.theme2 = document.createElement("a")
-            this.theme2.style.background = "rgb(255, 125, 125)"
-            this.theme2.onclick = () => {
-                this.changeTheme("red");
-            }
-
-
-            this.theme3 = document.createElement("a")
-            this.theme3.style.background = "rgb(255, 186, 60)"
-            this.theme3.onclick = () => {
-                this.changeTheme("orange");
-            }
-            this.theme4 = document.createElement("a")
-            this.theme4.style.background = "rgb(255, 241, 114)"
-            this.theme4.onclick = () => {
-                this.changeTheme("yellow");
-            }
-            this.theme5 = document.createElement("a")
-            this.theme5.style.background = "rgb(103, 238, 121)"
-            this.theme5.onclick = () => {
-                this.changeTheme("green");
-            }
-            /* THEME aqua START*/
-
-            this.theme6 = document.createElement("a")
-            this.theme6.style.background = "rgb(0, 255, 255)"
-            this.theme6.onclick = () => {
-                this.changeTheme("aqua");
-            }
-
-            /*THEME aqua END*/
-
-            /* THEME fuchsia START*/
-
-            this.theme7 = document.createElement("a")
-            this.theme7.style.background = "rgb(255, 0, 255)"
-            this.theme7.onclick = () => {
-                this.changeTheme("fuchsia");
-            }
-
-            /*THEME fuchsia END*/
-
-            /* THEME silver START*/
-
-            this.theme8 = document.createElement("a")
-            this.theme8.style.background = "rgb(192, 192, 192)"
-            this.theme8.onclick = () => {
-                this.changeTheme("silver");
-            }
-
-            /*THEME silver END*/
-
-            /* THEME gold START*/
-
-            this.theme9 = document.createElement("a")
-            this.theme9.style.background = "rgb(255, 215, 0)"
-            this.theme9.onclick = () => {
-                this.changeTheme("gold");
-            }
-
-            this.theme10 = document.createElement("a")
-            this.theme10.style.background = "rgb(128, 128, 128)"
-            this.theme10.onclick = () => {
-                this.changeTheme("gray");
-            }
-
-            this.theme11 = document.createElement("a")
-            this.theme11.style.background = "rgb(192, 192, 192)"
-            this.theme11.onclick = () => {
-                this.changeTheme("silver");
-            }
-            /*.note.theme-navy {
-    background: rgb(51, 51, 204);
-}*/
-            this.theme12 = document.createElement("a")
-            this.theme12.style.background = "rgb(51, 51, 204)"
-            this.theme12.onclick = () => {
-                this.changeTheme("navy");
-            }
-
-
-
-            /*THEME gold END*/
-
-            this.dropdownContent.append(this.theme1);
-            this.dropdownContent.append(this.theme2);
-            this.dropdownContent.append(this.theme3);
-            this.dropdownContent.append(this.theme4);
-            this.dropdownContent.append(this.theme5);
-            this.dropdownContent.append(this.theme6);
-            this.dropdownContent.append(this.theme7);
-            this.dropdownContent.append(this.theme8);
-            this.dropdownContent.append(this.theme9);
-            this.dropdownContent.append(this.theme10);
-            this.dropdownContent.append(this.theme11);
-            this.dropdownContent.append(this.theme12);
-
-            this.dropdown = document.createElement("div")
-            this.dropdown.classList.add("dropdown");
-            this.dropdown.classList.add("theme-dropdown");
-            this.dropdown.append(this.dropdownButton)
-            this.dropdown.append(this.dropdownContent)
-        }
         buildQuill() {
 
 
@@ -406,11 +481,33 @@ document.body.onload = () => {
             this.element.remove()
         }
         buildHeader() {
-            this.buildDropdown()
+
+            this.option_btn = document.createElement("div");
+            this.option_btn.classList.add("option-btn");
+            this.option_btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                note_options.style.display = "flex"
+                note_options.style.position = "fixed"
+                //remove cursor
+                note_options.style.cursor = "default"
+                note_options.style.left = this.option_btn.getBoundingClientRect().x - 30 + "px"
+                note_options.style.top = this.option_btn.getBoundingClientRect().y + "px"
+                clicked_note = this
+                document.addEventListener("click", (e) => {
+                    note_options.style.display = "none"
+
+                }, { once: true })
+
+
+
+            })
 
             this.header = document.createElement("div");
             this.header.classList.add("note-header");
-            this.header.append(this.dropdown)
+            this.header.append(this.option_btn);
+
+
             this.header.ondblclick = (e) => {
                 maximizedNote = this;
                 this.element.classList.add("note-maximized")
@@ -433,6 +530,15 @@ document.body.onload = () => {
             this.element.append(this.bodyWrapper);
 
             this.element.setAttribute("data-uniqueId", this.uniqueId)
+            this.element.addEventListener("click", (e) => {
+                //check if body is ".searching"
+                console.log(document.body.classList.contains("searching"))
+                if (document.body.classList.contains("searching")) {
+                    SERACH.hide()
+                    maximizedNote = this
+                    this.element.classList.add("note-maximized")
+                }
+            })
             this.changeTheme(this.theme);
             makeResizableDiv(this.bodyWrapper)
 
@@ -443,11 +549,6 @@ document.body.onload = () => {
         constructor() {
             this.notes = []
             this.initDB()
-            this.preferences = {
-                enableGrid: true
-            }
-            // this.enableGridDOM = document.getElementById("grid_enabled");
-            // this.enableGridDOM.addEventListener("change", (e) => this.onGridEnableListener(e))
         }
 
         async initDB() {
@@ -494,13 +595,12 @@ document.body.onload = () => {
             let preferences;
             try {
                 preferences = (await noteStore.get("preferences")).value
+                PREFERENCES.init(preferences)
 
             } catch (e) {
                 console.log(e)
                 return;
             }
-            this.preferences = preferences || this.preferences
-
 
             //========= NOTES =========
             try {
@@ -511,18 +611,18 @@ document.body.onload = () => {
                 })
             } catch (e) {
                 console.log(e)
-                return;
             }
 
             //========= GRID =========
+            let backgroundValue = PREFERENCES.get("background", "grid-dots");
             let backgroundSelect = document.getElementById("background");
-            backgroundSelect.value = this.preferences.background || "grid";
-            document.body.classList.add(backgroundSelect.value);
+            backgroundSelect.value = backgroundValue
+            document.body.classList.add(backgroundValue);
 
             backgroundSelect.addEventListener("change", (e) => {
-                document.body.classList.remove(this.preferences.background);
+                document.body.classList.remove(backgroundValue);
                 document.body.classList.add(e.target.value);
-                this.preferences.background = e.target.value
+                PREFERENCES.set("background", e.target.value)
                 this.saveChanges()
             })
 
@@ -530,11 +630,12 @@ document.body.onload = () => {
 
             //==== FONT ======
             let fontSelect = document.getElementById("font");
-            fontSelect.value = this.preferences.font || "Helvetica";
+            let fontValue = PREFERENCES.get("font", "Helvetica");
+            fontSelect.value = fontValue
             document.body.style.fontFamily = fontSelect.value;
             fontSelect.addEventListener("change", (e) => {
                 document.body.style.fontFamily = e.target.value;
-                this.preferences.font = e.target.value
+                PREFERENCES.set("font", e.target.value)
                 this.saveChanges()
             })
 
@@ -613,7 +714,7 @@ document.body.onload = () => {
                     return value;
                 })
                 await noteStore.put({ id: "default", value: jsonNotes })
-                await noteStore.put({ id: "preferences", value: this.preferences })
+                await noteStore.put({ id: "preferences", value: PREFERENCES._ })
                 localStorage.setItem(localStorageID, JSON.stringify({ tabId, v: uuidv4() }))
             } catch (e) {
                 console.log(e)
@@ -626,9 +727,36 @@ document.body.onload = () => {
 
     document.body.ondblclick = (e) => {
         if (e.target.tagName == "BODY") {
-            noteManager.addNote("", e.pageX, e.pageY, null)
+            if (!document.body.classList.contains("searching")) {
+                noteManager.addNote("", e.pageX, e.pageY, null)
+            }
         }
     }
+    //on ESC
+    document.body.onkeydown = (e) => {
+        //if F5 is pressed
+        if (e.key == "F5") {
+
+        }
+        if (e.key == "Escape") {
+            SERACH.hide()
+            if (maximizedNote) {
+                maximizedNote.element.classList.remove("note-maximized")
+            }
+        }
+        else if (document.activeElement == document.body && !document.body.classList.contains("searching")) {
+            e.preventDefault()
+            e.stopPropagation()
+            //check if keycode is not a letter
+            if (e.key.length == 1) {
+                SERACH.show(e.key)
+            }
+        }
+
+    }
+
+    //on Enter
+
 
     window.addEventListener('storage', async function (e) {
         if (e.storageArea === localStorage) {

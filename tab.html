@@ -5,18 +5,45 @@
     <meta charset="utf-8">
 </head>
 
-<body>
+<body >
+    <input type="text" id="search-bar" placeholder="Search" style="display: none;">
     <script src="index-min.js"></script>
     <script src="uuidv4.min.js"></script>
     <script src="quill/quill.js"></script>
+    <script src="slimselect.min.js"></script>
+    <link rel="stylesheet" href="slimselect.css">
     <link rel="stylesheet" href="quill/quill.snow.css">
     <link rel="stylesheet" href="tab.css">
     <!-- we can keep fonts to download from google because browsers will cache them -->
     <link
         href="https://fonts.googleapis.com/css?family=Poppins|Lato|Raleway|Montserrat|Helvetica|Arial|Times+New+Roman|Georgia|Courier+New|Lucida+Console|Monaco|Courier|Andale+Mono|Terminal|Source+Code+Pro|Menlo|Consolas|Inter|Noto+Sans|Nunito|Ubuntu|Quicksand|Merriweather|Droid+Serif:bold"
         rel="stylesheet">
+    <!-- <iframe id="iframe" src="https://poe.com/" style="width: 100%; height: 100%;"> -->
+    <div class="notification"></div>
+    <div class="note-options">
+        <div class="note-option-item" id="copy">Copy</div>
+        <div class="note-option-label">Arrange</div>
+        <div class="note-option-item" id="toBack">To Back</div>
+        <div class="note-option-item" id="toFront">To Front</div>
+        <div class="note-option-label">Theme</div>
+        <div class="theme">
+            <div data-value="Default">Default</div>
+            <div data-value="red" style="background: rgb(255, 125, 125)">red</div>
+            <div data-value="orange" style="background: rgb(255, 186, 60)">orange</div>
+            <div data-value="yellow" style="background: rgb(255, 241, 114)">yellow</div>
+            <div data-value="green" style="background: rgb(103, 238, 121)">green</div>
+            <div data-value="aqua" style="background: rgb(0, 255, 255)">aqua</div>
+            <div data-value="fuchsia" style="background: rgb(255, 0, 255)">fuchsia</div>
+            <div data-value="silver" style="background: rgb(192, 192, 192)">silver</div>
+            <div data-value="gold" style="background: rgb(255, 215, 0)">gold</div>
+            <div data-value="brown" style="background: rgb(221, 153, 27)">brown</div>
+            <div data-value="purple" style="background: rgb(128, 52, 151)">purple</div>
+            <div data-value="navy" style="background: rgb(51, 51, 204)">navy</div>
+        </div>
+        <div class="note-option-item" id="delete" style="margin-top:5px">Delete</div>
+    </div>
 
-    <template>
+    <template id="toolbar">
         <span class="ql-formats">
             <select class="ql-size"></select>
         </span>
@@ -104,7 +131,7 @@
 
         <!-- backup restore -->
         <label for="backup-input">Backup</label>
-        <button id="backup" >Backup</button>
+        <button id="backup">Backup</button>
         <br>
         <label for="restoreFile">Restore</label>
         <input id="restoreFile" type="file">
