@@ -7,7 +7,6 @@
         "service_worker": "background.js"
     },
     "permissions": [
-        "clipboard"
     ],
     "action": {
         "default_icon": "icon.png",
