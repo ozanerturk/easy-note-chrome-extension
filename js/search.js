@@ -51,9 +51,16 @@ function paint(query) {
   if (!matches.length) {
     const empty = document.createElement("div");
     empty.className = "search-empty";
-    empty.textContent = query ? "No matching notes" : "Type to search all pages";
+    empty.textContent = query ? "No matching notes" : "No notes yet";
     results.appendChild(empty);
     return;
+  }
+
+  if (!query) {
+    const label = document.createElement("div");
+    label.className = "search-label";
+    label.textContent = "Recently edited";
+    results.appendChild(label);
   }
 
   matches.forEach((m, i) => {
@@ -86,14 +93,27 @@ function choose(index) {
   onPick(match.id, match.pageId);
 }
 
+const RECENT_COUNT = 5;
+
 async function run(query) {
   const records = await getAll(NOTES);
   const q = query.trim().toLowerCase();
+  const live = records
+    .filter((r) => !r.deleted)
+    .map((r) => ({
+      id: r.id,
+      pageId: r.pageId,
+      color: r.color,
+      text: plainText(r.html),
+      at: r.editedAt || r.updatedAt || 0,
+    }))
+    .filter((r) => r.text);
+
   matches = !q
-    ? []
-    : records
-        .filter((r) => !r.deleted)
-        .map((r) => ({ id: r.id, pageId: r.pageId, color: r.color, text: plainText(r.html) }))
+    ? // An empty box offers the notes you touched last, so opening search is
+      // useful before typing anything.
+      live.sort((a, b) => b.at - a.at).slice(0, RECENT_COUNT)
+    : live
         .filter((r) => r.text.toLowerCase().includes(q))
         // notes on the page you are looking at come first
         .sort((a, b) => (a.pageId === currentPageId ? -1 : 0) - (b.pageId === currentPageId ? -1 : 0))
@@ -108,6 +128,7 @@ export function open() {
   matches = [];
   paint("");
   input.focus();
+  run(""); // fills in the recent list
 }
 
 export function close() {

@@ -268,6 +268,15 @@ body {
   color: #9c958a;
 }
 
+.search-label {
+  padding: 9px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #a8a196;
+}
+
 /* Viewport. The dot grid scrolls and scales with the view, which is what
    makes the canvas read as continuous rather than fixed. */
 #canvas {
