@@ -1,4 +1,4 @@
-import { NOTES, IMAGES, META, put, del, delMany, getOne } from "./db.js";
+import { NOTES, IMAGES, META, put, del, delMany, getOne, getAll } from "./db.js";
 import { view, world, canvas } from "./view.js";
 import { notes } from "./store.js";
 import {
@@ -41,7 +41,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function imageIdsIn(html) {
+export function imageIdsIn(html) {
   const holder = document.createElement("div");
   holder.innerHTML = html || "";
   return [...holder.querySelectorAll("img[data-img-id]")].map((img) => img.dataset.imgId);
@@ -65,8 +65,11 @@ function hydrateImages(body) {
   });
 }
 
+// `updatedAt` moves on every mutation because sync merges on it. `editedAt`
+// only moves when the content changes, which is what the note footer shows.
 function saveNote(note) {
   if (note.deleted) return;
+  note.updatedAt = Date.now();
   put(NOTES, note).catch(() => {});
 }
 
@@ -81,8 +84,10 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-// Notes created before updatedAt existed still carry a timestamp in their id.
+// Older notes predate editedAt; fall back to updatedAt, then to the timestamp
+// embedded in ids minted before uuids.
 function timestampOf(note) {
+  if (note.editedAt) return note.editedAt;
   if (note.updatedAt) return note.updatedAt;
   const parsed = parseInt(String(note.id).split("-")[0], 10);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -173,7 +178,7 @@ function handlePaste(event, note, el, body) {
 
 function touch(note, el, body) {
   note.html = serializeBody(body);
-  note.updatedAt = Date.now();
+  note.editedAt = Date.now();
   saveNote(note);
   refreshPlaceholder(body);
   refreshDate(note, el);
@@ -286,9 +291,16 @@ window.addEventListener("keydown", (e) => {
 
 /* ------------------------------------------------------------------- notes */
 
+export function newId() {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createNote(worldX, worldY) {
   const note = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    // uuid, so ids minted on different devices can never collide.
+    id: newId(),
     x: worldX,
     y: worldY,
     width: 200,
@@ -297,6 +309,8 @@ export function createNote(worldX, worldY) {
     color: COLORS[notes.size % COLORS.length],
     z: nextZ(),
     locked: false,
+    createdAt: Date.now(),
+    editedAt: Date.now(),
     updatedAt: Date.now(),
     pageId: currentPageId,
   };
@@ -307,18 +321,46 @@ export function createNote(worldX, worldY) {
   return { note, el };
 }
 
+// Deletion writes a tombstone rather than removing the record. Without one,
+// a delete cannot propagate and the note simply reappears from another device
+// on the next sync. Images are kept until the tombstone is purged, since the
+// note may still exist elsewhere.
 export function deleteNote(note, el) {
   if (note.locked) return false;
   if (fullscreenEntry && fullscreenEntry.note === note) exitFullscreen();
-  note.deleted = true;
+
   if (el.__observer) el.__observer.disconnect();
   el.remove();
   notes.delete(note.id);
   forgetSelection(note.id);
-  delMany(IMAGES, imageIdsIn(note.html)).catch(() => {});
-  del(NOTES, note.id).catch(() => {});
+
+  note.deleted = true;
+  note.deletedAt = Date.now();
+  note.updatedAt = Date.now();
+  put(NOTES, note).catch(() => {});
+
   updateHint();
   return true;
+}
+
+// Tombstones only need to outlive the window in which another device might
+// still be holding the note. Past that they are dead weight, and so are the
+// images they reference.
+export async function purgeTombstones(maxAgeMs = 30 * 24 * 3600 * 1000) {
+  const cutoff = Date.now() - maxAgeMs;
+  const all = await getAll(NOTES);
+  const doomed = all.filter((n) => n.deleted && (n.deletedAt || 0) < cutoff);
+  if (!doomed.length) return 0;
+
+  const live = all.filter((n) => !n.deleted);
+  const stillReferenced = new Set(live.flatMap((n) => imageIdsIn(n.html)));
+  const orphanImages = doomed
+    .flatMap((n) => imageIdsIn(n.html))
+    .filter((id) => !stillReferenced.has(id));
+
+  await delMany(IMAGES, orphanImages).catch(() => {});
+  await Promise.all(doomed.map((n) => del(NOTES, n.id).catch(() => {})));
+  return doomed.length;
 }
 
 function bringToFront(note, el) {

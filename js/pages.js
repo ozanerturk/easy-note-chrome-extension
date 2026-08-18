@@ -15,12 +15,18 @@ export function setPageSwitchHandler(fn) {
 }
 
 function newId() {
-  return `page-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  return crypto.randomUUID ? crypto.randomUUID() : `page-${Date.now()}-${Math.random()}`;
+}
+
+// Every page write stamps updatedAt, which is what sync merges on.
+function savePage(page) {
+  page.updatedAt = Date.now();
+  return put(PAGES, page);
 }
 
 function childrenOf(parentId) {
   return [...pages.values()]
-    .filter((p) => (p.parentId || null) === parentId)
+    .filter((p) => !p.deleted && (p.parentId || null) === parentId)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
 }
 
@@ -37,12 +43,25 @@ export async function ensureDefaultPage() {
   if (!pages.size) {
     const root = { id: newId(), name: "My notes", parentId: null, order: 0, collapsed: false };
     pages.set(root.id, root);
-    await put(PAGES, root);
+    await savePage(root);
   }
 
   const saved = await getOne(META, "currentPage");
+  const remembered = saved && pages.get(saved.pageId);
+  // A page deleted on another device is a tombstone here, so it must not be
+  // restored as the current page.
   currentPageId =
-    saved && pages.has(saved.pageId) ? saved.pageId : childrenOf(null)[0].id;
+    remembered && !remembered.deleted ? remembered.id : childrenOf(null)[0].id;
+}
+
+// Replace the in-memory tree wholesale, used after a sync pulls changes.
+export function adoptPages(records) {
+  pages.clear();
+  records.forEach((p) => pages.set(p.id, p));
+  if (!childrenOf(null).length) return false;
+  const current = pages.get(currentPageId);
+  if (!current || current.deleted) currentPageId = childrenOf(null)[0].id;
+  return true;
 }
 
 // Notes predating pages belong to the first page.
@@ -55,7 +74,7 @@ export function adoptOrphans(records) {
 }
 
 export function notesOnCurrentPage(records) {
-  return records.filter((r) => r.pageId === currentPageId);
+  return records.filter((r) => !r.deleted && r.pageId === currentPageId);
 }
 
 export async function switchPage(id) {
@@ -86,11 +105,11 @@ export async function createPage(parentId = null) {
     collapsed: false,
   };
   pages.set(page.id, page);
-  await put(PAGES, page);
+  await savePage(page);
   if (parentId) {
     const parent = pages.get(parentId);
     parent.collapsed = false;
-    await put(PAGES, parent);
+    await savePage(parent);
   }
   renderTree();
   await switchPage(page.id);
@@ -105,12 +124,22 @@ async function deletePage(page) {
   const label = count ? ` and its ${count} note${count === 1 ? "" : "s"}` : "";
   if (!confirm(`Delete “${page.name}”${label}? This cannot be undone.`)) return;
 
+  // Tombstones, not deletions — the same reasoning as notes: a hard delete
+  // cannot propagate and the page would return on the next sync.
+  const at = Date.now();
   const all = await getAll(NOTES);
   await Promise.all(
-    all.filter((n) => doomed.includes(n.pageId)).map((n) => del(NOTES, n.id))
+    all
+      .filter((n) => !n.deleted && doomed.includes(n.pageId))
+      .map((n) => put(NOTES, { ...n, deleted: true, deletedAt: at, updatedAt: at }))
   );
-  await Promise.all(doomed.map((id) => del(PAGES, id)));
-  doomed.forEach((id) => pages.delete(id));
+  await Promise.all(
+    doomed.map((id) => {
+      const p = pages.get(id);
+      pages.delete(id);
+      return p ? put(PAGES, { ...p, deleted: true, deletedAt: at, updatedAt: at }) : null;
+    })
+  );
 
   if (doomed.includes(currentPageId)) {
     currentPageId = childrenOf(null)[0].id;
@@ -133,7 +162,7 @@ function beginRename(nameEl, page) {
     const value = nameEl.textContent.trim();
     if (commit && value) {
       page.name = value;
-      await put(PAGES, page);
+      await savePage(page);
     }
     nameEl.textContent = page.name;
   };
@@ -183,6 +212,7 @@ export async function dropNotesAt(clientX, clientY, moveNote) {
     const entry = notes.get(id);
     if (!entry) continue;
     entry.note.pageId = pageId;
+    entry.note.updatedAt = Date.now();
     await put(NOTES, entry.note);
     moveNote(entry);
   }
@@ -207,7 +237,7 @@ function rowFor(page, depth) {
   twisty.addEventListener("click", async (e) => {
     e.stopPropagation();
     page.collapsed = !page.collapsed;
-    await put(PAGES, page);
+    await savePage(page);
     renderTree();
   });
 

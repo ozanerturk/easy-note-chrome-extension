@@ -92,6 +92,7 @@ async function run(query) {
   matches = !q
     ? []
     : records
+        .filter((r) => !r.deleted)
         .map((r) => ({ id: r.id, pageId: r.pageId, color: r.color, text: plainText(r.html) }))
         .filter((r) => r.text.toLowerCase().includes(q))
         // notes on the page you are looking at come first

@@ -53,6 +53,14 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
   framed to fit its notes
 - The open page, its expanded branches and the sidebar state all persist
 
+**Google Drive sync**
+
+- ☁ in the controls bar signs in with Google and syncs notes, pages and images
+- Data lives in a hidden per-user Drive app folder (`drive.appdata`), not in My Drive
+- Merging is per record, so two devices editing different notes both keep their work
+- Deletes are tombstones, so a deletion propagates instead of the note reappearing
+- Runs on sign-in, every 2 minutes, and on demand — see [docs/SYNC.md](docs/SYNC.md)
+
 **Search**
 
 - ⌘F or 🔍 opens search across *every* page
@@ -105,6 +113,8 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
 - `js/pages.js` — page tree, switching, drag-drop of notes between pages
 - `js/search.js` — cross-page search panel
+- `js/auth.js` / `js/drive.js` / `js/sync.js` / `js/syncui.js` — Google sign-in,
+  Drive appdata client, the per-record merge engine, and the sync panel
 - `js/store.js` — the live `id -> {note, el}` map, shared to avoid an import cycle
 - `js/main.js` — wiring and boot
 - `scripts/dev.js` — launches Chrome for Testing with the extension loaded

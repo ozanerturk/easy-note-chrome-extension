@@ -42,7 +42,11 @@ import {
   currentPageId,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
+import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { notes } from "./store.js";
+import { purgeTombstones } from "./note.js";
+import { adoptPages, renderTree as renderPageTree } from "./pages.js";
+import { PAGES } from "./db.js";
 
 const isEditing = () =>
   document.activeElement &&
@@ -101,6 +105,14 @@ initPanZoom();
 initSelection();
 initPages();
 initSearch();
+initSyncUI();
+
+// A sync that pulled anything has changed pages and notes underneath us.
+setSyncAppliedHandler(async () => {
+  adoptPages(await getAll(PAGES));
+  renderPageTree();
+  await showCurrentPage();
+});
 
 setPageSwitchHandler(async (id, previous) => {
   await persistViewNow(previous); // also cancels the pending debounced save
@@ -153,5 +165,6 @@ openDB()
     await showCurrentPage();
     if (!startView) fitToNotes();
     setShowDates(!!(prefs && prefs.showDates), false);
+    purgeTombstones().catch(() => {});
   })
   .catch((err) => console.error("Easy Note failed to start:", err));
