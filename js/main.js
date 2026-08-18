@@ -44,6 +44,7 @@ import {
 import { initSearch, setSearchPickHandler } from "./search.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
+import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
@@ -178,5 +179,10 @@ openDB()
     if (!startView) fitToNotes();
     setShowDates(!!(prefs && prefs.showDates), false);
     purgeTombstones().catch(() => {});
+
+    // Someone with notes already — imported from v1 or created here — is an
+    // upgrader, so the release notes are worth pointing at.
+    const returning = notes.size > 0 || migration.imported > 0;
+    initWhatsNew(returning).catch(() => {});
   })
   .catch((err) => console.error("Easy Note failed to start:", err));

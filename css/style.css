@@ -654,6 +654,67 @@ body.show-dates .note-date {
   color: #c62828;
 }
 
+#whatsnew {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 880;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 2px;
+  border-radius: 999px;
+  background: #2f6fd0;
+  box-shadow: 0 4px 18px rgba(47, 111, 208, 0.35);
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+#whatsnew.is-in {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#whatsnew button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+  border-radius: 999px;
+}
+
+.wn-open {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+}
+
+.wn-open:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.wn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffe95c;
+}
+
+.wn-close {
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.wn-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 1;
+}
+
 #controls {
   position: fixed;
   right: 16px;

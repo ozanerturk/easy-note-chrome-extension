@@ -6,3 +6,4 @@ node_modules/
 .chrome/
 .test-profile/
 .v1-profile/
+.claude

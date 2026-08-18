@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Note v3 — What's new</title>
+<meta name="description" content="A guided tour of what's new in Easy Note v3: Google Drive sync, an infinite canvas, pages, and locking notes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ink:        #1b1a17;
+    --paper:      #fbfaf7;
+    --surface:    #ffffff;
+    --graphite:   #6f6a60;
+    --rule:       #e4e0d7;
+    --accent:     #2f6fd0;
+    --accent-soft:#e8f0fc;
+    --marker:     #ffe95c;
+    --dot:        #ddd8cd;
+
+    --n-yellow: #fff6a3;
+    --n-blue:   #d6e8ff;
+    --n-pink:   #ffd6d6;
+    --n-green:  #d6f5d6;
+    --n-purple: #e6d6ff;
+    --n-peach:  #ffe0bd;
+
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --measure: 66ch;
+    --pad: clamp(20px, 5vw, 48px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:        #f1eee7;
+      --paper:      #131211;
+      --surface:    #1c1b18;
+      --graphite:   #a29b8f;
+      --rule:       #2e2c28;
+      --accent:     #7aabf0;
+      --accent-soft:#1b2637;
+      --marker:     #d8c23f;
+      --dot:        #2b2924;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:        #f1eee7;
+    --paper:      #131211;
+    --surface:    #1c1b18;
+    --graphite:   #a29b8f;
+    --rule:       #2e2c28;
+    --accent:     #7aabf0;
+    --accent-soft:#1b2637;
+    --marker:     #d8c23f;
+    --dot:        #2b2924;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .grid-bg {
+    background-image: radial-gradient(circle, var(--dot) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .wrap { width: min(100% - calc(var(--pad) * 2), 1080px); margin-inline: auto; }
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.5rem, 6.6vw, 4.4rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.03; }
+  h2 { font-size: clamp(1.5rem, 3.2vw, 2.1rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.16; }
+  h3 { font-size: 1.02rem; font-weight: 600; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--graphite);
+  }
+  .lede { font-size: clamp(1.05rem, 2.2vw, 1.28rem); color: var(--graphite); }
+
+  /* ------------------------------------------------------------------ hero */
+
+  header.hero { border-bottom: 1px solid var(--rule); padding-block: clamp(44px, 8vw, 88px) 0; }
+  .hero-head { display: flex; flex-direction: column; gap: 20px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tag {
+    font-family: var(--mono); font-size: .72rem; padding: 3px 9px;
+    border: 1px solid var(--rule); border-radius: 999px; color: var(--graphite);
+  }
+  .tag.now { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  h1 .mark { background: linear-gradient(transparent 62%, var(--marker) 62%); padding-inline: 2px; }
+
+  .demo {
+    margin-top: clamp(26px, 4.5vw, 44px);
+    border: 1px solid var(--rule); border-bottom: none; border-radius: 12px 12px 0 0;
+    background: var(--surface); overflow: hidden;
+  }
+  .demo-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 14px; border-bottom: 1px solid var(--rule);
+    font-family: var(--mono); font-size: .72rem; color: var(--graphite);
+  }
+  .kbd {
+    font-family: var(--mono); font-size: .68rem; border: 1px solid var(--rule);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+    color: var(--ink); background: var(--paper);
+  }
+  .linkish { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
+  #stage { position: relative; height: clamp(250px, 40vh, 360px); cursor: crosshair; touch-action: none; overflow: hidden; }
+
+  .snote {
+    position: absolute; width: 190px; border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.16); font-size: 14px; overflow: hidden;
+    animation: pop .18s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.94); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { .snote { animation: none } }
+  .snote-head { height: 20px; background: rgba(0,0,0,.07); cursor: grab; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
+  .snote-head:active { cursor: grabbing; }
+  .snote-x { border: 0; background: transparent; cursor: pointer; font-size: 12px; line-height: 1; color: rgba(0,0,0,.45); padding: 2px 3px; }
+  .snote-body { padding: 9px 11px; min-height: 60px; outline: none; color: #24221e; }
+  .snote-body:empty::before { content: attr(data-ph); color: rgba(0,0,0,.35); }
+
+  /* ------------------------------------------------------------------- nav */
+
+  nav.jump {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .jump-inner { display: flex; gap: 4px; overflow-x: auto; padding-block: 9px; }
+  .jump a {
+    flex: 0 0 auto; font-size: .84rem; text-decoration: none; color: var(--graphite);
+    padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  }
+  .jump a:hover { background: var(--accent-soft); color: var(--accent); }
+
+  /* -------------------------------------------------------------- sections */
+
+  section { padding-block: clamp(42px, 6.5vw, 76px); border-bottom: 1px solid var(--rule); scroll-margin-top: 56px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  .stack-lg { display: flex; flex-direction: column; gap: clamp(28px, 4.5vw, 46px); }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .frame {
+    border: 1px solid var(--rule); border-radius: 10px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 14px 40px -24px rgba(0,0,0,.5);
+  }
+  .frame img { display: block; width: 100%; height: auto; }
+  figcaption { font-size: .86rem; color: var(--graphite); }
+
+  /* headline feature cards */
+  .highlights { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+  .hl {
+    border: 1px solid var(--rule); border-radius: 12px; padding: 20px;
+    background: var(--surface); display: flex; flex-direction: column; gap: 8px;
+  }
+  .hl .chip {
+    width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    font-size: 17px; border: 1px solid rgba(0,0,0,.10); margin-bottom: 2px;
+  }
+  .hl p { font-size: .93rem; color: var(--graphite); }
+
+  /* how-to steps — numbered because the order genuinely matters */
+  ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 13px; align-items: start; }
+  ol.steps li::before {
+    content: counter(s);
+    font-family: var(--mono); font-size: .8rem; font-weight: 500;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  ol.steps li > div { padding-top: 3px; }
+  ol.steps strong { font-weight: 600; }
+  ol.steps .sub { display: block; font-size: .9rem; color: var(--graphite); margin-top: 2px; }
+
+  ul.plain { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 9px; }
+  ul.plain li::marker { color: var(--accent); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .scroller { overflow-x: auto; }
+  th, td { text-align: left; padding: 9px 14px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--graphite); font-weight: 500; }
+  td.g { font-family: var(--mono); font-size: .84rem; white-space: nowrap; }
+
+  .callout {
+    border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    background: var(--accent-soft); padding: 16px 18px; border-radius: 0 8px 8px 0;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .callout.quiet { background: transparent; border-left-color: var(--graphite); }
+  .callout p { font-size: .94rem; }
+
+  .swatches { display: flex; gap: 6px; }
+  .swatch { width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(0,0,0,.12); }
+
+  footer { padding-block: 40px 64px; color: var(--graphite); font-size: .88rem; }
+
+  :where(a, button, [contenteditable]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header class="hero grid-bg">
+  <div class="wrap">
+    <div class="hero-head col">
+      <div class="badges">
+        <span class="tag now">Version 3</span>
+        <span class="tag">Free</span>
+        <span class="tag">Chrome</span>
+      </div>
+      <h1>Your new tab is a <span class="mark">notes canvas</span>.</h1>
+      <p class="lede">
+        Open a tab, double-click, start typing. Easy Note v3 adds Google Drive
+        sync, an endless canvas, pages to organise everything, and a lock so you
+        can't delete a note by mistake.
+      </p>
+    </div>
+
+    <div class="demo">
+      <div class="demo-bar">
+        <span><span class="kbd">Double-click</span> the board below to try it — drag a note by its top bar</span>
+        <button id="reset" class="linkish" type="button">Reset</button>
+      </div>
+      <div id="stage" class="grid-bg"></div>
+    </div>
+  </div>
+</header>
+
+<nav class="jump">
+  <div class="wrap jump-inner">
+    <a href="#new">What's new</a>
+    <a href="#sync">Google Drive sync</a>
+    <a href="#canvas">Infinite canvas</a>
+    <a href="#pages">Pages</a>
+    <a href="#lock">Lock notes</a>
+    <a href="#tidy">Tidy up a board</a>
+    <a href="#find">Find a note</a>
+    <a href="#upgrade">Upgrading</a>
+    <a href="#cheatsheet">Cheat sheet</a>
+  </div>
+</nav>
+
+<section id="new">
+  <div class="wrap stack">
+    <div class="col stack">
+      <span class="eyebrow">What's new</span>
+      <h2>Four things worth opening a new tab for</h2>
+    </div>
+    <div class="highlights" style="margin-top:8px">
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">☁️</span>
+        <h3>Google Drive sync</h3>
+        <p>Sign in with Google and your notes follow you to every computer you use Chrome on.</p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-yellow)">🗒️</span>
+        <h3>Infinite canvas</h3>
+        <p>The board never runs out. Pan around it, zoom in and out, and fit everything back on screen with one click.</p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">🗂️</span>
+        <h3>Pages</h3>
+        <p>Keep work, shopping and side projects on separate boards — and nest pages inside pages.</p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-peach)">🔒</span>
+        <h3>Lock notes</h3>
+        <p>Lock the notes you can't afford to lose. You can still move them, but they can't be deleted.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sync">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Turn on Google Drive sync</h2>
+      <p>
+        Your notes normally stay on the computer you wrote them on. Sign in and
+        they're kept in step across all of them.
+      </p>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Open a new tab</strong> and look at the buttons in the bottom-right corner.</div></li>
+        <li><div><strong>Click the cloud button</strong> ☁<span class="sub">A small panel opens showing your sync status.</span></div></li>
+        <li><div><strong>Choose “Sign in with Google”</strong> and pick your account.<span class="sub">Google will ask permission once. Easy Note only ever gets its own private folder.</span></div></li>
+        <li><div><strong>That's it.</strong><span class="sub">Notes sync straight away, then every couple of minutes. “Sync now” forces it, and the panel always shows when it last ran.</span></div></li>
+      </ol>
+    </div>
+    <div class="col callout">
+      <h3>What Easy Note can and can't see</h3>
+      <p>
+        Notes go into a private folder that belongs to the extension. It doesn't
+        appear in your Drive, and Easy Note cannot open, read or touch any of
+        your other files. To stop syncing, click <strong>Sign out</strong> — your
+        notes stay on the computer.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="canvas">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Move around the infinite canvas</h2>
+      <p>
+        There are no edges. Spread notes out as much as you like — you'll always
+        be able to get back to them.
+      </p>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Add a note</strong> by double-clicking any empty spot.</div></li>
+        <li><div><strong>Move around</strong> by scrolling, or hold <span class="kbd">Space</span> and drag the board.</div></li>
+        <li><div><strong>Zoom</strong> with <span class="kbd">⌘</span> or <span class="kbd">Ctrl</span> and the scroll wheel, or pinch on a trackpad.<span class="sub">Zooming follows your cursor, so you land on what you were looking at.</span></div></li>
+        <li><div><strong>Lost a note?</strong> Click <strong>Fit</strong> in the bottom-right and everything on the page comes back into view.</div></li>
+      </ol>
+    </div>
+    <figure>
+      <div class="frame"><img src="img/canvas.jpg" alt="The Easy Note canvas showing six coloured notes arranged in two rows on a dotted board, a list of pages down the left, and zoom controls in the bottom-right corner." width="1600" height="822"></div>
+      <figcaption>A board with the page list on the left and zoom controls bottom-right.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="pages">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Organise notes into pages</h2>
+      <p>
+        One endless board is great until work and groceries end up side by side.
+        Pages give each a board of its own.
+      </p>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Click <span class="kbd">+</span> at the top of the page list</strong> to make a new page, then type its name and press Enter.</div></li>
+        <li><div><strong>Make a sub-page</strong> by hovering a page and clicking its own <span class="kbd">+</span>.<span class="sub">Nest them as deep as you need — click the little arrow to fold a branch away.</span></div></li>
+        <li><div><strong>Move notes between pages</strong> by dragging a note onto a page in the list.<span class="sub">Select several first and they all move together.</span></div></li>
+        <li><div><strong>Rename</strong> by double-clicking a page's name. <strong>Delete</strong> with the <span class="kbd">×</span> — you'll be asked to confirm, because its notes go too.</div></li>
+      </ol>
+    </div>
+    <div class="col callout">
+      <h3>Each page remembers where you were</h3>
+      <p>
+        Pan and zoom are saved per page, so coming back to a board puts you
+        exactly where you left it. Hide the whole sidebar with the <span class="kbd">☰</span>
+        button when you want the full screen.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="lock">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Lock a note you can't lose</h2>
+      <p>
+        Wi-Fi passwords, a phone number, the thing you'll need in six months —
+        lock it and a stray click can't take it away.
+      </p>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Hover the note</strong> — its buttons appear along the top bar.<span class="sub">They stay hidden the rest of the time so the board looks clean.</span></div></li>
+        <li><div><strong>Click the padlock</strong> 🔓<span class="sub">It closes to 🔒 and the note gets a thin outline so you can spot it at a glance.</span></div></li>
+        <li><div><strong>The delete button greys out.</strong> The note still moves, resizes and edits normally.</div></li>
+        <li><div><strong>To delete it later,</strong> click the padlock again to unlock, then delete.</div></li>
+      </ol>
+    </div>
+    <div class="col stack">
+      <h3>While you're in that top bar</h3>
+      <div class="swatches" style="margin:2px 0 6px">
+        <span class="swatch" style="background:var(--n-yellow)"></span>
+        <span class="swatch" style="background:var(--n-pink)"></span>
+        <span class="swatch" style="background:var(--n-green)"></span>
+        <span class="swatch" style="background:var(--n-blue)"></span>
+        <span class="swatch" style="background:var(--n-purple)"></span>
+        <span class="swatch" style="background:var(--n-peach)"></span>
+      </div>
+      <ul class="plain">
+        <li><strong>Colour</strong> — eight swatches for colour-coding a board.</li>
+        <li><strong>Fullscreen</strong> — click ⤢, or double-click the note's top bar, to blow it up for proper writing. <span class="kbd">Esc</span> puts it back exactly where it was.</li>
+        <li><strong>Paste anything</strong> — text arrives clean, without fonts and colours from the website you copied it from. Screenshots paste straight in.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="tidy">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Tidy a messy board in one click</h2>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Drag a box</strong> across empty space to select several notes, or hold <span class="kbd">Shift</span> and click them one by one.</div></li>
+        <li><div><strong>Drag any one of them</strong> and the whole group moves together.</div></li>
+        <li><div><strong>Use the toolbar</strong> that appears at the top to line them up, space them evenly, or snap them into a neat grid.</div></li>
+        <li><div><strong><span class="kbd">⌘A</span></strong> selects everything, <strong><span class="kbd">Esc</span></strong> clears the selection, <strong><span class="kbd">Delete</span></strong> removes it.<span class="sub">Locked notes are skipped, so they survive a bulk delete.</span></div></li>
+      </ol>
+    </div>
+    <figure>
+      <div class="frame"><img src="img/select.jpg" alt="Six notes with blue selection outlines and a floating toolbar reading '6 selected' followed by alignment, distribute and grid buttons." width="1600" height="822"></div>
+      <figcaption>Six notes selected, with the alignment toolbar at the top of the screen.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="find">
+  <div class="wrap stack-lg">
+    <div class="col stack">
+      <span class="eyebrow">How to</span>
+      <h2>Find a note anywhere</h2>
+    </div>
+    <div class="col">
+      <ol class="steps">
+        <li><div><strong>Press <span class="kbd">⌘F</span></strong> (or click the magnifier).<span class="sub">Before you type a thing, it lists the five notes you edited most recently.</span></div></li>
+        <li><div><strong>Start typing</strong> to search every page at once — not just the board you're on.</div></li>
+        <li><div><strong>Use <span class="kbd">↑</span> <span class="kbd">↓</span> and Enter</strong>, or just click a result.</div></li>
+        <li><div><strong>Easy Note flies you there</strong> — it opens the right page, highlights the note and zooms in on it.</div></li>
+      </ol>
+    </div>
+    <figure>
+      <div class="frame"><img src="img/search.jpg" alt="The search panel open over the canvas with an empty search box, listing five notes under a heading reading 'Recently edited', each with a colour chip and the page it belongs to." width="1600" height="822"></div>
+      <figcaption>An empty search box offers your most recent notes, each labelled with its page.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="upgrade">
+  <div class="wrap stack">
+    <div class="col stack">
+      <span class="eyebrow">Upgrading</span>
+      <h2>Already using Easy Note? Your notes come with you</h2>
+      <p>
+        There's nothing to export and nothing to set up. The first time v3 opens,
+        it brings across every note from the old version — with bold, italics,
+        headings, lists, links and note colours intact.
+      </p>
+      <div class="callout">
+        <h3>Your old notes are left untouched</h3>
+        <p>
+          v3 copies them; it never changes or deletes the originals. If you ever
+          go back to the old version, everything is exactly where you left it.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cheatsheet">
+  <div class="wrap stack col">
+    <span class="eyebrow">Cheat sheet</span>
+    <h2>Everything in one place</h2>
+    <div class="scroller">
+      <table>
+        <thead><tr><th style="width:46%">Do this</th><th>Get that</th></tr></thead>
+        <tbody>
+          <tr><td class="g">Double-click the board</td><td>New note</td></tr>
+          <tr><td class="g">Drag across empty board</td><td>Select several notes</td></tr>
+          <tr><td class="g">Space + drag, or scroll</td><td>Move around the board</td></tr>
+          <tr><td class="g">⌘ / Ctrl + scroll, or pinch</td><td>Zoom in and out</td></tr>
+          <tr><td class="g">Shift + click a note</td><td>Add it to the selection</td></tr>
+          <tr><td class="g">⌘A · Esc · Delete</td><td>Select all · clear · delete</td></tr>
+          <tr><td class="g">Double-click a note's top bar</td><td>Fullscreen (Esc to close)</td></tr>
+          <tr><td class="g">⌘F</td><td>Search every page</td></tr>
+          <tr><td class="g">Drag a note onto a page</td><td>Move it to that page</td></tr>
+          <tr><td class="g">Fit</td><td>Bring every note back on screen</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout quiet" style="margin-top:10px">
+      <h3>Good to know</h3>
+      <p>
+        Sync checks for changes every couple of minutes rather than instantly, so
+        give it a moment after editing on another computer — or click
+        <strong>Sync now</strong>. It's built for one person across several
+        machines, not for editing the same note with someone else at the same time.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap col stack">
+    <p>Easy Note v3 for Chrome. Your notes stay on your computer until you choose to sign in.</p>
+  </div>
+</footer>
+
+<script>
+  const stage = document.getElementById("stage");
+  const COLORS = ["#fff6a3", "#d6e8ff", "#ffd6d6", "#d6f5d6", "#e6d6ff", "#ffe0bd"];
+  const SEED = [
+    { x: 40,  y: 32,  c: 0, t: "Double-click the board to add another one." },
+    { x: 262, y: 92,  c: 1, t: "Drag me by the bar at the top." },
+    { x: 494, y: 38,  c: 3, t: "A sketch of the real thing." }
+  ];
+  let z = 10;
+  let count = 0;
+
+  function makeNote(x, y, colorIndex, text) {
+    const el = document.createElement("div");
+    el.className = "snote";
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    el.style.background = COLORS[colorIndex % COLORS.length];
+    el.style.zIndex = ++z;
+
+    const head = document.createElement("div");
+    head.className = "snote-head";
+    const close = document.createElement("button");
+    close.className = "snote-x";
+    close.type = "button";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Remove note");
+    close.addEventListener("click", () => el.remove());
+    head.appendChild(close);
+
+    const body = document.createElement("div");
+    body.className = "snote-body";
+    body.contentEditable = "true";
+    body.spellcheck = false;
+    body.dataset.ph = "Type here…";
+    body.textContent = text || "";
+
+    el.append(head, body);
+    stage.appendChild(el);
+
+    head.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".snote-x")) return;
+      e.preventDefault();
+      el.style.zIndex = ++z;
+      const sx = e.clientX, sy = e.clientY;
+      const ox = parseFloat(el.style.left), oy = parseFloat(el.style.top);
+      const move = (m) => {
+        el.style.left = Math.max(0, Math.min(stage.clientWidth - el.offsetWidth, ox + m.clientX - sx)) + "px";
+        el.style.top = Math.max(0, Math.min(stage.clientHeight - el.offsetHeight, oy + m.clientY - sy)) + "px";
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+
+    return el;
+  }
+
+  stage.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".snote")) return;
+    const r = stage.getBoundingClientRect();
+    const el = makeNote(
+      Math.max(0, Math.min(e.clientX - r.left - 20, stage.clientWidth - 200)),
+      Math.max(0, Math.min(e.clientY - r.top - 10, stage.clientHeight - 90)),
+      2 + count++,
+      ""
+    );
+    el.querySelector(".snote-body").focus();
+  });
+
+  function reset() {
+    stage.textContent = "";
+    count = 0;
+    SEED.forEach((n) => makeNote(n.x, n.y, n.c, n.t));
+  }
+  document.getElementById("reset").addEventListener("click", reset);
+  reset();
+</script>
+</body>
+</html>
