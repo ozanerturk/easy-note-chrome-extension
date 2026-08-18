@@ -12,10 +12,30 @@ body {
   overflow: hidden;
 }
 
+/* Viewport. The dot grid scrolls and scales with the view, which is what
+   makes the canvas read as continuous rather than fixed. */
 #canvas {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  background-image: radial-gradient(circle, #d8d3ca 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+}
+
+#canvas.is-panning {
+  cursor: grabbing;
+}
+
+/* Infinite plane: zero-sized, so only its transform matters. */
+#world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
 }
 
 #hint {
@@ -47,13 +67,35 @@ body {
   cursor: grab;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding: 0 4px;
   background: rgba(0, 0, 0, 0.06);
 }
 
 .note-header:active {
   cursor: grabbing;
+}
+
+.note-tools {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+/* Keep headers clean: controls only appear on hover (or while editing, so
+   they stay reachable without the mouse). The locked ring is the one piece
+   of state that stays visible on its own. */
+.note-header .note-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.note:hover .note-header .note-btn,
+.note:has(.note-body:focus) .note-header .note-btn,
+.note.is-fullscreen .note-header .note-btn {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .note-btn {
@@ -67,10 +109,42 @@ body {
   text-align: center;
   cursor: pointer;
   color: rgba(0, 0, 0, 0.5);
+  padding: 0;
 }
 
 .note-btn:hover {
   background: rgba(0, 0, 0, 0.12);
+}
+
+.note-btn-lock {
+  font-size: 9px;
+}
+
+.note-btn-close:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.note-btn-close:disabled:hover {
+  background: transparent;
+}
+
+/* Locked notes still move and resize — the lock only guards deletion. */
+.note.is-locked {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 1.5px rgba(0, 0, 0, 0.22);
+}
+
+.note-date {
+  display: none;
+  flex: 0 0 auto;
+  padding: 0 12px 6px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+
+body.show-dates .note-date {
+  display: block;
 }
 
 .note-body {
@@ -82,9 +156,124 @@ body {
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
+  cursor: text;
 }
 
-.note-body:empty::before {
+.note-body.is-empty::before {
   content: attr(data-placeholder);
   color: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.note-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 6px 0;
+  border-radius: 4px;
+}
+
+/* Fullscreen host. #world is transformed, which would make position:fixed
+   resolve against it, so the note is re-parented here instead. */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: none;
+  background: rgba(30, 27, 22, 0.35);
+}
+
+#overlay.is-active {
+  display: block;
+}
+
+.note.is-fullscreen {
+  position: absolute;
+  inset: 4vh 6vw;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  resize: none;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.note.is-fullscreen .note-body {
+  font-size: 15px;
+  padding: 20px 26px;
+}
+
+.palette {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 7px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+.palette-dot {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+.palette-dot.is-current {
+  outline: 2px solid #6b6459;
+  outline-offset: 1px;
+}
+
+#controls {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  user-select: none;
+}
+
+#controls button {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 13px;
+  color: #4a4740;
+  cursor: pointer;
+}
+
+#controls button:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+#controls button.is-active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+#canvas.space-held {
+  cursor: grab;
+}
+
+#controls .sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+#zoom-level {
+  font-variant-numeric: tabular-nums;
 }
