@@ -10,6 +10,11 @@ const args = [
   `--load-extension=${extensionPath}`,
   `--disable-extensions-except=${extensionPath}`,
   `--user-data-dir=${profilePath}`,
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-sync",
+  "--disable-translate",
+  "--disable-default-apps",
   "chrome://newtab",
 ];
 
