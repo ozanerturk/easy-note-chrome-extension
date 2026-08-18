@@ -9,6 +9,9 @@ import {
   isPanGesture,
   beginPan,
   focusNote,
+  fitToNotes,
+  persistViewNow,
+  viewKey,
 } from "./view.js";
 import {
   createNote,
@@ -99,10 +102,20 @@ initSelection();
 initPages();
 initSearch();
 
-setPageSwitchHandler(async () => {
+setPageSwitchHandler(async (id, previous) => {
+  await persistViewNow(previous); // also cancels the pending debounced save
   clearSelection();
   await showCurrentPage();
+  await restoreViewFor(id);
 });
+
+// Each page remembers where you were. A page seen for the first time gets
+// framed instead, so its notes are never off-screen on arrival.
+async function restoreViewFor(pageId) {
+  const saved = await getOne(META, viewKey(pageId));
+  if (saved) setView(saved);
+  else fitToNotes();
+}
 
 setSearchPickHandler(async (noteId, pageId) => {
   // A hit on another page needs that page rendered before we can frame it.
@@ -118,17 +131,27 @@ openDB()
     await ensureDefaultPage();
     renderTree();
 
-    const [savedView, prefs, sidebarPref] = await Promise.all([
-      getOne(META, "view"),
+    const [pageView, legacyView, prefs, sidebarPref] = await Promise.all([
+      getOne(META, viewKey(currentPageId)),
+      getOne(META, "view"), // pre per-page viewports
       getOne(META, "prefs"),
       getOne(META, "sidebar"),
     ]);
 
-    if (sidebarPref && sidebarPref.hidden) document.body.classList.add("sidebar-hidden");
-    if (savedView) setView(savedView);
+    const hidden = !!(sidebarPref && sidebarPref.hidden);
+    document.documentElement.classList.toggle("sidebar-hidden", hidden);
+    try {
+      localStorage.setItem("easynote:sidebar", hidden ? "hidden" : "shown");
+    } catch (e) {
+      /* ignore */
+    }
+
+    const startView = pageView || legacyView;
+    if (startView) setView(startView);
     else applyView();
 
     await showCurrentPage();
+    if (!startView) fitToNotes();
     setShowDates(!!(prefs && prefs.showDates), false);
   })
   .catch((err) => console.error("Easy Note failed to start:", err));

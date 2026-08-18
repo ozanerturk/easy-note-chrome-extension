@@ -1,4 +1,5 @@
 import { put, META } from "./db.js";
+import { currentPageId } from "./pages.js";
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 4;
@@ -21,12 +22,25 @@ export function screenToWorld(clientX, clientY) {
   };
 }
 
+export const viewKey = (pageId) => `view:${pageId}`;
+
 let viewSaveTimer;
 function saveView() {
   clearTimeout(viewSaveTimer);
+  const pageId = currentPageId;
+  if (!pageId) return;
   viewSaveTimer = setTimeout(() => {
-    put(META, { id: "view", ...view }).catch(() => {});
+    put(META, { id: viewKey(pageId), ...view }).catch(() => {});
   }, 250);
+}
+
+// Write the current view against a specific page immediately, cancelling any
+// pending debounce. Used when leaving a page, since by the time the switch
+// handler runs currentPageId already points at the new page.
+export function persistViewNow(pageId) {
+  clearTimeout(viewSaveTimer);
+  if (!pageId) return Promise.resolve();
+  return put(META, { id: viewKey(pageId), ...view }).catch(() => {});
 }
 
 export function applyView() {

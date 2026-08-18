@@ -60,13 +60,14 @@ export function notesOnCurrentPage(records) {
 
 export async function switchPage(id) {
   if (id === currentPageId || !pages.has(id)) return;
+  const previous = currentPageId;
   currentPageId = id;
   await put(META, { id: "currentPage", pageId: id });
   // Only move the highlight. Rebuilding the tree here would replace the row
   // mid-gesture and destroy an in-progress rename, since the first click of a
   // rename double-click also switches page.
   markCurrent();
-  await onSwitch(id);
+  await onSwitch(id, previous);
 }
 
 function markCurrent() {
@@ -257,7 +258,13 @@ export function renderTree() {
 export function initPages() {
   document.getElementById("add-page").addEventListener("click", () => createPage(null));
   document.getElementById("toggle-sidebar").addEventListener("click", () => {
-    const hidden = document.body.classList.toggle("sidebar-hidden");
+    const hidden = document.documentElement.classList.toggle("sidebar-hidden");
+    // Mirrored to localStorage so boot.js can apply it before first paint.
+    try {
+      localStorage.setItem("easynote:sidebar", hidden ? "hidden" : "shown");
+    } catch (e) {
+      /* ignore */
+    }
     put(META, { id: "sidebar", hidden }).catch(() => {});
   });
 }

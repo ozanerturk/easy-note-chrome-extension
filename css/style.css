@@ -32,7 +32,7 @@ body {
   transition: transform 0.16s;
 }
 
-body.sidebar-hidden #sidebar {
+.sidebar-hidden #sidebar {
   transform: translateX(-100%);
 }
 
@@ -173,7 +173,7 @@ body.sidebar-hidden #sidebar {
   transition: left 0.16s;
 }
 
-body.sidebar-hidden #toggle-sidebar {
+.sidebar-hidden #toggle-sidebar {
   left: 12px;
 }
 
@@ -506,6 +506,23 @@ body.show-dates .note-date {
   stroke: none;
 }
 
+/* Notes being dragged are re-parented here. #canvas clips (overflow:hidden)
+   and starts after the sidebar, so a note dragged over the tree would be cut
+   off; this layer sits above the sidebar so it stays whole and visible. */
+#drag-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 860;
+  pointer-events: none;
+}
+
+#drag-layer .note {
+  transform-origin: 0 0;
+  pointer-events: none;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  resize: none;
+}
+
 /* Fullscreen host. #world is transformed, which would make position:fixed
    resolve against it, so the note is re-parented here instead. */
 #overlay {
@@ -600,7 +617,7 @@ body.show-dates .note-date {
   cursor: grab;
 }
 
-body.sidebar-hidden #canvas {
+.sidebar-hidden #canvas {
   left: 0;
 }
 

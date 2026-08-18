@@ -47,7 +47,10 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - **+** adds a top-level page, the row's **+** adds a sub-page, **×** deletes
   (with its notes, after a confirm)
 - Double-click a page name to rename it; Enter commits, Esc cancels
-- Drag notes onto a page row to move them there — the whole selection travels
+- Drag notes onto a page row to move them there — the whole selection travels,
+  and the dragged notes float above the sidebar rather than being clipped by it
+- Each page keeps its own pan and zoom; a page opened for the first time is
+  framed to fit its notes
 - The open page, its expanded branches and the sidebar state all persist
 
 **Search**
@@ -95,6 +98,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 
 - `manifest.json` — MV3 config, overrides the new tab page
 - `newtab.html` / `css/style.css` — canvas markup and styling
+- `js/boot.js` — render-blocking; applies the sidebar state before first paint
 - `js/db.js` — IndexedDB open/upgrade plus small promise helpers
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
 - `js/note.js` — note rendering, drag, resize, paste, lock, colour, fullscreen, dates
@@ -121,6 +125,6 @@ viewport. Anything that turns a mouse position into a note position goes through
 | `notes`  | `{id, pageId, x, y, width, height, html, color, z, locked, updatedAt}`       |
 | `images` | `{id, blob}` — pasted images, referenced by `data-img-id`                    |
 | `pages`  | `{id, name, parentId, order, collapsed}`                                     |
-| `meta`   | `view`, `prefs`, `currentPage`, `sidebar`                                    |
+| `meta`   | `view:<pageId>` per page, plus `prefs`, `currentPage`, `sidebar`             |
 
 Notes created before pages existed are adopted by the first page on load.

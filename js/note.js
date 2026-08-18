@@ -1,5 +1,5 @@
 import { NOTES, IMAGES, META, put, del, delMany, getOne } from "./db.js";
-import { view, world } from "./view.js";
+import { view, world, canvas } from "./view.js";
 import { notes } from "./store.js";
 import {
   isSelected,
@@ -23,6 +23,7 @@ export const COLORS = [
 ];
 
 const overlay = document.getElementById("overlay");
+const dragLayer = document.getElementById("drag-layer");
 const hint = document.getElementById("hint");
 
 export { notes };
@@ -443,6 +444,38 @@ export function renderNote(note) {
   return el;
 }
 
+/* --------------------------------------------------------------- drag layer */
+
+// While dragging, a note leaves #world for #drag-layer so it is not clipped by
+// the canvas and floats above the sidebar. Position becomes screen-space, and
+// the world's scale is reapplied per-note so its size does not jump.
+function liftToDragLayer(entries) {
+  const rect = canvas.getBoundingClientRect();
+  entries.forEach(({ note, el }) => {
+    el.style.transform = `scale(${view.zoom})`;
+    el.style.left = `${rect.left + view.x + note.x * view.zoom}px`;
+    el.style.top = `${rect.top + view.y + note.y * view.zoom}px`;
+    dragLayer.appendChild(el);
+  });
+}
+
+function positionInDragLayer(entries) {
+  const rect = canvas.getBoundingClientRect();
+  entries.forEach(({ note, el }) => {
+    el.style.left = `${rect.left + view.x + note.x * view.zoom}px`;
+    el.style.top = `${rect.top + view.y + note.y * view.zoom}px`;
+  });
+}
+
+function returnToWorld(entries) {
+  entries.forEach(({ note, el }) => {
+    el.style.transform = "";
+    el.style.left = `${note.x}px`;
+    el.style.top = `${note.y}px`;
+    if (el.isConnected) world.appendChild(el);
+  });
+}
+
 function makeDraggable(el, handle, note) {
   handle.addEventListener("pointerdown", (e) => {
     // Buttons in the header must keep their click event: preventDefault() on
@@ -468,6 +501,8 @@ function makeDraggable(el, handle, note) {
       startTop: entry.note.y,
     }));
 
+    let lifted = false;
+
     const onMove = (moveEvent) => {
       // Screen delta -> world delta.
       const dx = (moveEvent.clientX - startX) / view.zoom;
@@ -475,9 +510,21 @@ function makeDraggable(el, handle, note) {
       anchored.forEach((entry) => {
         entry.note.x = entry.startLeft + dx;
         entry.note.y = entry.startTop + dy;
-        entry.el.style.left = `${entry.note.x}px`;
-        entry.el.style.top = `${entry.note.y}px`;
       });
+
+      if (!lifted && Math.hypot(dx * view.zoom, dy * view.zoom) > 3) {
+        lifted = true;
+        liftToDragLayer(anchored);
+      }
+
+      if (lifted) {
+        positionInDragLayer(anchored);
+      } else {
+        anchored.forEach((entry) => {
+          entry.el.style.left = `${entry.note.x}px`;
+          entry.el.style.top = `${entry.note.y}px`;
+        });
+      }
     };
 
     setDraggedNotes(anchored.map((entry) => entry.note.id));
@@ -490,6 +537,7 @@ function makeDraggable(el, handle, note) {
           updateHint();
           return; // the notes now live on another page
         }
+        if (lifted) returnToWorld(anchored);
         anchored.forEach((entry) => saveNote(entry.note));
       });
     };
