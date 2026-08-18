@@ -1,9 +1,10 @@
 const DB_NAME = "easynote";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const NOTES = "notes";
 export const IMAGES = "images";
 export const META = "meta";
+export const PAGES = "pages";
 
 let db;
 
@@ -12,14 +13,24 @@ export function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const upgraded = req.result;
-      [NOTES, IMAGES, META].forEach((store) => {
+      [NOTES, IMAGES, META, PAGES].forEach((store) => {
         if (!upgraded.objectStoreNames.contains(store)) {
           upgraded.createObjectStore(store, { keyPath: "id" });
         }
       });
     };
+    // Every new tab opens this database, so an upgrade can easily find an
+    // older connection still open elsewhere. Without these two handlers the
+    // upgrading tab waits forever on a blank canvas.
+    req.onblocked = () => {
+      console.warn("Easy Note: waiting for another tab to release the database…");
+    };
     req.onsuccess = () => {
       db = req.result;
+      db.onversionchange = () => {
+        db.close();
+        location.reload();
+      };
       resolve(db);
     };
     req.onerror = () => reject(req.error);

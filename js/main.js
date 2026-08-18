@@ -8,10 +8,12 @@ import {
   didJustPan,
   isPanGesture,
   beginPan,
+  focusNote,
 } from "./view.js";
 import {
   createNote,
   loadNote,
+  clearBoard,
   updateHint,
   setShowDates,
   isFullscreen,
@@ -24,10 +26,33 @@ import {
   clearSelection,
   selectAll,
   selectedList,
+  selectOnly,
 } from "./selection.js";
+import {
+  initPages,
+  ensureDefaultPage,
+  adoptOrphans,
+  notesOnCurrentPage,
+  renderTree,
+  setPageSwitchHandler,
+  switchPage,
+  currentPageId,
+} from "./pages.js";
+import { initSearch, setSearchPickHandler } from "./search.js";
+import { notes } from "./store.js";
 
 const isEditing = () =>
-  document.activeElement && document.activeElement.isContentEditable;
+  document.activeElement &&
+  (document.activeElement.isContentEditable || document.activeElement.tagName === "INPUT");
+
+async function showCurrentPage() {
+  clearBoard();
+  const records = adoptOrphans(await getAll(NOTES));
+  notesOnCurrentPage(records).forEach(loadNote);
+  updateHint();
+}
+
+/* --------------------------------------------------------------- canvas */
 
 canvas.addEventListener("pointerdown", (e) => {
   if (e.target.closest(".note")) return;
@@ -52,17 +77,14 @@ window.addEventListener("keydown", (e) => {
 
   if ((e.key === "Delete" || e.key === "Backspace") && selectedList().length) {
     e.preventDefault();
-    // Locked notes survive; deleteNote() refuses them.
-    selectedList().forEach(({ note, el }) => deleteNote(note, el));
+    selectedList().forEach(({ note, el }) => deleteNote(note, el)); // locked notes survive
     return;
   }
-
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
     e.preventDefault();
     selectAll();
     return;
   }
-
   if (e.key === "Escape") clearSelection();
 });
 
@@ -70,17 +92,43 @@ document.getElementById("toggle-dates").addEventListener("click", () => {
   setShowDates(!document.body.classList.contains("show-dates"));
 });
 
+/* ----------------------------------------------------------------- boot */
+
 initPanZoom();
 initSelection();
+initPages();
+initSearch();
+
+setPageSwitchHandler(async () => {
+  clearSelection();
+  await showCurrentPage();
+});
+
+setSearchPickHandler(async (noteId, pageId) => {
+  // A hit on another page needs that page rendered before we can frame it.
+  if (pageId !== currentPageId) await switchPage(pageId);
+  const entry = notes.get(noteId);
+  if (!entry) return;
+  selectOnly(noteId);
+  focusNote(entry.el);
+});
 
 openDB()
-  .then(() => Promise.all([getAll(NOTES), getOne(META, "view"), getOne(META, "prefs")]))
-  .then(([records, savedView, prefs]) => {
+  .then(async () => {
+    await ensureDefaultPage();
+    renderTree();
+
+    const [savedView, prefs, sidebarPref] = await Promise.all([
+      getOne(META, "view"),
+      getOne(META, "prefs"),
+      getOne(META, "sidebar"),
+    ]);
+
+    if (sidebarPref && sidebarPref.hidden) document.body.classList.add("sidebar-hidden");
     if (savedView) setView(savedView);
     else applyView();
 
-    records.forEach(loadNote);
+    await showCurrentPage();
     setShowDates(!!(prefs && prefs.showDates), false);
-    updateHint();
   })
   .catch((err) => console.error("Easy Note failed to start:", err));

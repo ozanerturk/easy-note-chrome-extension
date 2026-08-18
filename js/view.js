@@ -126,7 +126,6 @@ export function beginPan(e) {
     originY: view.y,
     moved: false,
   };
-  canvas.setPointerCapture(e.pointerId);
   canvas.classList.add("is-panning");
 }
 
@@ -152,9 +151,10 @@ function endPan(e) {
 }
 
 export function initPanZoom() {
-  canvas.addEventListener("pointermove", movePan);
-  canvas.addEventListener("pointerup", endPan);
-  canvas.addEventListener("pointercancel", endPan);
+  // On window, so a gesture that leaves the canvas still completes.
+  window.addEventListener("pointermove", movePan);
+  window.addEventListener("pointerup", endPan);
+  window.addEventListener("pointercancel", endPan);
 
   canvas.addEventListener(
     "wheel",

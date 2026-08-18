@@ -9,6 +9,7 @@ import {
   selected,
   forgetSelection,
 } from "./selection.js";
+import { currentPageId, setDraggedNotes, dropNotesAt } from "./pages.js";
 
 export const COLORS = [
   "#fff6a3",
@@ -296,6 +297,7 @@ export function createNote(worldX, worldY) {
     z: nextZ(),
     locked: false,
     updatedAt: Date.now(),
+    pageId: currentPageId,
   };
   const el = renderNote(note);
   saveNote(note);
@@ -454,7 +456,6 @@ function makeDraggable(el, handle, note) {
 
     const startX = e.clientX;
     const startY = e.clientY;
-    handle.setPointerCapture(e.pointerId);
 
     // Dragging any member of a multi-selection moves the whole group.
     const group =
@@ -479,14 +480,24 @@ function makeDraggable(el, handle, note) {
       });
     };
 
-    const onUp = () => {
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup", onUp);
-      anchored.forEach((entry) => saveNote(entry.note));
+    setDraggedNotes(anchored.map((entry) => entry.note.id));
+
+    const onUp = (upEvent) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      dropNotesAt(upEvent.clientX, upEvent.clientY, detachNote).then((moved) => {
+        if (moved) {
+          updateHint();
+          return; // the notes now live on another page
+        }
+        anchored.forEach((entry) => saveNote(entry.note));
+      });
     };
 
-    handle.addEventListener("pointermove", onMove);
-    handle.addEventListener("pointerup", onUp);
+    // Window-level listeners rather than setPointerCapture: capture silently
+    // failed to re-establish on repeat drags, stranding the note mid-gesture.
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   });
 }
 
@@ -504,6 +515,19 @@ function observeResize(el, note) {
 }
 
 /* ------------------------------------------------------------------- boot */
+
+// Take a note off the canvas without touching its record — used when it moves
+// to another page, and when switching pages.
+export function detachNote(entry) {
+  if (entry.el.__observer) entry.el.__observer.disconnect();
+  entry.el.remove();
+  notes.delete(entry.note.id);
+  forgetSelection(entry.note.id);
+}
+
+export function clearBoard() {
+  [...notes.values()].forEach(detachNote);
+}
 
 export function loadNote(record) {
   // v1 stored plain text under `text`; carry it over as escaped markup.

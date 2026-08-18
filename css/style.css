@@ -12,11 +12,268 @@ body {
   overflow: hidden;
 }
 
+:root {
+  --sidebar-w: 208px;
+}
+
+/* ------------------------------------------------------------- page tree */
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  z-index: 700;
+  display: flex;
+  flex-direction: column;
+  background: #eceae4;
+  border-right: 1px solid #dcd8d0;
+  transition: transform 0.16s;
+}
+
+body.sidebar-hidden #sidebar {
+  transform: translateX(-100%);
+}
+
+#sidebar.is-drop-target {
+  box-shadow: inset -3px 0 0 #3d84d6;
+}
+
+#sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px 6px 12px;
+}
+
+#sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8378;
+}
+
+#add-page {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 15px;
+  color: #6b6459;
+  cursor: pointer;
+}
+
+#add-page:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+#page-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.page-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding-right: 6px;
+  font-size: 13px;
+  color: #423e37;
+  cursor: pointer;
+  user-select: none;
+}
+
+.page-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.page-row.is-current {
+  background: rgba(61, 132, 214, 0.16);
+  font-weight: 500;
+}
+
+.page-twisty {
+  width: 14px;
+  flex: 0 0 14px;
+  border: none;
+  background: transparent;
+  font-size: 9px;
+  color: #8a8378;
+  cursor: pointer;
+  padding: 0;
+}
+
+.page-twisty:disabled {
+  cursor: default;
+}
+
+.page-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+
+.page-name.is-editing {
+  background: #fff;
+  border-radius: 3px;
+  padding: 0 3px;
+  box-shadow: 0 0 0 1.5px #3d84d6;
+}
+
+.page-action {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+  color: #8a8378;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+}
+
+.page-row:hover .page-action {
+  opacity: 1;
+}
+
+.page-action:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+#sidebar-hint {
+  padding: 8px 12px 12px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #9c958a;
+}
+
+#toggle-sidebar {
+  position: fixed;
+  top: 12px;
+  left: calc(var(--sidebar-w) + 12px);
+  z-index: 750;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  color: #4a4740;
+  cursor: pointer;
+  transition: left 0.16s;
+}
+
+body.sidebar-hidden #toggle-sidebar {
+  left: 12px;
+}
+
+/* ----------------------------------------------------------------- search */
+
+#search {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  width: min(520px, 70vw);
+  z-index: 950;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.26);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s;
+  overflow: hidden;
+}
+
+#search.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#search-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 1px solid #eae7e1;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+}
+
+#search-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.search-row:hover,
+.search-row.is-active {
+  background: rgba(61, 132, 214, 0.12);
+}
+
+.search-swatch {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.search-text {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #33302b;
+}
+
+.search-text mark {
+  background: #ffe082;
+  color: inherit;
+  border-radius: 2px;
+}
+
+.search-page {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #9c958a;
+}
+
+.search-empty {
+  padding: 14px;
+  font-size: 12px;
+  color: #9c958a;
+}
+
 /* Viewport. The dot grid scrolls and scales with the view, which is what
    makes the canvas read as continuous rather than fixed. */
 #canvas {
   position: absolute;
   inset: 0;
+  left: var(--sidebar-w);
   overflow: hidden;
   cursor: default;
   background-image: radial-gradient(circle, #d8d3ca 1px, transparent 1px);
@@ -341,6 +598,10 @@ body.show-dates .note-date {
 
 #canvas.space-held {
   cursor: grab;
+}
+
+body.sidebar-hidden #canvas {
+  left: 0;
 }
 
 #controls .sep {

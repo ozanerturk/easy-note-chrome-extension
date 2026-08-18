@@ -62,7 +62,6 @@ export function beginMarquee(e) {
     base: new Set(selected),
     moved: false,
   };
-  canvas.setPointerCapture(e.pointerId);
 }
 
 export function isMarqueeActive() {
@@ -210,9 +209,10 @@ export function arrangeGrid() {
 /* ------------------------------------------------------------------- init */
 
 export function initSelection() {
-  canvas.addEventListener("pointermove", moveMarquee);
-  canvas.addEventListener("pointerup", endMarquee);
-  canvas.addEventListener("pointercancel", endMarquee);
+  // On window, so a marquee dragged past the canvas edge still resolves.
+  window.addEventListener("pointermove", moveMarquee);
+  window.addEventListener("pointerup", endMarquee);
+  window.addEventListener("pointercancel", endMarquee);
 
   toolbar.querySelectorAll("[data-align]").forEach((btn) =>
     btn.addEventListener("click", () => align(btn.dataset.align))

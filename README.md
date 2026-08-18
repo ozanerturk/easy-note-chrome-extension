@@ -41,6 +41,23 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Zoom controls bottom-right; **Fit** frames every note, so notes can never get lost off-screen
 - Pan and zoom are remembered between sessions
 
+**Pages**
+
+- Sidebar tree of pages, nested to any depth; ☰ hides it
+- **+** adds a top-level page, the row's **+** adds a sub-page, **×** deletes
+  (with its notes, after a confirm)
+- Double-click a page name to rename it; Enter commits, Esc cancels
+- Drag notes onto a page row to move them there — the whole selection travels
+- The open page, its expanded branches and the sidebar state all persist
+
+**Search**
+
+- ⌘F or 🔍 opens search across *every* page
+- Matches are highlighted, labelled with their page, and ranked with the
+  current page first
+- ↑ ↓ to walk results, Enter or click to jump — the note's page opens, the
+  note is selected, and the view zooms to frame it
+
 **Selecting and arranging**
 
 - Left-drag empty canvas to marquee-select; click a note to select it
@@ -82,6 +99,8 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
 - `js/note.js` — note rendering, drag, resize, paste, lock, colour, fullscreen, dates
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
+- `js/pages.js` — page tree, switching, drag-drop of notes between pages
+- `js/search.js` — cross-page search panel
 - `js/store.js` — the live `id -> {note, el}` map, shared to avoid an import cycle
 - `js/main.js` — wiring and boot
 - `scripts/dev.js` — launches Chrome for Testing with the extension loaded
@@ -97,8 +116,11 @@ viewport. Anything that turns a mouse position into a note position goes through
 
 ### IndexedDB stores
 
-| Store    | Contents                                                  |
-| -------- | --------------------------------------------------------- |
-| `notes`  | `{id, x, y, width, height, html, color, z}`                 |
-| `images` | `{id, blob}` — pasted images, referenced by `data-img-id`   |
-| `meta`   | `{id: 'view', x, y, zoom}` — persisted viewport             |
+| Store    | Contents                                                                   |
+| -------- | -------------------------------------------------------------------------- |
+| `notes`  | `{id, pageId, x, y, width, height, html, color, z, locked, updatedAt}`       |
+| `images` | `{id, blob}` — pasted images, referenced by `data-img-id`                    |
+| `pages`  | `{id, name, parentId, order, collapsed}`                                     |
+| `meta`   | `view`, `prefs`, `currentPage`, `sidebar`                                    |
+
+Notes created before pages existed are adopted by the first page on load.
