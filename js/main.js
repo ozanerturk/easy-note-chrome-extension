@@ -181,8 +181,12 @@ openDB()
     purgeTombstones().catch(() => {});
 
     // Someone with notes already — imported from v1 or created here — is an
-    // upgrader, so the release notes are worth pointing at.
-    const returning = notes.size > 0 || migration.imported > 0;
+    // upgrader, so the release notes are worth pointing at. Count what is in
+    // the database, not what this page happens to be showing: a second tab
+    // sitting on an empty page would otherwise look like a new install and
+    // silently mark the release as seen for everyone.
+    const stored = await getAll(NOTES);
+    const returning = stored.some((n) => !n.deleted) || migration.imported > 0;
     initWhatsNew(returning).catch(() => {});
   })
   .catch((err) => console.error("Easy Note failed to start:", err));
