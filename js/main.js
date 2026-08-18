@@ -43,6 +43,7 @@ import {
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
+import { migrateFromV1 } from "./migrate/v1.js";
 import { notes } from "./store.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
@@ -141,6 +142,17 @@ setSearchPickHandler(async (noteId, pageId) => {
 openDB()
   .then(async () => {
     await ensureDefaultPage();
+
+    // Bring the published v1's notes across before the first render, so an
+    // upgrading user never sees an empty canvas.
+    const migration = await migrateFromV1(currentPageId);
+    if (migration.imported) {
+      console.info(`Easy Note: imported ${migration.imported} notes from v1`);
+    }
+    if (migration.error) {
+      console.error("Easy Note: v1 import failed —", migration.error);
+    }
+
     renderTree();
 
     const [pageView, legacyView, prefs, sidebarPref] = await Promise.all([

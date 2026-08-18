@@ -5,3 +5,4 @@ node_modules/
 .dev-profile/
 .chrome/
 .test-profile/
+.v1-profile/

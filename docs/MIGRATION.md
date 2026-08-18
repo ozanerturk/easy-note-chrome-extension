@@ -1,5 +1,11 @@
 # Migrating published v1 users to v3
 
+> **Status: implemented and verified against the real published extension.**
+> v1.3.1 was pulled from the Web Store, pinned to the same extension id, run,
+> and used to author notes; v3 was then loaded over that same profile and
+> imported them. Everything below marked *verified* was observed, not inferred
+> from source. See `js/migrate/`.
+
 Scope decided: **migrate from the published v1 only.** `v2` never shipped, so
 no real users hold Dexie data. Sync is not being built yet, but the v3 model is
 being shaped so adding it later is not another rewrite.
@@ -14,7 +20,7 @@ v1's IndexedDB directly. No export file, no user action, no server.
 
 Everything about the shape differs.
 
-| | v1 (published 1.3.2) | v3 |
+| | v1 (published 1.3.1) | v3 |
 | --- | --- | --- |
 | Database | `easy-note`, version 1 | `easynote`, version 4 |
 | Store | `notes` (keyPath `id`) | `notes`, `images`, `pages`, `meta` |
@@ -27,7 +33,7 @@ Everything about the shape differs.
 v1's `notes` store holds exactly three keys:
 
 ```
-{ id: "version",     value: <number> }
+{ id: "version",     value: "1.3.0" }
 { id: "preferences", value: <object> }
 { id: "default",     value: "<JSON string of the whole note array>" }
 ```
@@ -42,33 +48,57 @@ looks like a ready-made migration path. It is not: `saveChanges()` serialises
 with a replacer that drops `__quill`, `quill` **and `innerHTML`**, so the field
 was never persisted. Converting the Delta is the only route.
 
-Each persisted note is therefore roughly:
+### The real persisted note (verified)
 
-```js
-{ uniqueId, theme, contents /* Delta */, x, y, width, height, element: {} }
+Captured from v1.3.1 itself, not read off its source:
+
+```json
+{
+  "uniqueId": "ade4ac6c-4a87-4215-abea-e16fad6cf36c",
+  "theme": "default",
+  "contents": { "ops": [ … ] },
+  "x": 1050, "y": 600,
+  "width": "", "height": null,
+  "element": {}, "option_btn": {}, "header": {}, "bodyWrapper": {},
+  "resizerBottomRight": {}, "resizerTopLeft": {}, "toolbar": {}, "body": {}
+}
 ```
 
-(`element` serialises to an empty object — a DOM node with no enumerable own
-properties. Ignore it.)
+Three things here that reading the source did **not** reveal, each of which
+would have produced broken imports:
+
+- **`contents` is `{ops: […]}`**, not a bare Delta array.
+- **`width` is `""` and `height` is `null`** for any note the user never
+  manually resized. Copying those across yields notes with no size, so both
+  fall back to defaults (240×180).
+- Eight DOM references (`element`, `option_btn`, `header`, `bodyWrapper`, the
+  two resizers, `toolbar`, `body`) each serialise to `{}`. Ignore them all.
+
+Also verified: the `version` record reads `"1.3.0"` as a **string**, even
+though the shipped manifest says `1.3.1`.
 
 ## The migration
 
 Run once, on first v3 boot, keyed by a `meta` flag so it never repeats.
 
-1. Open `easy-note` **read-only**. If it, or the `default` key, is absent, the
-   user is new — mark migration done and stop.
-2. `JSON.parse` the `default` value. On parse failure, abort and leave a
+1. Check `indexedDB.databases()` for `easy-note` **before opening it**.
+   `indexedDB.open()` *creates* a database that does not exist, so opening
+   blindly would grow an empty `easy-note` on every fresh install. If absent,
+   the user is new — mark migration done and stop.
+2. Open it **read-only**.
+3. `JSON.parse` the `default` value. On parse failure, abort and leave a
    `meta.migrationError` record rather than starting with a blank canvas.
-3. Create the destination page (`"My notes"`) if it does not exist.
-4. For each v1 note, write a v3 record:
+4. Create the destination page (`"My notes"`) if it does not exist.
+5. For each v1 note, write a v3 record:
    - `id`: reuse `uniqueId` — already a uuid, so it stays stable for sync
    - `html`: `deltaToHtml(contents)`
    - `color`: `THEME_COLORS[theme.toLowerCase()]`, defaulting to the v3 default
-   - `x, y, width, height`: copied as-is (both are world coordinates at zoom 1)
+   - `x, y`: copied as-is (v1's pageX/pageY map onto world coordinates)
+   - `width, height`: coerced, falling back to 240×180 — v1 stores `""`/`null`
    - `pageId`: the destination page
    - `createdAt` / `updatedAt`: now, since v1 recorded neither
    - `z`: index in the array, preserving v1's stacking order
-5. Write `meta.migratedFrom = { db: "easy-note", at, noteCount }`.
+6. Write the `migratedFromV1` flag so it never runs twice.
 
 **Never write to, clear, or delete the `easy-note` database.** A user who
 reverts to v1 must find their notes intact, and a failed migration must be
@@ -106,17 +136,17 @@ v1 has 17 theme classes, and note the case bug: **both `theme-default` and
 | orange | `#ffba3c` | | aqua | `#33ffff` |
 | teal | `#33cccc` | | fuchsia | `#ff33ff` |
 | silver | `#e0e0e0` | | gold | `#ffee33` |
-| gray | `#808080` | | brown | `#d2691e` |
+| gray | `#c0c0c0` | | brown | `#d2691e` |
 
 Keep the exact v1 colours rather than snapping to v3's eight-swatch palette.
 `color` is a free hex string; the palette is only a set of presets, so an
 imported note keeping `#33ffff` costs nothing and a user's colour-coding
 survives.
 
-## Shaping v3 for sync
+## Shaping v3 for sync — done
 
-Sync is not being built now, but these are the changes that are expensive to
-retrofit and cheap to adopt today.
+These were identified as expensive to retrofit and have since been implemented
+(see `docs/SYNC.md`); kept here for the reasoning.
 
 - **Globally unique ids.** v3 currently mints `` `${Date.now()}-${random}` ``,
   which can collide across devices. Move to `crypto.randomUUID()`. Migrated v1
@@ -135,27 +165,41 @@ retrofit and cheap to adopt today.
   sync backend is chosen, plan to address them by content hash and upload out
   of band, rather than inlining them into note payloads.
 
-Adopting the first four now costs little. Tombstones are the one with real
-reach into existing code, and are also the one that is genuinely painful to add
-after users have data.
+All of these now exist. Tombstones had the most reach into existing code, and
+were indeed the one that would have been painful to add after users had data.
 
-## Rollout
+## What actually happens now
 
-1. Land the Delta converter with tests, no wiring.
-2. Land the migration behind a `meta` flag, defaulting **off**.
-3. Verify against a real v1 profile: install published v1, create notes across
-   several themes with mixed formatting, then load v3 over the same profile.
-4. Turn it on, ship, and keep the v1 database untouched for at least one
-   release so a rollback stays possible.
+`js/migrate/delta.js` converts the Delta; `js/migrate/v1.js` reads v1 and
+writes v3 records. `main.js` runs it once on boot, before the first render, so
+an upgrading user never sees an empty canvas.
 
-## Open risks
+**The v1 database is opened read-only and never written, cleared or deleted.**
+Someone who reverts to v1 still finds their notes, and a failed import stays
+retryable. Duplicated storage for a while is a cheap price.
 
-- **No real v1 profile has been tested yet.** Everything above is read from
-  v1's source, not observed. Step 3 of the rollout is where assumptions about
-  the persisted shape get confirmed — particularly that `element: {}` is
-  harmless and that no user is on a pre-`default` layout.
-- **`preferences`** is read but its contents have not been surveyed; it may
-  hold something worth carrying over (grid, theme default).
-- **v1 `version` record** suggests v1 had its own internal migrations, so old
-  installs may hold a shape that differs from current v1. Worth checking what
-  values exist before trusting a single layout.
+## Verified behaviour
+
+Against notes authored in the real v1.3.1:
+
+| Check | Result |
+| --- | --- |
+| Notes imported | 2 of 2 |
+| `<h2>`, `<ul><li>`, links, bold, italic | preserved and rendered |
+| `width: ""` / `height: null` | defaulted to 240×180 |
+| Theme `default` | `#fafafa` |
+| v1 database afterwards | all 3 records intact, notes untouched |
+| Running the import twice | no duplicates |
+| Console errors | none |
+
+## Notes for future work
+
+- **Themes were only exercised as `default`.** v1 sets `theme` through its own
+  options UI, which the test drove by DOM class — and that does not persist, so
+  the other 15 colours are mapped from v1's CSS but not yet observed end to end.
+- **`preferences` came back `{}`** in the test profile and is stored on the
+  migration flag for later inspection rather than acted on.
+- **Old installs may differ.** v1 keeps its own `version` record, implying it
+  had internal migrations, so a long-lived install could hold a shape this has
+  not seen. The import fails soft: a parse error records `migrationError` and
+  leaves the flag unset so it can be retried.
