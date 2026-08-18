@@ -89,12 +89,27 @@ moves when the content itself changes.
 
 ## Known limitations
 
+- **Clock skew breaks last-write-wins.** Merging compares wall-clock
+  `updatedAt` across devices, so a machine whose clock runs fast writes
+  timestamps that beat later, legitimate edits elsewhere — including deletes.
+  This was observed directly: a record stamped 60 seconds ahead survived a
+  deletion made afterwards, and only became deletable once real time caught up.
+  A logical clock (per-device counter, or a Lamport/vector clock) is the fix.
 - **Concurrent writes can lose an update.** Two devices syncing at the same
   moment both merge against the same remote document, and the later upload
   wins. The window is small and per-record merging keeps it rare, but it is
   real. Fixing it needs an ETag precondition on upload and a re-merge retry.
 - **Sync runs every 2 minutes** and on demand, not on every edit. Fine for one
   person across a few machines; it is not live collaboration.
-- **The live OAuth path is unverified.** The merge engine, image reconciliation
-  and idempotence are covered by tests against a fake Drive, but no test has
-  authenticated against real Google — that needs a registered extension id.
+
+## Verified against real Drive
+
+The round trip has been exercised against live Google Drive on the published
+extension id: a note created locally appeared in `easynote.json`; a note
+written straight into the Drive document was pulled down, stored and rendered
+after a refresh; and a delete propagated as a tombstone. The merge engine,
+image reconciliation and idempotence are additionally covered by tests against
+an injected fake Drive, with no network.
+
+Not yet exercised: two genuinely separate devices syncing concurrently, and the
+first-run consent flow on a fresh Google account.

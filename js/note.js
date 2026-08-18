@@ -349,7 +349,14 @@ export function deleteNote(note, el) {
 export async function purgeTombstones(maxAgeMs = 30 * 24 * 3600 * 1000) {
   const cutoff = Date.now() - maxAgeMs;
   const all = await getAll(NOTES);
-  const doomed = all.filter((n) => n.deleted && (n.deletedAt || 0) < cutoff);
+  // A tombstone with no timestamp — e.g. written by an older or third-party
+  // client — must never be treated as infinitely old, or it is destroyed on
+  // the next boot. No timestamp means keep.
+  const doomed = all.filter((n) => {
+    if (!n.deleted) return false;
+    const at = n.deletedAt || n.updatedAt;
+    return at ? at < cutoff : false;
+  });
   if (!doomed.length) return 0;
 
   const live = all.filter((n) => !n.deleted);

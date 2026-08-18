@@ -7,6 +7,16 @@ export const META = "meta";
 export const PAGES = "pages";
 
 let db;
+// Callers such as the sync panel run before boot has finished opening the
+// database, so every helper waits on this rather than touching a null handle.
+let markReady;
+const ready = new Promise((resolve) => {
+  markReady = resolve;
+});
+
+function conn() {
+  return db ? Promise.resolve(db) : ready;
+}
 
 export function openDB() {
   return new Promise((resolve, reject) => {
@@ -31,50 +41,56 @@ export function openDB() {
         db.close();
         location.reload();
       };
+      markReady(db);
       resolve(db);
     };
     req.onerror = () => reject(req.error);
   });
 }
 
-export function getAll(store) {
+export async function getAll(store) {
+  const d = await conn();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readonly").objectStore(store).getAll();
+    const req = d.transaction(store, "readonly").objectStore(store).getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export function getOne(store, key) {
+export async function getOne(store, key) {
+  const d = await conn();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(store, "readonly").objectStore(store).get(key);
+    const req = d.transaction(store, "readonly").objectStore(store).get(key);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export function put(store, value) {
+export async function put(store, value) {
+  const d = await conn();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
+    const tx = d.transaction(store, "readwrite");
     tx.objectStore(store).put(value);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-export function del(store, key) {
+export async function del(store, key) {
+  const d = await conn();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
+    const tx = d.transaction(store, "readwrite");
     tx.objectStore(store).delete(key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-export function delMany(store, keys) {
-  if (!keys.length) return Promise.resolve();
+export async function delMany(store, keys) {
+  if (!keys.length) return;
+  const d = await conn();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
+    const tx = d.transaction(store, "readwrite");
     const objectStore = tx.objectStore(store);
     keys.forEach((key) => objectStore.delete(key));
     tx.oncomplete = () => resolve();

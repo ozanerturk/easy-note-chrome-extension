@@ -91,6 +91,7 @@ export async function runSync({ drive = realDrive } = {}) {
     pushed: !docFile || n.remoteStale || p.remoteStale,
     imagesUp: images.uploaded,
     imagesDown: images.downloaded,
+    imagesRemoved: images.removed,
   };
   await put(META, { id: "sync", ...summary });
   return summary;
@@ -103,7 +104,10 @@ async function syncImages(drive, files, mergedNotes) {
   const needed = new Set(
     mergedNotes.filter((n) => !n.deleted).flatMap((n) => imageIdsIn(n.html))
   );
-  if (!needed.size) return { uploaded: 0, downloaded: 0 };
+  // Tombstones keep their markup, so an image they mention is still spoken for
+  // until the tombstone itself is purged. Anything outside this set is
+  // referenced by nothing at all and is safe to drop from Drive.
+  const referenced = new Set(mergedNotes.flatMap((n) => imageIdsIn(n.html)));
 
   const remote = new Map(
     files
@@ -114,6 +118,7 @@ async function syncImages(drive, files, mergedNotes) {
 
   let uploaded = 0;
   let downloaded = 0;
+  let removed = 0;
 
   for (const id of needed) {
     if (local.has(id) && !remote.has(id)) {
@@ -127,5 +132,12 @@ async function syncImages(drive, files, mergedNotes) {
       downloaded++;
     }
   }
-  return { uploaded, downloaded };
+
+  for (const [id, fileId] of remote) {
+    if (referenced.has(id)) continue;
+    await drive.remove(fileId).catch(() => {});
+    removed++;
+  }
+
+  return { uploaded, downloaded, removed };
 }
