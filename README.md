@@ -36,9 +36,28 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 
 **Canvas**
 
-- Infinite canvas — drag empty space to pan, scroll to pan, ⌘/Ctrl + scroll (or pinch) to zoom
+- Infinite canvas — scroll to pan, ⌘/Ctrl + scroll (or pinch) to zoom about the cursor
+- Space + drag or middle-mouse drag to pan; plain left-drag draws a selection marquee
 - Zoom controls bottom-right; **Fit** frames every note, so notes can never get lost off-screen
 - Pan and zoom are remembered between sessions
+
+**Selecting and arranging**
+
+- Left-drag empty canvas to marquee-select; click a note to select it
+- Shift / ⌘ click to add or remove a note from the selection
+- ⌘A selects all, Esc clears, Delete removes the selection (locked notes survive)
+- Dragging any selected note moves the whole group
+- With 2+ selected, a toolbar offers align (left/centre/right, top/middle/bottom),
+  distribute horizontally or vertically, and arrange into a grid
+
+| Gesture | Action |
+| --- | --- |
+| Double-click empty canvas | New note |
+| Left-drag empty canvas | Marquee select |
+| Space + drag, middle-drag | Pan |
+| Scroll / two-finger | Pan |
+| ⌘/Ctrl + scroll, pinch | Zoom at cursor |
+| Double-click note header | Fullscreen (Esc to exit) |
 
 **Notes**
 
@@ -62,6 +81,8 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - `js/db.js` — IndexedDB open/upgrade plus small promise helpers
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
 - `js/note.js` — note rendering, drag, resize, paste, lock, colour, fullscreen, dates
+- `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
+- `js/store.js` — the live `id -> {note, el}` map, shared to avoid an import cycle
 - `js/main.js` — wiring and boot
 - `scripts/dev.js` — launches Chrome for Testing with the extension loaded
 

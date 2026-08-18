@@ -1,5 +1,14 @@
 import { NOTES, IMAGES, META, put, del, delMany, getOne } from "./db.js";
 import { view, world } from "./view.js";
+import { notes } from "./store.js";
+import {
+  isSelected,
+  selectOnly,
+  toggleSelect,
+  selectedList,
+  selected,
+  forgetSelection,
+} from "./selection.js";
 
 export const COLORS = [
   "#fff6a3",
@@ -15,9 +24,7 @@ export const COLORS = [
 const overlay = document.getElementById("overlay");
 const hint = document.getElementById("hint");
 
-// id -> { note, el }. Survives a note being pulled out of #world for
-// fullscreen, which a DOM query on #world would miss.
-export const notes = new Map();
+export { notes };
 
 const objectUrls = new Set();
 let zCounter = 1;
@@ -304,6 +311,7 @@ export function deleteNote(note, el) {
   if (el.__observer) el.__observer.disconnect();
   el.remove();
   notes.delete(note.id);
+  forgetSelection(note.id);
   delMany(IMAGES, imageIdsIn(note.html)).catch(() => {});
   del(NOTES, note.id).catch(() => {});
   updateHint();
@@ -414,6 +422,18 @@ export function renderNote(note) {
     else enterFullscreen(note, el);
   });
 
+  // Capture phase: the header's own pointerdown stops propagation, so a
+  // bubbling listener here would never see clicks on the drag handle.
+  el.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (note.fullscreen) return;
+      if (e.shiftKey || e.metaKey || e.ctrlKey) toggleSelect(note.id);
+      else if (!isSelected(note.id)) selectOnly(note.id);
+    },
+    true
+  );
+
   makeDraggable(el, header, note);
   el.__observer = observeResize(el, note);
 
@@ -434,22 +454,35 @@ function makeDraggable(el, handle, note) {
 
     const startX = e.clientX;
     const startY = e.clientY;
-    const startLeft = note.x;
-    const startTop = note.y;
     handle.setPointerCapture(e.pointerId);
+
+    // Dragging any member of a multi-selection moves the whole group.
+    const group =
+      isSelected(note.id) && selected.size > 1
+        ? selectedList()
+        : [{ note, el }];
+    const anchored = group.map((entry) => ({
+      ...entry,
+      startLeft: entry.note.x,
+      startTop: entry.note.y,
+    }));
 
     const onMove = (moveEvent) => {
       // Screen delta -> world delta.
-      note.x = startLeft + (moveEvent.clientX - startX) / view.zoom;
-      note.y = startTop + (moveEvent.clientY - startY) / view.zoom;
-      el.style.left = `${note.x}px`;
-      el.style.top = `${note.y}px`;
+      const dx = (moveEvent.clientX - startX) / view.zoom;
+      const dy = (moveEvent.clientY - startY) / view.zoom;
+      anchored.forEach((entry) => {
+        entry.note.x = entry.startLeft + dx;
+        entry.note.y = entry.startTop + dy;
+        entry.el.style.left = `${entry.note.x}px`;
+        entry.el.style.top = `${entry.note.y}px`;
+      });
     };
 
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
-      saveNote(note);
+      anchored.forEach((entry) => saveNote(entry.note));
     };
 
     handle.addEventListener("pointermove", onMove);

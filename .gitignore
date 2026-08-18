@@ -4,3 +4,4 @@ node_modules/
 .vscode/chrome-profile/
 .dev-profile/
 .chrome/
+.test-profile/

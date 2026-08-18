@@ -9,9 +9,49 @@
     <div id="canvas">
       <div id="world"></div>
       <div id="hint">Double-click anywhere to add a note</div>
+      <div id="marquee"></div>
     </div>
 
     <div id="overlay"></div>
+
+    <div id="arrange">
+      <span id="arrange-count">0 selected</span>
+      <span class="sep"></span>
+
+      <button data-align="left" title="Align left">
+        <svg viewBox="0 0 16 16"><path d="M2 2v12" /><rect x="4.5" y="4" width="9" height="3" /><rect x="4.5" y="9" width="5.5" height="3" /></svg>
+      </button>
+      <button data-align="centre" title="Align horizontal centres">
+        <svg viewBox="0 0 16 16"><path d="M8 1.5v13" /><rect x="2.5" y="4" width="11" height="3" /><rect x="5" y="9" width="6" height="3" /></svg>
+      </button>
+      <button data-align="right" title="Align right">
+        <svg viewBox="0 0 16 16"><path d="M14 2v12" /><rect x="2.5" y="4" width="9" height="3" /><rect x="6" y="9" width="5.5" height="3" /></svg>
+      </button>
+
+      <span class="sep"></span>
+
+      <button data-align="top" title="Align top">
+        <svg viewBox="0 0 16 16"><path d="M2 2h12" /><rect x="4" y="4.5" width="3" height="9" /><rect x="9" y="4.5" width="3" height="5.5" /></svg>
+      </button>
+      <button data-align="middle" title="Align vertical centres">
+        <svg viewBox="0 0 16 16"><path d="M1.5 8h13" /><rect x="4" y="2.5" width="3" height="11" /><rect x="9" y="5" width="3" height="6" /></svg>
+      </button>
+      <button data-align="bottom" title="Align bottom">
+        <svg viewBox="0 0 16 16"><path d="M2 14h12" /><rect x="4" y="2.5" width="3" height="9" /><rect x="9" y="6" width="3" height="5.5" /></svg>
+      </button>
+
+      <span class="sep"></span>
+
+      <button data-distribute="h" title="Distribute horizontally (3+)">
+        <svg viewBox="0 0 16 16"><rect x="1.5" y="3" width="2.5" height="10" /><rect x="6.75" y="3" width="2.5" height="10" /><rect x="12" y="3" width="2.5" height="10" /></svg>
+      </button>
+      <button data-distribute="v" title="Distribute vertically (3+)">
+        <svg viewBox="0 0 16 16"><rect x="3" y="1.5" width="10" height="2.5" /><rect x="3" y="6.75" width="10" height="2.5" /><rect x="3" y="12" width="10" height="2.5" /></svg>
+      </button>
+      <button data-grid title="Arrange in a grid">
+        <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" /><rect x="9" y="2" width="5" height="5" /><rect x="2" y="9" width="5" height="5" /><rect x="9" y="9" width="5" height="5" /></svg>
+      </button>
+    </div>
 
     <div id="controls">
       <button id="toggle-dates" title="Show last edited time">🕘</button>

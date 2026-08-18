@@ -18,7 +18,7 @@ body {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  cursor: grab;
+  cursor: default;
   background-image: radial-gradient(circle, #d8d3ca 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: 0 0;
@@ -171,6 +171,82 @@ body.show-dates .note-date {
   height: auto;
   margin: 6px 0;
   border-radius: 4px;
+}
+
+.note.is-selected {
+  outline: 2px solid #3d84d6;
+  outline-offset: 1px;
+}
+
+#marquee {
+  position: fixed;
+  display: none;
+  z-index: 500;
+  pointer-events: none;
+  border: 1px solid #3d84d6;
+  background: rgba(61, 132, 214, 0.1);
+}
+
+#arrange {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s;
+  user-select: none;
+  z-index: 800;
+}
+
+#arrange.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#arrange-count {
+  padding: 0 6px;
+  font-size: 12px;
+  color: #6b6459;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#arrange button {
+  width: 28px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+#arrange button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+#arrange svg {
+  width: 16px;
+  height: 16px;
+  fill: #4a4740;
+  stroke: #4a4740;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+#arrange svg rect {
+  stroke: none;
 }
 
 /* Fullscreen host. #world is transformed, which would make position:fixed
