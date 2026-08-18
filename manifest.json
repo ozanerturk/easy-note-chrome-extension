@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Easy Note",
+  "version": "0.1.0",
+  "description": "Take freeform notes the moment you open a new tab. Double-click anywhere to start writing.",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "action": {
+    "default_title": "Easy Note"
+  }
+}

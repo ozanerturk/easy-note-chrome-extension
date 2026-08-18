@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Launch Chrome with Easy Note",
+      "url": "chrome://newtab",
+      "runtimeArgs": [
+        "--load-extension=${workspaceFolder}",
+        "--disable-extensions-except=${workspaceFolder}"
+      ],
+      "userDataDir": "${workspaceFolder}/.vscode/chrome-profile"
+    }
+  ]
+}

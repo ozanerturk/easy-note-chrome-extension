@@ -1,0 +1,90 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: #f4f2ee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+#canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #b3aca3;
+  font-size: 15px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.note {
+  position: absolute;
+  min-width: 160px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  resize: both;
+}
+
+.note-header {
+  height: 22px;
+  flex: 0 0 auto;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.note-header:active {
+  cursor: grabbing;
+}
+
+.note-btn {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.note-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.note-body {
+  flex: 1 1 auto;
+  padding: 10px 12px;
+  outline: none;
+  overflow: auto;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-body:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(0, 0, 0, 0.35);
+}
