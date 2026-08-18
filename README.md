@@ -2,7 +2,15 @@
 
 A Chrome extension that replaces the new tab page with a freeform note-taking canvas — double-click anywhere to drop a note, OneNote-style. This is a fresh iteration on the previously published [Easy Note](https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef) extension.
 
-## Load locally
+## Quick start
+
+```bash
+node scripts/dev.js
+```
+
+Launches Chrome with the extension auto-loaded. Open a new tab and start double-clicking.
+
+## Manual load
 
 1. Open `chrome://extensions`
 2. Enable "Developer mode"
