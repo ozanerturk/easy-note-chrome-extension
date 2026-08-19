@@ -118,7 +118,12 @@
     border: 1px solid var(--rule); border-radius: 999px; color: var(--graphite);
   }
   .tag.now { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-  h1 .mark { background: linear-gradient(transparent 62%, var(--marker) 62%); padding-inline: 2px; }
+  h1 .mark {
+    background: linear-gradient(transparent 52%, var(--marker) 52%, var(--marker) 86%, transparent 86%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding-inline: 2px;
+  }
 
   .demo {
     margin-top: clamp(26px, 4.5vw, 44px);
