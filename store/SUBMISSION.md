@@ -53,13 +53,20 @@ to the single purpose.
 
 ## Before you can submit
 
-- [ ] **Privacy policy** is drafted at `docs/privacy.html`. Two steps to make
-      it a usable URL:
-      1. Replace `CONTACT_EMAIL` (two places) with the address you want public.
-      2. Turn on GitHub Pages — Settings → Pages → deploy from `master`,
-         folder `/docs`. The policy is then at
-         `https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html`
-         and the release notes sit beside it at `release-notes.html`.
+- [ ] **Turn on GitHub Pages** — Settings → Pages → deploy from branch
+      `master`, folder `/docs`. That publishes three pages:
+
+      | URL | Use |
+      | --- | --- |
+      | `…github.io/easy-note-chrome-extension/` | Landing page |
+      | `…/privacy.html` | **Privacy policy URL for the store form** |
+      | `…/release-notes.html` | What's new |
+
+      Full privacy URL to paste into the listing:
+
+      ```
+      https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html
+      ```
 - [ ] Confirm the OAuth client's **Item ID** is
       `hheobakelknbjicekbkmijjgcbephcef` and the **Drive API is enabled** on the
       Cloud project.

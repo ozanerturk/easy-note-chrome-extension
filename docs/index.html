@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Note</title>
+<meta name="description" content="Easy Note is a Chrome extension that turns your new tab into an infinite notes canvas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500&display=swap">
+
+<!-- analytics:start — hosted pages only; see scripts/package.js -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S49XTF9ELE"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-S49XTF9ELE');
+</script>
+<!-- analytics:end -->
+
+<style>
+  :root {
+    --ink: #1b1a17; --paper: #fbfaf7; --surface: #ffffff;
+    --graphite: #6f6a60; --rule: #e4e0d7;
+    --accent: #2f6fd0; --accent-soft: #e8f0fc;
+    --marker: #ffe95c; --dot: #ddd8cd;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --pad: clamp(20px, 5vw, 44px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+      --graphite: #a29b8f; --rule: #2e2c28;
+      --accent: #7aabf0; --accent-soft: #1b2637;
+      --marker: #d8c23f; --dot: #2b2924;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+    --graphite: #a29b8f; --rule: #2e2c28;
+    --accent: #7aabf0; --accent-soft: #1b2637;
+    --marker: #d8c23f; --dot: #2b2924;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink);
+    font-family: var(--body); font-size: 17px; line-height: 1.65;
+    display: grid; align-content: center;
+    background-image: radial-gradient(circle, var(--dot) 1px, transparent 1px);
+    background-size: 24px 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(100% - calc(var(--pad) * 2), 640px); margin-inline: auto; padding-block: 60px; }
+
+  .stamp { font-family: var(--mono); font-size: .74rem; letter-spacing: .14em;
+           text-transform: uppercase; color: var(--graphite); }
+  h1 { font-family: var(--display); font-weight: 800; letter-spacing: -.035em;
+       font-size: clamp(2.4rem, 7vw, 3.8rem); line-height: 1.02; margin: 12px 0 0; text-wrap: balance; }
+  h1 .mark { background: linear-gradient(transparent 62%, var(--marker) 62%); padding-inline: 2px; }
+  p { margin: 14px 0 0; color: var(--graphite); }
+
+  ul { list-style: none; margin: 30px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  a.card {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 15px 17px; border: 1px solid var(--rule); border-radius: 10px;
+    background: var(--surface); text-decoration: none; color: var(--ink);
+  }
+  a.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  a.card strong { font-weight: 600; }
+  a.card span { color: var(--graphite); font-size: .93rem; }
+
+  footer { margin-top: 30px; font-size: .86rem; color: var(--graphite); }
+  :where(a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="stamp">Chrome extension</p>
+    <h1>Easy Note is a <span class="mark">notes canvas</span> in your new tab.</h1>
+    <p>
+      Open a tab, double-click, start typing. Version 3 adds Google Drive sync,
+      an endless canvas, pages, and a lock so a note can't be deleted by
+      mistake.
+    </p>
+
+    <ul>
+      <li>
+        <a class="card" href="release-notes.html">
+          <strong>What's new in v3</strong>
+          <span>Guided tour and how-tos</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" href="privacy.html">
+          <strong>Privacy policy</strong>
+          <span>What is stored, and what is never seen</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">
+          <strong>Chrome Web Store</strong>
+          <span>Install Easy Note</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" href="https://github.com/ozanerturk/easy-note-chrome-extension">
+          <strong>Source code</strong>
+          <span>GitHub</span>
+        </a>
+      </li>
+    </ul>
+
+    <footer>Your notes stay on your computer until you choose to sign in.</footer>
+  </div>
+</body>
+</html>
