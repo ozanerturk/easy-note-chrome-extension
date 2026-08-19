@@ -25,16 +25,40 @@ The 128×128 store icon is `icons/icon128.png`.
 
 ## Permission justifications
 
-The store asks for a reason for each. These are the honest ones:
+The extension now requests **one** permission and **no host permissions**.
+Host permissions were removed after verifying that Google's API endpoints
+answer cross-origin requests from an extension page without them — the Drive
+list, upload, userinfo and revoke calls all succeed, and a real authenticated
+sync round trip completes. That also avoids the "in-depth review" delay the
+store warns about for host permissions.
 
-- **`identity`** — Signing in with Google is what enables optional Drive sync.
-  The extension is fully usable without ever signing in.
-- **Host permission `https://www.googleapis.com/`** — Reading and writing the
-  user's notes in their Drive app folder.
-- **Host permission `https://oauth2.googleapis.com/`** — Revoking the token
-  when the user signs out.
-- **New tab override** — The extension *is* the notes canvas; replacing the new
-  tab page is its single purpose.
+### `identity` — paste this
+
+```
+Easy Note stores notes locally. "identity" is used only to let a user
+optionally sign in with their own Google account so their notes can sync
+between their own computers, which is part of the extension's single purpose
+as a note-taking tool.
+
+chrome.identity.getAuthToken obtains a token for two narrow scopes:
+drive.appdata, so notes can be saved to a hidden application folder in the
+user's own Google Drive, and userinfo.email, so the sync panel can show which
+account is signed in.
+
+Nothing is sent anywhere other than the user's own Google Drive. There is no
+developer server, no analytics and no tracking. The extension is fully usable
+without ever signing in, and signing out revokes the token.
+```
+
+### Host permissions — none requested
+
+If a field still asks, the honest answer is:
+
+```
+This extension requests no host permissions. It calls Google's Drive and
+OAuth endpoints from the extension page using standard cross-origin requests,
+which Google's APIs allow, so no host access is required.
+```
 
 ## Data disclosure
 

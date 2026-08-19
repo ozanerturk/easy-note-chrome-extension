@@ -25,10 +25,6 @@
   "permissions": [
     "identity"
   ],
-  "host_permissions": [
-    "https://www.googleapis.com/",
-    "https://oauth2.googleapis.com/"
-  ],
   "oauth2": {
     "client_id": "1042376880553-kb4u1v9rbhjn4b3tn3i8scl28l2nnlo5.apps.googleusercontent.com",
     "scopes": [
