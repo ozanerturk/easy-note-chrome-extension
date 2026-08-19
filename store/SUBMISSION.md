@@ -53,9 +53,13 @@ to the single purpose.
 
 ## Before you can submit
 
-- [ ] **Privacy policy URL is required** because the extension requests
-      `identity` and a Drive scope. There isn't one yet — this is the one hard
-      blocker left.
+- [ ] **Privacy policy** is drafted at `docs/privacy.html`. Two steps to make
+      it a usable URL:
+      1. Replace `CONTACT_EMAIL` (two places) with the address you want public.
+      2. Turn on GitHub Pages — Settings → Pages → deploy from `master`,
+         folder `/docs`. The policy is then at
+         `https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html`
+         and the release notes sit beside it at `release-notes.html`.
 - [ ] Confirm the OAuth client's **Item ID** is
       `hheobakelknbjicekbkmijjgcbephcef` and the **Drive API is enabled** on the
       Cloud project.

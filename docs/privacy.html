@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Note — Privacy Policy</title>
+<meta name="description" content="What Easy Note stores, what it never sees, and how to delete everything.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<!-- analytics:start — hosted page only; see scripts/package.js -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S49XTF9ELE"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-S49XTF9ELE');
+</script>
+<!-- analytics:end -->
+
+<style>
+  :root {
+    --ink: #1b1a17; --paper: #fbfaf7; --surface: #ffffff;
+    --graphite: #6f6a60; --rule: #e4e0d7;
+    --accent: #2f6fd0; --accent-soft: #e8f0fc;
+    --good: #1c7a4a; --good-soft: #e6f4ec;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --pad: clamp(20px, 5vw, 44px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+      --graphite: #a29b8f; --rule: #2e2c28;
+      --accent: #7aabf0; --accent-soft: #1b2637;
+      --good: #6fcf97; --good-soft: #16281f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+    --graphite: #a29b8f; --rule: #2e2c28;
+    --accent: #7aabf0; --accent-soft: #1b2637;
+    --good: #6fcf97; --good-soft: #16281f;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--body); font-size: 17px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(100% - calc(var(--pad) * 2), 720px); margin-inline: auto; }
+
+  header { padding-block: clamp(40px, 8vw, 76px) 26px; border-bottom: 1px solid var(--rule); }
+  h1 { font-family: var(--display); font-weight: 800; letter-spacing: -.03em;
+       font-size: clamp(2.1rem, 5.5vw, 3.1rem); line-height: 1.05; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 600; letter-spacing: -.015em;
+       font-size: 1.25rem; margin: 0; text-wrap: balance; }
+  p, ul { margin: 0; }
+  a { color: var(--accent); }
+
+  .stamp { font-family: var(--mono); font-size: .76rem; color: var(--graphite); }
+  .lede { color: var(--graphite); font-size: 1.08rem; margin-top: 10px; }
+
+  section { padding-block: 30px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 13px; }
+  section:last-of-type { border-bottom: none; }
+
+  ul { padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; }
+  li::marker { color: var(--accent); }
+
+  .box {
+    border: 1px solid var(--rule); border-left: 3px solid var(--good);
+    background: var(--good-soft); padding: 15px 17px; border-radius: 0 8px 8px 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .box h2 { font-size: 1.02rem; }
+  .box p { font-size: .95rem; }
+
+  code { font-family: var(--mono); font-size: .88em; background: var(--accent-soft);
+         padding: 1px 5px; border-radius: 4px; }
+
+  footer { padding-block: 30px 60px; color: var(--graphite); font-size: .88rem; }
+  :where(a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="stamp">EASY NOTE · CHROME EXTENSION</p>
+    <h1>Privacy Policy</h1>
+    <p class="lede">
+      Easy Note is a notes app that replaces your new tab page. Your notes are
+      yours: they stay on your computer unless you deliberately turn on Google
+      Drive sync, and they are never sent anywhere else.
+    </p>
+    <p class="stamp" style="margin-top:14px">Last updated 19 August 2026 · Version 3.0.0</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <h2>The short version</h2>
+    <ul>
+      <li>Everything you write is stored <strong>on your own computer</strong>, in the browser.</li>
+      <li>There is <strong>no Easy Note server</strong>. Nothing is uploaded to us, because there is no “us” to upload to.</li>
+      <li>If you sign in with Google, your notes are copied to a <strong>private folder in your own Google Drive</strong> so they reach your other computers.</li>
+      <li>There is <strong>no advertising, no tracking and no analytics</strong> inside the extension.</li>
+      <li>Nothing is ever sold or shared.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What Easy Note stores on your computer</h2>
+    <p>
+      Saved in your browser's local database, and readable only by the
+      extension itself:
+    </p>
+    <ul>
+      <li>Your notes — their text, images you paste, colour, size and position</li>
+      <li>Your pages and how they are arranged</li>
+      <li>Small preferences: which page you were on, where the canvas was scrolled, whether the sidebar is open</li>
+    </ul>
+    <p>
+      Uninstalling the extension removes all of it. If you had signed in, the
+      copy in your Drive folder remains until you delete it there.
+    </p>
+  </section>
+
+  <section>
+    <h2>If you sign in with Google</h2>
+    <p>Sync is entirely optional. Easy Note works fully without ever signing in.</p>
+    <p>When you do sign in, it asks Google for two things:</p>
+    <ul>
+      <li>
+        <strong>A private app folder in your Drive</strong> (<code>drive.appdata</code>) —
+        where your notes, pages and images are kept so they reach your other
+        computers. This folder is hidden: it does not appear in My Drive, and
+        no other app can read it.
+      </li>
+      <li>
+        <strong>Your email address</strong> — shown in the sync panel so you can
+        see which account you are signed in as. It is displayed only; Easy Note
+        never stores or transmits it.
+      </li>
+    </ul>
+    <div class="box">
+      <h2>What Easy Note cannot see</h2>
+      <p>
+        The permission it asks for gives access to its own hidden folder and
+        nothing else. It cannot open, read, list or modify any other file,
+        photo or document in your Google Drive — not even if it wanted to.
+      </p>
+    </div>
+    <p>
+      Signing out removes the stored access token and stops syncing. Your notes
+      stay on your computer, and the copy in your Drive folder stays there until
+      you remove it.
+    </p>
+  </section>
+
+  <section>
+    <h2>Who your data is shared with</h2>
+    <p>
+      Nobody. The extension talks to exactly two addresses, both Google's, and
+      only on your behalf once you have signed in:
+    </p>
+    <ul>
+      <li><code>www.googleapis.com</code> — to read and write your notes in your own Drive app folder</li>
+      <li><code>oauth2.googleapis.com</code> — to revoke the access token when you sign out</li>
+    </ul>
+    <p>
+      There are no other network requests, no third-party services, no
+      advertising networks and no data brokers. Your notes are never sold,
+      rented, or used to train anything.
+    </p>
+  </section>
+
+  <section>
+    <h2>Deleting things</h2>
+    <ul>
+      <li><strong>One note</strong> — delete it in the app. It disappears immediately.</li>
+      <li>
+        <strong>Deleted notes and sync.</strong> When sync is on, a deleted note
+        leaves behind a small marker recording that it was deleted, so the
+        deletion reaches your other computers instead of the note coming back.
+        The marker holds the note's content until it is cleared automatically
+        after 30 days.
+      </li>
+      <li><strong>Everything in Drive</strong> — sign out, then delete the app folder from your Google account settings under “Apps with access to your account”.</li>
+      <li><strong>Everything on this computer</strong> — remove the extension from Chrome.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Upgrading from an older version</h2>
+    <p>
+      If you used an earlier version of Easy Note, your existing notes are
+      copied into the new format the first time v3 runs. This happens entirely
+      on your computer. The old data is read but never changed or deleted, so
+      going back to the previous version loses nothing.
+    </p>
+  </section>
+
+  <section>
+    <h2>This website</h2>
+    <p>
+      These pages — the privacy policy and the release notes — use Google
+      Analytics to count visits. That applies to the website only. The
+      extension itself contains no analytics of any kind; Chrome's extension
+      security rules block that sort of script outright, and none is bundled.
+    </p>
+  </section>
+
+  <section>
+    <h2>Children</h2>
+    <p>
+      Easy Note is a general-purpose notes tool and is not directed at children
+      under 13. It collects no personal information beyond what is described
+      above.
+    </p>
+  </section>
+
+  <section>
+    <h2>Changes</h2>
+    <p>
+      If this policy changes, the date at the top changes with it, and the
+      revision history is public in the extension's source repository. Material
+      changes to what is collected will be called out in the release notes.
+    </p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>
+      Questions, or a request to remove data: <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>.
+      You can also open an issue on the
+      <a href="https://github.com/ozanerturk/easy-note-chrome-extension">source repository</a>.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Easy Note for Chrome · <a href="release-notes.html">What's new in v3</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
