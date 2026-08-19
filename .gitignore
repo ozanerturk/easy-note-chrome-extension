@@ -7,3 +7,5 @@ node_modules/
 .test-profile/
 .v1-profile/
 .claude
+dist/
+.pkg-profile/
