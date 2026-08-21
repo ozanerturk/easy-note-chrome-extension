@@ -97,6 +97,29 @@ body {
   font-weight: 500;
 }
 
+/* Reordering: a line at the edge means "drop between", a filled row means
+   "drop inside". */
+#sidebar.is-reordering .page-row {
+  cursor: grabbing;
+}
+
+.page-row.is-dragging {
+  opacity: 0.4;
+}
+
+.page-row.drop-before {
+  box-shadow: inset 0 2px 0 #3d84d6;
+}
+
+.page-row.drop-after {
+  box-shadow: inset 0 -2px 0 #3d84d6;
+}
+
+.page-row.drop-child {
+  background: rgba(61, 132, 214, 0.22);
+  box-shadow: inset 2px 0 0 #3d84d6;
+}
+
 .page-twisty {
   width: 14px;
   flex: 0 0 14px;
@@ -120,11 +143,20 @@ body {
   outline: none;
 }
 
+/* .page-row sets user-select:none so dragging a row doesn't smear a text
+   selection — but the name inherits it, and a contenteditable that cannot be
+   selected cannot be typed into either. Editing has to opt back in. */
 .page-name.is-editing {
   background: #fff;
+  color: #1b1a17;
   border-radius: 3px;
   padding: 0 3px;
   box-shadow: 0 0 0 1.5px #3d84d6;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .page-action {

@@ -149,11 +149,20 @@ async function deletePage(page) {
   renderTree();
 }
 
-function beginRename(nameEl, page) {
-  nameEl.contentEditable = "true";
+export function beginRename(nameEl, page) {
+  if (nameEl.classList.contains("is-editing")) return;
+  // The class carries user-select:text, so it has to land before focus —
+  // a contenteditable that cannot be selected cannot take a caret.
   nameEl.classList.add("is-editing");
+  nameEl.contentEditable = "plaintext-only";
+  nameEl.spellcheck = false;
   nameEl.focus();
-  document.execCommand("selectAll", false, null);
+
+  const range = document.createRange();
+  range.selectNodeContents(nameEl);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 
   const finish = async (commit) => {
     nameEl.removeEventListener("keydown", onKey);
@@ -180,6 +189,101 @@ function beginRename(nameEl, page) {
 
   nameEl.addEventListener("blur", () => finish(true), { once: true });
   nameEl.addEventListener("keydown", onKey);
+}
+
+/* ------------------------------------------------------ reordering pages */
+
+let pageDrag = null;
+let dragEndedAt = 0;
+
+// A drop lands relative to the row under the pointer: near its top or bottom
+// edge reorders, the middle band nests.
+function dropModeFor(row, clientY) {
+  const r = row.getBoundingClientRect();
+  const t = (clientY - r.top) / r.height;
+  if (t < 0.3) return "before";
+  if (t > 0.7) return "after";
+  return "child";
+}
+
+function clearDropMarks() {
+  treeRoot.querySelectorAll(".page-row").forEach((r) =>
+    r.classList.remove("drop-before", "drop-after", "drop-child")
+  );
+}
+
+function onPageDragMove(e) {
+  if (!pageDrag) return;
+  if (!pageDrag.moved) {
+    if (Math.hypot(e.clientX - pageDrag.startX, e.clientY - pageDrag.startY) < 4) return;
+    pageDrag.moved = true;
+    pageDrag.row.classList.add("is-dragging");
+    sidebar.classList.add("is-reordering");
+  }
+
+  clearDropMarks();
+  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest(".page-row");
+  pageDrag.target = null;
+  if (!row || row === pageDrag.row) return;
+
+  const targetId = row.dataset.pageId;
+  // Never drop a page inside its own subtree — that would orphan the branch.
+  if (descendantIds(pageDrag.id).includes(targetId)) return;
+
+  const mode = dropModeFor(row, e.clientY);
+  row.classList.add(`drop-${mode}`);
+  pageDrag.target = { id: targetId, mode };
+}
+
+function onPageDragEnd() {
+  if (!pageDrag) return;
+  const { moved, target, row } = pageDrag;
+  row.classList.remove("is-dragging");
+  sidebar.classList.remove("is-reordering");
+  clearDropMarks();
+  window.removeEventListener("pointermove", onPageDragMove);
+  window.removeEventListener("pointerup", onPageDragEnd);
+  const id = pageDrag.id;
+  pageDrag = null;
+
+  if (!moved) return;
+  dragEndedAt = Date.now(); // stops the row's click from switching page
+  if (target) movePage(id, target.id, target.mode);
+}
+
+export async function movePage(dragId, targetId, mode) {
+  const drag = pages.get(dragId);
+  const target = pages.get(targetId);
+  if (!drag || !target || dragId === targetId) return;
+  if (descendantIds(dragId).includes(targetId)) return;
+
+  const newParent = mode === "child" ? targetId : target.parentId || null;
+
+  // The tree must keep at least one top-level page, or there is nothing left
+  // to render.
+  const roots = childrenOf(null);
+  if (newParent && roots.length === 1 && roots[0].id === dragId) return;
+
+  const siblings = childrenOf(newParent).filter((p) => p.id !== dragId);
+  let index = siblings.length;
+  if (mode !== "child") {
+    const at = siblings.findIndex((p) => p.id === targetId);
+    if (at >= 0) index = mode === "after" ? at + 1 : at;
+  }
+  siblings.splice(index, 0, drag);
+
+  drag.parentId = newParent;
+  if (mode === "child" && target.collapsed) {
+    target.collapsed = false;
+    await savePage(target);
+  }
+  for (let i = 0; i < siblings.length; i++) {
+    if (siblings[i].order !== i || siblings[i].id === dragId) {
+      siblings[i].order = i;
+      await savePage(siblings[i]);
+    }
+  }
+  renderTree();
 }
 
 /* ------------------------------------------------- notes dropped on a page */
@@ -264,7 +368,20 @@ function rowFor(page, depth) {
   });
 
   row.append(twisty, name, add, remove);
-  row.addEventListener("click", () => switchPage(page.id));
+  row.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest(".page-action, .page-twisty")) return;
+    if (row.querySelector(".page-name.is-editing")) return;
+    pageDrag = { id: page.id, row, startX: e.clientX, startY: e.clientY, moved: false, target: null };
+    window.addEventListener("pointermove", onPageDragMove);
+    window.addEventListener("pointerup", onPageDragEnd);
+  });
+
+  row.addEventListener("click", () => {
+    // A reorder drag ends in a click on this row; it must not also switch page.
+    if (Date.now() - dragEndedAt < 250) return;
+    switchPage(page.id);
+  });
   row.addEventListener("dblclick", (e) => {
     e.stopPropagation();
     beginRename(name, page);
