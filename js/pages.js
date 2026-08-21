@@ -174,6 +174,8 @@ export function beginRename(nameEl, page) {
       await savePage(page);
     }
     nameEl.textContent = page.name;
+    if (nameEl.scrollWidth > nameEl.clientWidth + 1) nameEl.title = page.name;
+    else nameEl.removeAttribute("title");
   };
 
   function onKey(e) {
@@ -189,6 +191,54 @@ export function beginRename(nameEl, page) {
 
   nameEl.addEventListener("blur", () => finish(true), { once: true });
   nameEl.addEventListener("keydown", onKey);
+}
+
+/* ------------------------------------------------------- sidebar width */
+
+const SIDEBAR_DEFAULT = 208;
+const SIDEBAR_MIN = 150;
+const SIDEBAR_MAX = 460;
+
+function clampWidth(px) {
+  return Math.round(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, px)));
+}
+
+export function applySidebarWidth(px, { persist = true } = {}) {
+  const w = clampWidth(px);
+  document.documentElement.style.setProperty("--sidebar-w", `${w}px`);
+  if (!persist) return w;
+  // Mirrored to localStorage so boot.js can set it before the first paint,
+  // the same reason the collapsed state is mirrored.
+  try {
+    localStorage.setItem("easynote:sidebarWidth", String(w));
+  } catch (e) {
+    /* ignore */
+  }
+  put(META, { id: "sidebarWidth", width: w }).catch(() => {});
+  return w;
+}
+
+function initSidebarResize() {
+  const grip = document.getElementById("sidebar-resize");
+  if (!grip) return;
+
+  grip.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    document.body.classList.add("is-resizing");
+
+    const move = (m) => applySidebarWidth(m.clientX, { persist: false });
+    const up = (m) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.classList.remove("is-resizing");
+      applySidebarWidth(m.clientX); // one write at the end, not per frame
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+
+  grip.addEventListener("dblclick", () => applySidebarWidth(SIDEBAR_DEFAULT));
 }
 
 /* ------------------------------------------------------ reordering pages */
@@ -348,6 +398,12 @@ function rowFor(page, depth) {
   const name = document.createElement("span");
   name.className = "page-name";
   name.textContent = page.name;
+  // Long page names are ellipsised; a title reveals the full one, but only
+  // when it is genuinely truncated so hovering short names shows nothing.
+  requestAnimationFrame(() => {
+    if (name.scrollWidth > name.clientWidth + 1) name.title = page.name;
+    else name.removeAttribute("title");
+  });
 
   const add = document.createElement("button");
   add.className = "page-action";
@@ -403,6 +459,7 @@ export function renderTree() {
 }
 
 export function initPages() {
+  initSidebarResize();
   document.getElementById("add-page").addEventListener("click", () => createPage(null));
   document.getElementById("toggle-sidebar").addEventListener("click", () => {
     const hidden = document.documentElement.classList.toggle("sidebar-hidden");

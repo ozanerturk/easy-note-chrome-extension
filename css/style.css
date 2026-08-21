@@ -14,6 +14,47 @@ body {
 
 :root {
   --sidebar-w: 208px;
+  --sidebar-min: 150px;
+  --sidebar-max: 460px;
+}
+
+/* The grab strip on the sidebar's edge. It only shows ink on hover or while
+   dragging, so it stays out of the way. */
+#sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+#sidebar-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+#sidebar-resize:hover::after,
+body.is-resizing #sidebar-resize::after {
+  background: #3d84d6;
+}
+
+/* While dragging, nothing else should take the pointer or select text. */
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.is-resizing #canvas,
+body.is-resizing #sidebar {
+  transition: none;
 }
 
 /* ------------------------------------------------------------- page tree */
@@ -181,13 +222,6 @@ body {
   background: rgba(0, 0, 0, 0.12);
 }
 
-#sidebar-hint {
-  padding: 8px 12px 12px;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #9c958a;
-}
-
 #toggle-sidebar {
   position: fixed;
   top: 12px;
@@ -207,6 +241,32 @@ body {
 
 .sidebar-hidden #toggle-sidebar {
   left: 12px;
+}
+
+/* A quiet help affordance, tucked into the corner opposite the controls. */
+#help {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 760;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  color: #6b6459;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+#help:hover {
+  opacity: 1;
+  color: #2f6fd0;
 }
 
 /* ----------------------------------------------------------------- search */

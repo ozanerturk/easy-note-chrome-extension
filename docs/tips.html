@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Note — Tips &amp; shortcuts</title>
+<meta name="description" content="Every gesture and shortcut in Easy Note, on one page.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<!-- analytics:start — hosted page only; see scripts/package.js -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-S49XTF9ELE"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-S49XTF9ELE');
+</script>
+<!-- analytics:end -->
+
+<style>
+  :root {
+    --ink: #1b1a17; --paper: #fbfaf7; --surface: #ffffff;
+    --graphite: #6f6a60; --rule: #e4e0d7;
+    --accent: #2f6fd0; --accent-soft: #e8f0fc;
+    --good: #1c7a4a; --good-soft: #e6f4ec;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --pad: clamp(20px, 5vw, 44px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+      --graphite: #a29b8f; --rule: #2e2c28;
+      --accent: #7aabf0; --accent-soft: #1b2637;
+      --good: #6fcf97; --good-soft: #16281f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #f1eee7; --paper: #131211; --surface: #1c1b18;
+    --graphite: #a29b8f; --rule: #2e2c28;
+    --accent: #7aabf0; --accent-soft: #1b2637;
+    --good: #6fcf97; --good-soft: #16281f;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--body); font-size: 17px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(100% - calc(var(--pad) * 2), 720px); margin-inline: auto; }
+
+  header { padding-block: clamp(40px, 8vw, 76px) 26px; border-bottom: 1px solid var(--rule); }
+  h1 { font-family: var(--display); font-weight: 800; letter-spacing: -.03em;
+       font-size: clamp(2.1rem, 5.5vw, 3.1rem); line-height: 1.05; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 600; letter-spacing: -.015em;
+       font-size: 1.25rem; margin: 0; text-wrap: balance; }
+  p, ul { margin: 0; }
+  a { color: var(--accent); }
+
+  .stamp { font-family: var(--mono); font-size: .76rem; color: var(--graphite); }
+  .lede { color: var(--graphite); font-size: 1.08rem; margin-top: 10px; }
+
+  section { padding-block: 30px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 13px; }
+  section:last-of-type { border-bottom: none; }
+
+  ul { padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; }
+  li::marker { color: var(--accent); }
+
+  .box {
+    border: 1px solid var(--rule); border-left: 3px solid var(--good);
+    background: var(--good-soft); padding: 15px 17px; border-radius: 0 8px 8px 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .box h2 { font-size: 1.02rem; }
+  .box p { font-size: .95rem; }
+
+  code { font-family: var(--mono); font-size: .88em; background: var(--accent-soft);
+         padding: 1px 5px; border-radius: 4px; }
+
+  footer { padding-block: 30px 60px; color: var(--graphite); font-size: .88rem; }
+  :where(a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .scroller { overflow-x: auto; }
+  th, td { text-align: left; padding: 9px 14px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--graphite); font-weight: 500; }
+  td.g { font-family: var(--mono); font-size: .84rem; white-space: nowrap; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="stamp">EASY NOTE · CHROME EXTENSION</p>
+    <h1>Tips &amp; shortcuts</h1>
+    <p class="lede">
+      Everything Easy Note can do, on one page. Nothing here is required — you
+      can get a long way with double-click and type.
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <h2>The basics</h2>
+    <ul>
+      <li><strong>Double-click any empty space</strong> to make a note, then just type.</li>
+      <li><strong>Drag a note by its top bar</strong> to move it; drag the bottom-right corner to resize.</li>
+      <li><strong>Hover a note</strong> to reveal its buttons — they stay hidden so the board looks clean.</li>
+      <li><strong>Paste anything.</strong> Text arrives clean, without fonts and colours from the page you copied it from. Screenshots paste straight in.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Moving around</h2>
+    <ul>
+      <li><strong>Scroll</strong> to move around the board, or hold <code>Space</code> and drag it.</li>
+      <li><strong><code>⌘</code> / <code>Ctrl</code> + scroll</strong>, or pinch on a trackpad, to zoom. Zooming follows your cursor.</li>
+      <li><strong>Lost a note?</strong> Click <strong>Fit</strong> in the bottom-right — everything on the page comes back into view.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Tidying up</h2>
+    <ul>
+      <li><strong>Drag a box</strong> across empty space to select several notes, or hold <code>Shift</code> and click them.</li>
+      <li><strong>Drag any selected note</strong> and the whole group moves together.</li>
+      <li>The toolbar that appears will <strong>line them up, space them evenly, or snap them into a grid</strong>.</li>
+      <li><strong>Lock a note</strong> with the padlock and it can no longer be deleted — including by a bulk delete. It still moves and edits normally.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pages</h2>
+    <ul>
+      <li><strong>Double-click a page name</strong> to rename it. Enter saves, Esc cancels.</li>
+      <li><strong>Drag a page</strong> up or down to reorder it. Drop it <em>on</em> another page to nest it inside.</li>
+      <li><strong>Drag notes onto a page</strong> in the list to move them there — select several first and they all go together.</li>
+      <li><strong>Drag the sidebar's edge</strong> to resize it; double-click that edge to reset the width.</li>
+      <li>Each page remembers its own position and zoom.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Finding things</h2>
+    <ul>
+      <li><strong><code>⌘F</code></strong> searches every page at once. Before you type, it lists the notes you edited most recently.</li>
+      <li>Pick a result and Easy Note opens that page and zooms straight to the note.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Every shortcut</h2>
+    <div class="scroller">
+      <table>
+        <thead><tr><th style="width:46%">Do this</th><th>Get that</th></tr></thead>
+        <tbody>
+          <tr><td class="g">Double-click the board</td><td>New note</td></tr>
+          <tr><td class="g">Drag across empty board</td><td>Select several notes</td></tr>
+          <tr><td class="g">Space + drag, or scroll</td><td>Move around</td></tr>
+          <tr><td class="g">⌘ / Ctrl + scroll, or pinch</td><td>Zoom</td></tr>
+          <tr><td class="g">Shift + click a note</td><td>Add to the selection</td></tr>
+          <tr><td class="g">⌘A</td><td>Select every note</td></tr>
+          <tr><td class="g">Esc</td><td>Clear the selection</td></tr>
+          <tr><td class="g">Delete</td><td>Delete the selection (locked notes survive)</td></tr>
+          <tr><td class="g">Double-click a note's top bar</td><td>Fullscreen — Esc to close</td></tr>
+          <tr><td class="g">Double-click a page name</td><td>Rename it</td></tr>
+          <tr><td class="g">⌘F</td><td>Search every page</td></tr>
+          <tr><td class="g">Fit</td><td>Bring every note back on screen</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Syncing</h2>
+    <p>
+      Click the cloud in the bottom-right and sign in with Google, and your
+      notes follow you to every computer you use Chrome on. They go into a
+      private folder that Easy Note cannot see out of — it has no access to
+      anything else in your Drive.
+    </p>
+    <p>
+      Sync checks every couple of minutes, so give it a moment after editing
+      elsewhere, or press <strong>Sync now</strong>.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="release-notes.html">What's new in v3</a> ·
+      <a href="privacy.html">Privacy policy</a> ·
+      <a href="index.html">Home</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

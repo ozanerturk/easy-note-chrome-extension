@@ -75,6 +75,8 @@ function paint(query) {
     const text = document.createElement("span");
     text.className = "search-text";
     text.appendChild(highlight(snippet(m.text, query), query));
+    // The snippet is clipped; the title carries enough of the note to identify it.
+    text.title = m.text.length > 300 ? m.text.slice(0, 300) + "…" : m.text;
 
     const page = document.createElement("span");
     page.className = "search-page";

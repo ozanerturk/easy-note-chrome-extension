@@ -39,6 +39,7 @@ import {
   renderTree,
   setPageSwitchHandler,
   switchPage,
+  applySidebarWidth,
   currentPageId,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
@@ -156,12 +157,26 @@ openDB()
 
     renderTree();
 
-    const [pageView, legacyView, prefs, sidebarPref] = await Promise.all([
+    const [pageView, legacyView, prefs, sidebarPref, sidebarWidth] = await Promise.all([
       getOne(META, viewKey(currentPageId)),
       getOne(META, "view"), // pre per-page viewports
       getOne(META, "prefs"),
       getOne(META, "sidebar"),
+      getOne(META, "sidebarWidth"),
     ]);
+
+    // boot.js already applied the width from localStorage, which is written
+    // synchronously. The IndexedDB copy can lag a reload that lands mid-write,
+    // so it is only a fallback — for a profile that has never set one here.
+    let hasLocalWidth = false;
+    try {
+      hasLocalWidth = !!localStorage.getItem("easynote:sidebarWidth");
+    } catch (e) {
+      /* ignore */
+    }
+    if (!hasLocalWidth && sidebarWidth && sidebarWidth.width) {
+      applySidebarWidth(sidebarWidth.width);
+    }
 
     const hidden = !!(sidebarPref && sidebarPref.hidden);
     document.documentElement.classList.toggle("sidebar-hidden", hidden);

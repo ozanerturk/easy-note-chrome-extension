@@ -29,6 +29,8 @@ function ago(ts) {
 
 function show(state, text, detail = "") {
   statusEl.textContent = text;
+  statusEl.title = text; // the email is ellipsised when it is long
+
   detailEl.textContent = detail;
   cloudBtn.dataset.state = state;
 }

@@ -9,6 +9,12 @@ try {
   if (localStorage.getItem("easynote:sidebar") === "hidden") {
     document.documentElement.classList.add("sidebar-hidden");
   }
+  // Same reasoning for the width: applying it after paint would show the
+  // sidebar snapping from its default to the user's size on every new tab.
+  const width = parseInt(localStorage.getItem("easynote:sidebarWidth"), 10);
+  if (Number.isFinite(width) && width >= 150 && width <= 460) {
+    document.documentElement.style.setProperty("--sidebar-w", `${width}px`);
+  }
 } catch (e) {
   /* private mode or storage disabled: fall back to the async read */
 }
