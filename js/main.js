@@ -21,6 +21,7 @@ import {
   setShowDates,
   isFullscreen,
   deleteNote,
+  activateNote,
 } from "./note.js";
 import {
   initSelection,
@@ -138,7 +139,8 @@ setSearchPickHandler(async (noteId, pageId) => {
   const entry = notes.get(noteId);
   if (!entry) return;
   selectOnly(noteId);
-  focusNote(entry.el);
+  focusNote(entry.el); // pans only — the zoom the user set is left alone
+  activateNote(entry);
 });
 
 openDB()

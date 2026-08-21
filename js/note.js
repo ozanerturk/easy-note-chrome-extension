@@ -370,6 +370,14 @@ export async function purgeTombstones(maxAgeMs = 30 * 24 * 3600 * 1000) {
   return doomed.length;
 }
 
+// Land on a note the way clicking it would: raised above its neighbours and
+// ready to type into.
+export function activateNote({ note, el }) {
+  bringToFront(note, el);
+  const body = el.querySelector(".note-body");
+  if (body) body.focus({ preventScroll: true });
+}
+
 function bringToFront(note, el) {
   note.z = nextZ();
   el.style.zIndex = note.z;

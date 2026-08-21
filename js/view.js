@@ -113,8 +113,19 @@ export function fitToNotes() {
 }
 
 // Used by search: bring one note into view without zooming absurdly close.
-export function focusNote(el, maxZoom = 1.4) {
-  frame(boundsOf([el]), 120, maxZoom);
+// Used by search: bring one note into view by panning only. Reframing it to
+// fit would rescale the whole board, which reads as the layout jumping rather
+// than as navigation.
+export function focusNote(el) {
+  const rect = canvas.getBoundingClientRect();
+  const x = parseFloat(el.style.left) || 0;
+  const y = parseFloat(el.style.top) || 0;
+  const cx = x + el.offsetWidth / 2;
+  const cy = y + el.offsetHeight / 2;
+
+  view.x = rect.width / 2 - cx * view.zoom;
+  view.y = rect.height / 2 - cy * view.zoom;
+  applyView();
 }
 
 /* ------------------------------------------------------------ interaction */
