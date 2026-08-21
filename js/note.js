@@ -10,6 +10,7 @@ import {
   forgetSelection,
 } from "./selection.js";
 import { currentPageId, setDraggedNotes, dropNotesAt } from "./pages.js";
+import { setPref } from "./prefs.js";
 
 export const COLORS = [
   "#fff6a3",
@@ -112,7 +113,29 @@ export function setShowDates(value, persist = true) {
   document.body.classList.toggle("show-dates", showDates);
   document.getElementById("toggle-dates").classList.toggle("is-active", showDates);
   notes.forEach(({ note, el }) => refreshDate(note, el));
-  if (persist) put(META, { id: "prefs", showDates }).catch(() => {});
+  if (persist) setPref("showDates", showDates);
+}
+
+/* ---------------------------------------------------------- privacy blur */
+
+export function isBlurred() {
+  return document.documentElement.classList.contains("blur-notes");
+}
+
+export function setBlurNotes(value, persist = true) {
+  document.documentElement.classList.toggle("blur-notes", value);
+  document.getElementById("toggle-blur").classList.toggle("is-active", value);
+  document.getElementById("toggle-blur").title = value
+    ? "Notes are blurred — click to reveal (Alt+B)"
+    : "Blur notes for screen sharing (Alt+B)";
+  if (!persist) return;
+  // Mirrored synchronously so boot.js can blur before the first paint.
+  try {
+    localStorage.setItem("easynote:blurNotes", value ? "on" : "off");
+  } catch (e) {
+    /* ignore */
+  }
+  setPref("blurNotes", value);
 }
 
 function refreshDate(note, el) {

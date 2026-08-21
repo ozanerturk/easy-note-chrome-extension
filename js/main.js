@@ -22,6 +22,8 @@ import {
   isFullscreen,
   deleteNote,
   activateNote,
+  setBlurNotes,
+  isBlurred,
 } from "./note.js";
 import {
   initSelection,
@@ -48,6 +50,7 @@ import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
+import { loadPrefs, getPref } from "./prefs.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
 import { PAGES } from "./db.js";
@@ -96,11 +99,21 @@ window.addEventListener("keydown", (e) => {
     selectAll();
     return;
   }
+  if (e.altKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {
+    e.preventDefault();
+    setBlurNotes(!isBlurred());
+    return;
+  }
+
   if (e.key === "Escape") clearSelection();
 });
 
 document.getElementById("toggle-dates").addEventListener("click", () => {
   setShowDates(!document.body.classList.contains("show-dates"));
+});
+
+document.getElementById("toggle-blur").addEventListener("click", () => {
+  setBlurNotes(!isBlurred());
 });
 
 /* ----------------------------------------------------------------- boot */
@@ -159,10 +172,10 @@ openDB()
 
     renderTree();
 
-    const [pageView, legacyView, prefs, sidebarPref, sidebarWidth] = await Promise.all([
+    const [pageView, legacyView, , sidebarPref, sidebarWidth] = await Promise.all([
       getOne(META, viewKey(currentPageId)),
       getOne(META, "view"), // pre per-page viewports
-      getOne(META, "prefs"),
+      loadPrefs(),
       getOne(META, "sidebar"),
       getOne(META, "sidebarWidth"),
     ]);
@@ -194,7 +207,10 @@ openDB()
 
     await showCurrentPage();
     if (!startView) fitToNotes();
-    setShowDates(!!(prefs && prefs.showDates), false);
+    setShowDates(!!getPref("showDates"), false);
+    // boot.js already applied the class from localStorage; this only syncs the
+    // button, and covers a profile whose pref arrived by sync.
+    setBlurNotes(isBlurred() || !!getPref("blurNotes"), false);
     purgeTombstones().catch(() => {});
 
     // Someone with notes already — imported from v1 or created here — is an

@@ -517,6 +517,33 @@ body.show-dates .note-date {
   cursor: text;
 }
 
+/* Privacy blur, for screen sharing. Note content and anything that echoes it
+   — search snippets, the account email — go soft. Page names stay legible so
+   the app is still navigable. */
+.blur-notes .note-body,
+.blur-notes .note-date,
+.blur-notes .search-text,
+.blur-notes #sync-status {
+  filter: blur(6px);
+  transition: filter 0.12s;
+}
+
+/* The note you are actually typing in comes back, so the mode is usable
+   rather than just an off switch. Hovering deliberately does not reveal —
+   a stray cursor should never uncover anything on a shared screen. */
+.blur-notes .note:has(.note-body:focus) .note-body,
+.blur-notes .note:has(.note-body:focus) .note-date {
+  filter: none;
+}
+
+.blur-notes #hint::after {
+  content: " · notes are blurred";
+}
+
+#toggle-blur.is-active {
+  background: rgba(198, 40, 40, 0.14);
+}
+
 .note-body.is-empty::before {
   content: attr(data-placeholder);
   color: rgba(0, 0, 0, 0.35);
