@@ -11,6 +11,8 @@ import {
 } from "./selection.js";
 import { currentPageId, setDraggedNotes, dropNotesAt } from "./pages.js";
 import { setPref } from "./prefs.js";
+import { offerUndo, hideUndo } from "./undo.js";
+import { pasteFragment, linkifyText, autolinkAtCaret, setTextStyle, promptForLink } from "./richtext.js";
 
 export const COLORS = [
   "#fff6a3",
@@ -150,18 +152,26 @@ export function refreshAllDates() {
 /* -------------------------------------------------------------- clipboard */
 
 function insertAtCaret(node, body) {
+  // Inserting a DocumentFragment empties it, so the caret has to be placed
+  // after its last child — the fragment itself no longer has a parent.
+  const tail =
+    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node;
+
   const selection = window.getSelection();
   if (!selection || !selection.rangeCount || !body.contains(selection.anchorNode)) {
     body.appendChild(node);
-    return;
+  } else {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(node);
   }
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
-  range.insertNode(node);
-  range.setStartAfter(node);
-  range.collapse(true);
+
+  if (!tail || !tail.parentNode) return;
+  const after = document.createRange();
+  after.setStartAfter(tail);
+  after.collapse(true);
   selection.removeAllRanges();
-  selection.addRange(range);
+  selection.addRange(after);
 }
 
 function handlePaste(event, note, el, body) {
@@ -191,12 +201,16 @@ function handlePaste(event, note, el, body) {
     return;
   }
 
-  // Paste text as plain text so foreign markup and styling never leak in.
+  // Foreign fonts and colours are still stripped; links are not. Losing the
+  // href was collateral damage of the old plain-text-only rule.
+  const html = data.getData("text/html");
   const text = data.getData("text/plain");
-  if (text) {
-    event.preventDefault();
-    document.execCommand("insertText", false, text);
-  }
+  if (!html && !text) return;
+  event.preventDefault();
+
+  const fragment = html ? pasteFragment(html) : linkifyText(text);
+  insertAtCaret(fragment, body);
+  touch(note, el, body);
 }
 
 function touch(note, el, body) {
@@ -363,7 +377,42 @@ export function deleteNote(note, el) {
   put(NOTES, note).catch(() => {});
 
   updateHint();
+  rememberForUndo(note);
   return true;
+}
+
+/* -------------------------------------------------------------- undo */
+
+// A bulk delete calls deleteNote once per note. Collecting them on a timeout
+// of 0 lets the whole batch land before the toast is offered, so the user sees
+// one "3 notes deleted" rather than three toasts racing each other.
+let undoBatch = [];
+let undoBatchTimer = null;
+
+function rememberForUndo(note) {
+  undoBatch.push(note);
+  clearTimeout(undoBatchTimer);
+  undoBatchTimer = setTimeout(() => {
+    const batch = undoBatch;
+    undoBatch = [];
+    if (!batch.length) return;
+    const what = batch.length === 1 ? "Note deleted" : `${batch.length} notes deleted`;
+    offerUndo(what, () => restoreNotes(batch));
+  }, 0);
+}
+
+// The record was never removed, only flagged, so undo is just clearing the
+// flag. updatedAt moves forward so the restore beats the tombstone already
+// sitting on other devices.
+export async function restoreNotes(batch) {
+  for (const note of batch) {
+    delete note.deleted;
+    delete note.deletedAt;
+    note.updatedAt = Date.now();
+    await put(NOTES, note).catch(() => {});
+    if (note.pageId === currentPageId && !notes.has(note.id)) renderNote(note);
+  }
+  updateHint();
 }
 
 // Tombstones only need to outlive the window in which another device might
@@ -472,8 +521,45 @@ export function renderNote(note) {
 
   /* behaviour */
 
-  body.addEventListener("input", () => touch(note, el, body));
+  body.addEventListener("input", (e) => {
+    // Fires however the character arrived — keyup misses input that does not
+    // carry a key, such as dictation or IME commits.
+    if (e.data === " " || e.inputType === "insertParagraph" || e.inputType === "insertLineBreak") {
+      autolinkAtCaret(body);
+    }
+    touch(note, el, body);
+  });
   body.addEventListener("paste", (e) => handlePaste(e, note, el, body));
+
+  body.addEventListener("keydown", (e) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      promptForLink(body, () => touch(note, el, body));
+      return;
+    }
+    // Cmd+Alt+1/2/0 — Chrome claims Cmd+1..9 for tab switching, Alt keeps
+    // these ours.
+    if (mod && e.altKey) {
+      const style = { 1: "title", 2: "small", 0: "body" }[e.code.replace("Digit", "")];
+      if (style) {
+        e.preventDefault();
+        e.stopPropagation();
+        setTextStyle(body, style);
+        touch(note, el, body);
+      }
+    }
+  });
+
+  // In a contenteditable a click just places the caret; notes are read far
+  // more than edited, so a link should behave like a link.
+  body.addEventListener("click", (e) => {
+    const link = e.target.closest("a[href]");
+    if (!link) return;
+    e.preventDefault();
+    window.open(link.href, "_blank", "noopener");
+  });
   body.addEventListener("pointerdown", () => bringToFront(note, el));
 
   lockBtn.addEventListener("click", (e) => {

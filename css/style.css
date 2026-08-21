@@ -602,6 +602,43 @@ body.show-dates .note-date {
 
 .note-body a {
   color: #1a5fb4;
+  cursor: pointer;
+}
+
+/* Three named sizes rather than a font menu: enough for hierarchy, without
+   every note ending up in a different typeface. */
+.note-body .t-title {
+  font-size: 1.3em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 2px 0 4px;
+}
+
+.note-body .t-small {
+  font-size: 0.85em;
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.link-box {
+  position: fixed;
+  z-index: 1000;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.24);
+}
+
+.link-box input {
+  width: 264px;
+  padding: 6px 9px;
+  border: 1px solid #ddd8d0;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.link-box input:focus {
+  border-color: #3d84d6;
 }
 
 .note.is-selected {
@@ -878,6 +915,69 @@ body.show-dates .note-date {
 .wn-close:hover {
   background: rgba(255, 255, 255, 0.14);
   opacity: 1;
+}
+
+/* Undo toast. Sits bottom-centre with a bar that depletes over the window, so
+   the time left to change your mind is visible rather than guessed at. */
+#undo-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 890;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 14px;
+  border-radius: 9px;
+  background: #2f2c27;
+  color: #f4f1ea;
+  font-size: 13px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
+  transition: opacity 0.14s, transform 0.14s;
+  overflow: hidden;
+}
+
+#undo-bar.is-open {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+#undo-btn {
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+
+#undo-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+#undo-meter {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: #7aabf0;
+  transform-origin: left center;
+}
+
+@keyframes undo-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #undo-meter { animation: none !important; }
 }
 
 #controls {

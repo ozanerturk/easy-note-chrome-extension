@@ -51,6 +51,7 @@ import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
 import { loadPrefs, getPref } from "./prefs.js";
+import { runUndo, hasPendingUndo, hideUndo } from "./undo.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
 import { PAGES } from "./db.js";
@@ -99,6 +100,12 @@ window.addEventListener("keydown", (e) => {
     selectAll();
     return;
   }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && hasPendingUndo()) {
+    e.preventDefault();
+    runUndo();
+    return;
+  }
+
   if (e.altKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {
     e.preventDefault();
     setBlurNotes(!isBlurred());
@@ -132,6 +139,7 @@ setSyncAppliedHandler(async () => {
 });
 
 setPageSwitchHandler(async (id, previous) => {
+  hideUndo(); // the offer refers to notes on the page being left
   await persistViewNow(previous); // also cancels the pending debounced save
   clearSelection();
   await showCurrentPage();
