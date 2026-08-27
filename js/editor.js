@@ -35,6 +35,7 @@ import {
   UndoRedo,
   Placeholder,
 } from "./vendor/tiptap.js";
+import { attachBubble } from "./bubble.js";
 
 export const PLACEHOLDER = "Type or paste here…";
 
@@ -68,17 +69,71 @@ const TextSize = Extension.create({
     ];
   },
 
+  addCommands() {
+    return {
+      setTextSize:
+        (size) =>
+        ({ chain }) =>
+          chain().focus().setParagraph().updateAttributes("paragraph", { size }).run(),
+
+      // One rung up or down the ladder, the way ### becomes ## becomes #.
+      stepTextSize:
+        (direction) =>
+        ({ editor, chain }) => {
+          const next = RUNGS[clampRung(rungOf(editor) + direction)];
+          return next.apply(chain().focus()).run();
+        },
+    };
+  },
+
   addKeyboardShortcuts() {
     // Chrome claims ⌘1..9 for tab switching, so these carry Alt as well.
-    const size = (value) => () =>
-      this.editor.chain().focus().setParagraph().updateAttributes("paragraph", { size: value }).run();
     return {
-      "Mod-Alt-1": size("title"),
-      "Mod-Alt-2": size("small"),
-      "Mod-Alt-0": size(null),
+      "Mod-Alt-1": () => this.editor.commands.stepTextSize(1),
+      "Mod-Alt-2": () => this.editor.commands.stepTextSize(-1),
+      "Mod-Alt-0": () => this.editor.commands.setTextSize(null),
     };
   },
 });
+
+/**
+ * The size ladder, smallest first.
+ *
+ * Two fixed sizes turned out to be two buttons that had to be learnt. A pair
+ * of steppers is the same thing anyone already knows from markdown: press it
+ * again and the text goes up another level.
+ *
+ * The lower rungs are paragraphs carrying a class, because there is no node
+ * for "smaller than body"; the upper ones are real headings. A note written
+ * before this existed holds a `t-title` paragraph, which sits on the same rung
+ * as an h2 so stepping off it goes somewhere sensible.
+ */
+const RUNGS = [
+  { id: "small", apply: (chain) => chain.setParagraph().updateAttributes("paragraph", { size: "small" }) },
+  { id: "body", apply: (chain) => chain.setParagraph().updateAttributes("paragraph", { size: null }) },
+  { id: "h3", apply: (chain) => chain.setNode("heading", { level: 3, size: null }) },
+  { id: "h2", apply: (chain) => chain.setNode("heading", { level: 2, size: null }) },
+  { id: "h1", apply: (chain) => chain.setNode("heading", { level: 1, size: null }) },
+];
+
+const HEADING_RUNG = { 3: 2, 2: 3, 1: 4 };
+
+export function rungOf(editor) {
+  for (const level of [1, 2, 3]) {
+    if (editor.isActive("heading", { level })) return HEADING_RUNG[level];
+  }
+  if (editor.isActive("heading", { level: 4 })) return 2; // only the v1 import makes these
+  const size = editor.getAttributes("paragraph").size;
+  if (size === "small") return 0;
+  if (size === "title") return 3;
+  return 1;
+}
+
+export const TOP_RUNG = RUNGS.length - 1;
+
+function clampRung(rung) {
+  return Math.max(0, Math.min(TOP_RUNG, rung));
+}
 
 const BLOCK_INSIDE = "p,div,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,pre,table,figure,img,hr";
 
@@ -215,6 +270,7 @@ export function mountEditor(body, html, { onChange, onImages }) {
     onUpdate: ({ editor: instance }) => onChange(cleanHtml(instance.getHTML())),
   });
 
+  attachBubble(editor);
   return editor;
 }
 

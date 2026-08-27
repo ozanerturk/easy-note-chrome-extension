@@ -1,6 +1,8 @@
 import { PAGES, NOTES, META, put, del, getAll, getOne } from "./db.js";
 import { notes } from "./store.js";
 
+import { duePageIds, onReminderTick } from "./reminders.js";
+
 const sidebar = document.getElementById("sidebar");
 const dragLayer = document.getElementById("drag-layer");
 const treeRoot = document.getElementById("page-tree");
@@ -405,6 +407,27 @@ export async function dropNotesAt(clientX, clientY, moveNote) {
   return true;
 }
 
+/* -------------------------------------------------------------- reminders */
+
+// A note that has come due on a page you are not looking at has no way to say
+// so. Its page says it instead.
+export function markDuePages() {
+  const due = duePageIds();
+  treeRoot.querySelectorAll("[data-page-id]").forEach((row) => {
+    const waiting = due.has(row.dataset.pageId);
+    row.classList.toggle("has-due", waiting);
+    if (!waiting) row.classList.remove("has-hopped");
+  });
+}
+
+// One hop per spell of being due, as with the notes themselves.
+treeRoot.addEventListener("animationend", (e) => {
+  if (e.animationName !== "name-wiggle") return;
+  e.target.closest(".page-row")?.classList.add("has-hopped");
+});
+
+onReminderTick(markDuePages);
+
 /* ------------------------------------------------------------------- tree */
 
 function rowFor(page, depth) {
@@ -488,6 +511,7 @@ function renderBranch(parentId, depth, container) {
 export function renderTree() {
   treeRoot.textContent = "";
   renderBranch(null, 0, treeRoot);
+  markDuePages(); // the rows were just rebuilt and know nothing yet
 }
 
 export function initPages() {

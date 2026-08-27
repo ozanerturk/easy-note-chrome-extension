@@ -163,11 +163,19 @@ export default async function run(page, s) {
 
   // Crossing something off a list is not editing, so it must not need the
   // note opened first: the closed copy carries a real checkbox and the click
-  // has only to be let through and written down.
+  // has only to be let through and written down. A note of its own, so the
+  // box is somewhere the pointer can actually reach.
   await page.key("Escape", "Escape");
   await page.settle();
+  await page.click(420, 470, 2);
+  await page.typeKeys("[] pick up the parcel");
+  await page.settle();
+  const ticker = await page.evaluate(`document.querySelector('.note.is-active').dataset.id`);
+  await page.key("Escape", "Escape");
+  await page.settle();
+
   const closedBox = await page.evaluate(`(() => {
-    const n = [...document.querySelectorAll('.note')].find((el) => el.innerHTML.includes('taskList'));
+    const n = document.querySelector('[data-id="${ticker}"]');
     const b = n.querySelector('input[type="checkbox"]');
     const r = b.getBoundingClientRect();
     return { x: r.x + r.width / 2, y: r.y + r.height / 2, at: Math.round(n.getBoundingClientRect().x),
@@ -177,14 +185,14 @@ export default async function run(page, s) {
   await page.click(closedBox.x, closedBox.y);
   await page.settle(400);
   const ticked = await page.evaluate(`(() => {
-    const n = [...document.querySelectorAll('.note')].find((el) => el.innerHTML.includes('taskList'));
+    const n = document.querySelector('[data-id="${ticker}"]');
     return { checked: n.querySelector('input[type="checkbox"]').checked,
       opened: !!n.querySelector('.tiptap'), at: Math.round(n.getBoundingClientRect().x) };
   })()`);
   check("its box can be ticked without opening it", ticked.checked === true && ticked.opened === false,
     JSON.stringify(ticked));
   check("and ticking it does not move the note", ticked.at === closedBox.at);
-  const tickSaved = (await page.stored()).find((n) => (n.html || "").includes("taskList"));
+  const tickSaved = (await page.stored()).find((n) => n.id === ticker);
   check("the tick is written down", tickSaved.html.includes('data-checked="true"'));
 
   // ⌘K asks for a link and applies it to the selection. Open the note first —

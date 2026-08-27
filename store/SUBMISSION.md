@@ -1,6 +1,6 @@
-# Chrome Web Store submission — Easy Note 3.0.0
+# Chrome Web Store submission — Easy Note 3.1.0
 
-Upload package: **`dist/easy-note-3.0.0.zip`** (built by `npm run package`).
+Upload package: **`dist/easy-note-3.1.0.zip`** (built by `npm run package`).
 
 ## Assets in this folder
 

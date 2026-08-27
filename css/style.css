@@ -357,6 +357,13 @@ body.is-resizing #sidebar {
   border-radius: 2px;
 }
 
+.search-when {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.38);
+  white-space: nowrap;
+}
+
 .search-page {
   flex: 0 0 auto;
   font-size: 11px;
@@ -460,6 +467,7 @@ body.is-resizing #sidebar {
   pointer-events: auto;
   transform: none;
 }
+
 
 .note-header:active {
   cursor: grabbing;
@@ -587,14 +595,115 @@ body.is-resizing #sidebar {
 .note-date {
   display: none;
   flex: 0 0 auto;
+  align-items: baseline;
+  gap: 8px;
   padding: 0 12px 6px;
   font-size: 10px;
   color: rgba(0, 0, 0, 0.4);
   user-select: none;
 }
 
-body.show-dates .note-date {
-  display: block;
+/* The line shows on request — and on its own once something has come due,
+   because the reminder chip is also the button that stops the wiggling. */
+body.show-dates .note-date,
+.note.is-due .note-date {
+  display: flex;
+}
+
+.note-edited {
+  display: none;
+}
+
+body.show-dates .note-edited {
+  display: inline;
+}
+
+.note-remind {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.note-remind:hover {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.note.is-due .note-remind {
+  color: #b4451f;
+  font-weight: 600;
+}
+
+/* Due, and saying so: crouch, spring, and two smaller bounces that die away.
+   It plays once — when the page opens, and again the moment a reminder comes
+   round while you are looking at it. Something repeating forever in the corner
+   of the eye is a thing you learn to ignore. */
+@keyframes note-wiggle {
+  0% { transform: translateY(0) scale(1, 1); }
+  9% { transform: translateY(0) scale(1.05, 0.92); }
+  27% { transform: translateY(-15px) scale(0.97, 1.05); }
+  45% { transform: translateY(0) scale(1.06, 0.93); }
+  59% { transform: translateY(-7px) scale(0.98, 1.03); }
+  73% { transform: translateY(0) scale(1.03, 0.97); }
+  82% { transform: translateY(-2px) scale(1, 1.01); }
+  91% { transform: translateY(0) scale(1.01, 0.99); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+.note.is-due {
+  /* Squashing from the foot, so it reads as weight on the ground. */
+  transform-origin: 50% 100%;
+  animation: note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+/* Hopped already. The class goes back on the next time it falls due. */
+.note.has-hopped {
+  animation: none;
+}
+
+/* A note being carried already has a transform of its own. And once you have
+   opened one you have plainly seen it, so it stops hopping while you are in
+   it — the reminder is still due until it is dismissed. */
+#drag-layer .note,
+.note.is-fullscreen,
+.note.is-active {
+  animation: none;
+}
+
+/* The same hop at the size of a line of text. The name is not recoloured —
+   a page that looks ordinary until it moves is quieter to sit next to, and
+   the movement is the whole message. */
+@keyframes name-wiggle {
+  0% { transform: translateY(0); }
+  14% { transform: translateY(1px); }
+  33% { transform: translateY(-5px); }
+  52% { transform: translateY(0); }
+  67% { transform: translateY(-2px); }
+  81% { transform: translateY(0); }
+  91% { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+
+/* Only pages you are not looking at hop: on the page you are on, the note is
+   already doing it. */
+.page-row.has-due:not(.is-current) .page-name {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: name-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+.page-row.has-hopped .page-name {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note.is-due,
+  .page-row.has-due:not(.is-current) .page-name {
+    animation: none;
+  }
+
+
+  .note.is-due {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 2px #b4451f;
+  }
 }
 
 /* The body holds either static markup or the editor's own root; both are the
@@ -691,10 +800,13 @@ body.show-dates .note-date {
   font-weight: 600;
 }
 
-.note-body h1 { font-size: 1.35em; }
-.note-body h2 { font-size: 1.2em; }
-.note-body h3 { font-size: 1.08em; }
-.note-body h4 { font-size: 1em; }
+/* The size ladder: small, body, h3, h2, h1, each step clearly bigger than the
+   last so a stepper button reads as one. h4 is off the ladder — only the v1
+   import produces them. */
+.note-body h1 { font-size: 1.5em; }
+.note-body h2 { font-size: 1.3em; }
+.note-body h3 { font-size: 1.15em; }
+.note-body h4 { font-size: 1.05em; }
 
 /* Checklists: the box and its line share a row rather than stacking. */
 .note-body ul[data-type="taskList"] {
@@ -932,6 +1044,113 @@ body.show-dates .note-date {
 .note.is-fullscreen .note-body {
   font-size: 15px;
   padding: 44px 26px 20px; /* clear of the bar pinned inside the card */
+}
+
+/* Over the words it acts on, and only while there are some. */
+.bubble {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+.bubble-btn {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: #423e37;
+  cursor: pointer;
+}
+
+.bubble-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.bubble-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bubble-btn.is-on {
+  background: rgba(61, 132, 214, 0.16);
+  color: #235291;
+}
+
+.bubble-btn.is-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bubble-btn.is-small {
+  font-size: 10px;
+}
+
+.bubble-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.remind-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 5px;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+.remind-item {
+  padding: 6px 9px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: #423e37;
+  text-align: left;
+  cursor: pointer;
+}
+
+.remind-item:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.remind-item.is-clear {
+  margin-top: 3px;
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 0 0 6px 6px;
+  color: #b4451f;
+}
+
+.remind-item.is-primary {
+  margin-top: 5px;
+  background: #3d84d6;
+  color: #fff;
+  text-align: center;
+}
+
+.remind-when {
+  padding: 5px 7px;
+  border: 1px solid #d5d1c9;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
 }
 
 .palette {

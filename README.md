@@ -90,6 +90,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 | Scroll / two-finger | Pan (scrolls the note you are working in) |
 | ⌘/Ctrl + scroll, pinch | Zoom at cursor, wherever it is |
 | Double-click note header | Fullscreen (Esc to exit) |
+| Click a due reminder | Dismiss it, and stop the wiggling |
 
 **Notes**
 
@@ -121,6 +122,13 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Drag notes onto a page in the sidebar to move them; the row fills in and says
   how many are coming before you let go
 - Delete a note with its × button; its images are cleaned up too
+- **Reminders** (🔔) — 15 or 40 minutes, 1, 2 or 3 hours, or a time picked by
+  hand. What a note is waiting for reads on the same line as its last-edited
+  time and hides with it. When the time passes the note wiggles, and keeps
+  wiggling across page switches and new tabs until it is dismissed, because
+  being due is worked out from the record rather than held in a timer. A note
+  that has come due on a page you are not looking at makes that page's name
+  wiggle instead. Clicking the reminder dismisses it
 - Last-edited time per note, toggled globally with 🕘 in the controls bar
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
 
@@ -136,6 +144,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
   active note
 - `js/vendor/tiptap.js` — the bundled editor library, built from
   `src/vendor/tiptap.entry.js` and committed so a clone loads as-is
+- `js/reminders.js` — when a note is due, and which pages are holding one
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
 - `js/pages.js` — page tree, switching, drag-drop of notes between pages
 - `js/search.js` — cross-page search panel

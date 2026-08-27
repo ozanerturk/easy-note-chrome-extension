@@ -1,47 +1,48 @@
-Your new tab is a notes canvas. v3 is a ground-up rewrite that keeps the two-second capture and adds room to organise.
+Reminders that tap you on the shoulder, notes you can actually write in, and a board that gets out of the way.
 
 **[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
 
-## Google Drive sync
+## Reminders
 
-Sign in with Google and your notes, pages and pasted images follow you between machines.
+Give a note a time — 15 or 40 minutes, 1, 2 or 3 hours, or one you pick — and when it comes round the note hops on the board to catch your eye.
 
-- Data lives in a **hidden per-user app folder**, so it never appears in My Drive and the extension cannot see any other file in your account.
-- **Merging is per note, not per board** — two machines editing different notes both keep their work.
-- **Deletes propagate** instead of the note reappearing from your other laptop.
+- It waits for you: being due is worked out from the note itself, so it is still hopping tomorrow morning, in a second tab, after the browser has been closed all night.
+- A note that came due on **another page** makes that page's name hop in the sidebar, so nothing goes off quietly in a folder you are not looking at.
+- Click the reminder to dismiss it. What a note is waiting for reads on the same line as its last-edited time, and hides with it.
 
-## Infinite canvas
+No permissions were added for this: a reminder is a timestamp on the note, and it syncs to Drive with everything else.
 
-Scroll to pan, ⌘/Ctrl-scroll or pinch to zoom about the cursor, and **Fit** to bring every note back on screen.
+## Notes you can write in properly
 
-## Pages
+The editor is now built on Tiptap, and formatting is something you type rather than hunt for.
 
-A sidebar tree, nested as deep as you like. Drag notes onto a page to move them — the whole selection travels. Each page remembers its own pan and zoom.
+- `- ` starts a bullet list, `1. ` a numbered one, `[] ` a checkbox you can tick, `# ` a heading, `> ` a quote.
+- Type a bare address and it becomes a link as you pass it.
+- **Select any text** and a small bar appears over it: bold, italic, underline, strikethrough, links, bullet lists, checkboxes, and a pair of buttons that step the text up and down through the sizes.
+- Checkboxes can be ticked on a closed note. Crossing something off a list is not editing.
+- ⌘Z undoes inside the note you are writing in, and on the board it brings back a deleted note.
 
-## Lock notes
+Everything written in earlier versions comes across unchanged — headings, lists, links, emphasis, colours and pasted images all survive being opened.
 
-Locks a note against deletion while leaving it movable and editable.
+## A quieter board
+
+- Notes start with **no fill at all** — just text on the canvas — with eighteen colours when one would help.
+- A note's buttons live in a small bar above it, and only while you are working in that note. Nothing else on the board wears any chrome.
+- Drag a note from anywhere on it. Hold ⌘/Ctrl while dragging to step it along the grid.
+- Leave a note empty and it clears itself away.
+- **Lock** now pins a note where it is as well as guarding it from deletion.
+
+## Paste straight onto the board
+
+Copy anything, press ⌘V on empty canvas, and it becomes a note where your cursor is — text, links and images alike. Ctrl+P does the same without the paste.
 
 ## Also
 
-- Multi-select with align, distribute and grid
-- Search across every page; an empty box lists your five most recent notes
-- Paste text (cleaned of foreign styling) and images (stored as real blobs, not base64)
-- Per-note colours, fullscreen editing, and optional last-edited times
-
-## Upgrading from v1
-
-Notes from the published v1 are **imported automatically on first run**, keeping headings, lists, links, bold, italic, underline, strikethrough and note colours.
-
-v1's database is opened **read-only and never modified**, so rolling back loses nothing. Verified against the real published extension rather than against its source — see [`docs/MIGRATION.md`](docs/MIGRATION.md).
-
-## Known limits
-
-- Sync compares wall-clock timestamps, so a badly wrong clock can win a conflict it shouldn't.
-- Two devices syncing within the same few seconds can drop one update.
-- Sync runs every couple of minutes and on demand. It is built for one person across several machines, not live collaboration.
+- Zoom and pan now work with the cursor over a note, not just over empty canvas.
+- Dragging notes onto a page fills the row in, so you can see where they are about to land.
+- Recent notes in the search panel show when they were last edited.
+- Deleting a note offers an undo for a few seconds.
 
 ---
 
-The previous published version is preserved at the [`v1.3.1-published`](https://github.com/ozanerturk/easy-note-chrome-extension/tree/v1.3.1-published) tag.
 [Privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html) · [Chrome Web Store](https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef)

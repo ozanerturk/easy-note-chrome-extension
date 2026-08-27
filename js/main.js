@@ -48,6 +48,7 @@ import {
   currentPageId,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
+import { initReminders, loadReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
@@ -67,6 +68,8 @@ async function showCurrentPage() {
   const records = adoptOrphans(await getAll(NOTES));
   notesOnCurrentPage(records).forEach(loadNote);
   updateHint();
+  // Whatever came due while this page was not on screen starts wiggling now.
+  await loadReminders();
 }
 
 /* --------------------------------------------------------------- canvas */
@@ -211,6 +214,7 @@ document.getElementById("toggle-blur").addEventListener("click", () => {
 initPanZoom();
 initSelection();
 initPages();
+initReminders();
 initSearch();
 initSyncUI();
 

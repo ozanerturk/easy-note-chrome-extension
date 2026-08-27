@@ -1,4 +1,5 @@
 import { NOTES, getAll } from "./db.js";
+import { whenLabel } from "./note.js";
 import { pages, currentPageId } from "./pages.js";
 
 const panel = document.getElementById("search");
@@ -84,7 +85,13 @@ function paint(query) {
     page.className = "search-page";
     page.textContent = pages.get(m.pageId)?.name || "";
 
-    row.append(swatch, text, page);
+    // The same wording as the line under a note, so "3h ago" means the same
+    // thing wherever it is read.
+    const when = document.createElement("span");
+    when.className = "search-when";
+    when.textContent = m.when;
+
+    row.append(swatch, text, page, when);
     row.addEventListener("click", () => choose(i));
     results.appendChild(row);
   });
@@ -110,6 +117,7 @@ async function run(query) {
       color: r.color,
       text: plainText(r.html),
       at: r.editedAt || r.updatedAt || 0,
+      when: whenLabel(r),
     }))
     .filter((r) => r.text);
 

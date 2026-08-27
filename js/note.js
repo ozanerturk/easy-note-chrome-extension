@@ -14,6 +14,15 @@ import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
 import { linkifyText, promptForLink } from "./richtext.js";
 import { mountEditor, insertImage, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
+import {
+  PRESETS,
+  isDue,
+  remindLabel,
+  trackReminder,
+  onReminderTick,
+  defaultCustomTime,
+  loadReminders,
+} from "./reminders.js";
 
 // No fill is the default: a new note is just text on the canvas, and colour
 // is something you reach for when you want it to mean something.
@@ -122,6 +131,11 @@ function saveNote(note) {
   put(NOTES, note).catch(() => {});
 }
 
+/** The same wording the line under a note uses. */
+export function whenLabel(note) {
+  return formatDate(timestampOf(note));
+}
+
 function formatDate(ts) {
   if (!ts) return "";
   const diff = Date.now() - ts;
@@ -187,7 +201,7 @@ export function setBlurNotes(value, persist = true) {
 }
 
 function refreshDate(note, el) {
-  const footer = el.querySelector(".note-date");
+  const footer = el.querySelector(".note-edited");
   if (footer) footer.textContent = formatDate(timestampOf(note));
 }
 
@@ -293,6 +307,137 @@ document.addEventListener("pointerdown", (e) => {
   }
 });
 
+/* ------------------------------------------------------------- reminders */
+
+let openMenu = null;
+
+function closeReminderMenu() {
+  if (!openMenu) return;
+  openMenu.remove();
+  openMenu = null;
+}
+
+function setReminder(note, el, at) {
+  if (at) note.remindAt = at;
+  else delete note.remindAt;
+  saveNote(note); // a reminder is not an edit, so editedAt stays put
+  trackReminder(note);
+  refreshReminder(note, el);
+}
+
+function place(popover, anchor) {
+  const rect = anchor.getBoundingClientRect();
+  popover.style.left = `${rect.left}px`;
+  popover.style.top = `${rect.bottom + 6}px`;
+  document.body.appendChild(popover);
+  requestAnimationFrame(() => {
+    const box = popover.getBoundingClientRect();
+    if (box.right > window.innerWidth - 8) {
+      popover.style.left = `${window.innerWidth - box.width - 8}px`;
+    }
+    if (box.bottom > window.innerHeight - 8) {
+      popover.style.top = `${Math.max(8, rect.top - box.height - 6)}px`;
+    }
+  });
+}
+
+function showReminderMenu(anchor, note, el) {
+  closeReminderMenu();
+  const menu = document.createElement("div");
+  menu.className = "remind-menu";
+
+  const row = (label, onPick, className = "") => {
+    const item = document.createElement("button");
+    item.className = `remind-item ${className}`.trim();
+    item.textContent = label;
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onPick();
+    });
+    menu.appendChild(item);
+    return item;
+  };
+
+  PRESETS.forEach((preset) =>
+    row(preset.label, () => {
+      setReminder(note, el, Date.now() + preset.ms);
+      closeReminderMenu();
+    })
+  );
+
+  row("Pick a time…", () => {
+    menu.textContent = "";
+    const input = document.createElement("input");
+    input.type = "datetime-local";
+    input.className = "remind-when";
+    input.value = defaultCustomTime();
+    const set = document.createElement("button");
+    set.className = "remind-item is-primary";
+    set.textContent = "Set reminder";
+    const apply = () => {
+      const at = new Date(input.value).getTime();
+      if (Number.isFinite(at)) setReminder(note, el, at);
+      closeReminderMenu();
+    };
+    set.addEventListener("click", (e) => {
+      e.stopPropagation();
+      apply();
+    });
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") apply();
+      if (e.key === "Escape") closeReminderMenu();
+    });
+    menu.append(input, set);
+    input.focus();
+  });
+
+  if (note.remindAt) {
+    row(
+      "Clear reminder",
+      () => {
+        setReminder(note, el, null);
+        closeReminderMenu();
+      },
+      "is-clear"
+    );
+  }
+
+  place(menu, anchor);
+  openMenu = menu;
+}
+
+document.addEventListener("pointerdown", (e) => {
+  if (openMenu && !e.target.closest(".remind-menu") && !e.target.closest(".note-btn-remind")) {
+    closeReminderMenu();
+  }
+});
+
+// Both halves of the line under a note: when it was last touched, and what it
+// is waiting for.
+function refreshReminder(note, el) {
+  const chip = el.querySelector(".note-remind");
+  if (!chip) return;
+  const due = isDue(note);
+  el.classList.toggle("is-due", due);
+  // The hop runs once. Falling due again — a new reminder, a fresh render —
+  // is what earns another one.
+  if (!due) el.classList.remove("has-hopped");
+  chip.hidden = !note.remindAt;
+  chip.textContent = note.remindAt ? `🔔 ${remindLabel(note.remindAt)}` : "";
+  chip.title = due
+    ? "Reminder due — click to dismiss"
+    : note.remindAt
+      ? `Reminder ${remindLabel(note.remindAt)} — click to dismiss`
+      : "";
+}
+
+export function refreshAllReminders() {
+  notes.forEach(({ note, el }) => refreshReminder(note, el));
+}
+
+onReminderTick(refreshAllReminders);
+
 /* -------------------------------------------------------------- fullscreen */
 
 export function isFullscreen() {
@@ -339,6 +484,7 @@ overlay.addEventListener("pointerdown", (e) => {
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (openPalette) return closePalette();
+  if (openMenu) return closeReminderMenu();
   if (fullscreenEntry) return exitFullscreen();
   clearActiveNote(); // step out of the note you were writing in
 });
@@ -395,6 +541,7 @@ export function deleteNote(note, el, { silent = false } = {}) {
   note.deletedAt = Date.now();
   note.updatedAt = Date.now();
   put(NOTES, note).catch(() => {});
+  trackReminder(note);
 
   updateHint();
   if (!silent) rememberForUndo(note);
@@ -614,6 +761,11 @@ export function renderNote(note) {
   colorBtn.textContent = "◑";
   colorBtn.title = "Change colour";
 
+  const remindBtn = document.createElement("button");
+  remindBtn.className = "note-btn note-btn-remind";
+  remindBtn.textContent = "🔔";
+  remindBtn.title = "Remind me about this";
+
   const expandBtn = document.createElement("button");
   expandBtn.className = "note-btn note-btn-expand";
   expandBtn.textContent = "⤢";
@@ -623,7 +775,7 @@ export function renderNote(note) {
   closeBtn.className = "note-btn note-btn-close";
   closeBtn.textContent = "×";
 
-  left.append(lockBtn, colorBtn, expandBtn);
+  left.append(lockBtn, colorBtn, remindBtn, expandBtn);
   header.append(left, closeBtn);
 
   const grip = document.createElement("div");
@@ -637,9 +789,20 @@ export function renderNote(note) {
   body.innerHTML = note.html || "";
   hydrateImages(body);
 
+  // One line under the note, carrying two separate things: when it was last
+  // written in, and what it is waiting for.
   const date = document.createElement("div");
   date.className = "note-date";
-  date.textContent = formatDate(timestampOf(note));
+
+  const edited = document.createElement("span");
+  edited.className = "note-edited";
+  edited.textContent = formatDate(timestampOf(note));
+
+  const remind = document.createElement("span");
+  remind.className = "note-remind";
+  remind.hidden = true;
+
+  date.append(edited, remind);
 
   el.append(header, body, date, grip);
   world.appendChild(el);
@@ -679,6 +842,10 @@ export function renderNote(note) {
 
   body.addEventListener("pointerdown", () => bringToFront(note, el));
 
+  el.addEventListener("animationend", (e) => {
+    if (e.animationName === "note-wiggle") el.classList.add("has-hopped");
+  });
+
   lockBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     note.locked = !note.locked;
@@ -689,6 +856,20 @@ export function renderNote(note) {
   colorBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     showPalette(colorBtn, note, el);
+  });
+
+  remindBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showReminderMenu(remindBtn, note, el);
+  });
+
+  // The chip is the dismiss button. A note that has started wiggling shows one
+  // whether or not the dates are on, so there is always something to press to
+  // make it stop.
+  remind.addEventListener("pointerdown", (e) => e.stopPropagation());
+  remind.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setReminder(note, el, null);
   });
 
   expandBtn.addEventListener("click", (e) => {
@@ -728,6 +909,7 @@ export function renderNote(note) {
   body.addEventListener("focusin", () => setActiveNote(note.id));
 
   applyColor(note, el);
+  refreshReminder(note, el);
   makeDraggable(el, note);
   makeResizable(el, note, grip);
   el.__observer = observeResize(el, note);
@@ -877,7 +1059,8 @@ function makeDraggable(el, note) {
       dropNotesAt(upEvent.clientX, upEvent.clientY, detachNote).then((changed) => {
         if (changed) {
           updateHint();
-          return; // the notes now live on another page
+          loadReminders(); // they are another page's business now
+          return;
         }
         if (lifted) returnToWorld(anchored);
         anchored.forEach((entry) => saveNote(entry.note));

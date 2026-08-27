@@ -1,6 +1,6 @@
 {
   "name": "easy-note",
-  "version": "0.1.0",
+  "version": "3.1.0",
   "description": "Chrome extension for freeform note-taking",
   "scripts": {
     "dev": "node scripts/dev.js",
