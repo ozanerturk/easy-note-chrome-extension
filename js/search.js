@@ -70,7 +70,9 @@ function paint(query) {
 
     const swatch = document.createElement("span");
     swatch.className = "search-swatch";
-    swatch.style.background = m.color || "#eee";
+    // An unfilled note has no colour to show; a blank swatch would just look
+    // like a rendering fault.
+    swatch.style.background = m.color && m.color !== "transparent" ? m.color : "#eee";
 
     const text = document.createElement("span");
     text.className = "search-text";

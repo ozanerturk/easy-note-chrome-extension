@@ -3,7 +3,7 @@ import { currentPageId } from "./pages.js";
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 4;
-const GRID = 24;
+export const GRID = 24;
 const PAN_THRESHOLD = 3;
 const PAN_CLICK_GRACE = 300;
 
@@ -184,18 +184,25 @@ export function initPanZoom() {
   canvas.addEventListener(
     "wheel",
     (e) => {
-      // Let a scrollable note body keep its own scrolling.
+      // Zooming is about the board, never about what the cursor happens to be
+      // resting on, so it always wins.
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.006));
+        return;
+      }
+
+      // A note only takes the wheel for its own scrolling while you are
+      // working in it. Over any other note the wheel pans the board — the
+      // cursor is simply somewhere on the way to where you are going.
       const body = e.target.closest(".note-body");
-      if (body && body.scrollHeight > body.clientHeight) return;
+      const inside = body && body.closest(".note")?.classList.contains("is-active");
+      if (inside && body.scrollHeight > body.clientHeight) return;
 
       e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
-        zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.006));
-      } else {
-        view.x -= e.deltaX;
-        view.y -= e.deltaY;
-        applyView();
-      }
+      view.x -= e.deltaX;
+      view.y -= e.deltaY;
+      applyView();
     },
     { passive: false }
   );

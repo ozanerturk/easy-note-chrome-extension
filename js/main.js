@@ -24,6 +24,8 @@ import {
   activateNote,
   setBlurNotes,
   isBlurred,
+  clearActiveNote,
+  createNoteWithContent,
 } from "./note.js";
 import {
   initSelection,
@@ -70,14 +72,27 @@ async function showCurrentPage() {
 /* --------------------------------------------------------------- canvas */
 
 canvas.addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".note")) return;
-  // Middle mouse or space+drag pans; a plain left drag draws a marquee.
+  // Middle mouse or space+drag pans. A pan has to work wherever the cursor is,
+  // notes included, or the board locks up under a crowded canvas.
   if (e.button === 1 || isPanGesture(e)) {
     e.preventDefault();
     beginPan(e);
-  } else if (e.button === 0) {
-    beginMarquee(e);
+    return;
   }
+  if (e.target.closest(".note")) return;
+  clearActiveNote(); // the empty canvas is nobody's note
+  if (e.button === 0) beginMarquee(e); // a plain left drag draws a marquee
+});
+
+// Chrome answers a mousedown on the bare canvas by hunting for the nearest
+// selectable text — which is the note you just left. It restores a selection
+// there and hands focus back with it, so the note springs straight back to
+// life. There is nothing out here to select; the marquee does that job.
+canvas.addEventListener("selectstart", (e) => {
+  // The target can be a text node, which has no closest().
+  const node = e.target;
+  const from = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+  if (!from || !from.closest(".note")) e.preventDefault();
 });
 
 canvas.addEventListener("dblclick", (e) => {
@@ -85,6 +100,74 @@ canvas.addEventListener("dblclick", (e) => {
   if (didJustPan() || isMarqueeActive()) return;
   const { x, y } = screenToWorld(e.clientX, e.clientY);
   createNote(x, y);
+});
+
+/* ------------------------------------------------------------- clipboard */
+
+// Where a pasted note lands. The pointer if it has been over the canvas,
+// otherwise the middle of the view.
+let lastPointer = null;
+canvas.addEventListener("pointermove", (e) => {
+  lastPointer = { x: e.clientX, y: e.clientY };
+});
+
+function pasteOrigin() {
+  const rect = canvas.getBoundingClientRect();
+  const at = lastPointer || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  return screenToWorld(at.x, at.y);
+}
+
+// A paste with no note focused makes a note of what was pasted, where the
+// cursor is. This path costs no permission at all: the event carries the
+// clipboard with it.
+document.addEventListener("paste", (e) => {
+  if (isEditing() || isFullscreen()) return;
+  const data = e.clipboardData;
+  if (!data) return;
+
+  const blobs = [...data.items]
+    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+  const html = data.getData("text/html");
+  const text = data.getData("text/plain");
+  if (!blobs.length && !html && !text) return;
+
+  e.preventDefault();
+  const { x, y } = pasteOrigin();
+  createNoteWithContent(x, y, { html, text, blobs });
+});
+
+// Ctrl+P does the same without the paste gesture, by asking for the clipboard
+// directly. Chrome puts its own one-time prompt in front of that; if it is
+// refused, an empty note still opens at the cursor to paste into by hand.
+async function readClipboard() {
+  if (!navigator.clipboard || !navigator.clipboard.read) return null;
+  try {
+    const items = await navigator.clipboard.read();
+    const out = { html: "", text: "", blobs: [] };
+    for (const item of items) {
+      const image = item.types.find((t) => t.startsWith("image/"));
+      if (image) out.blobs.push(await item.getType(image));
+      if (item.types.includes("text/html")) out.html = await (await item.getType("text/html")).text();
+      if (item.types.includes("text/plain")) out.text = await (await item.getType("text/plain")).text();
+    }
+    return out;
+  } catch (err) {
+    return null; // no permission, or nothing readable on the clipboard
+  }
+}
+
+window.addEventListener("keydown", async (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "p") return;
+  e.preventDefault(); // and no print dialog
+  const { x, y } = pasteOrigin();
+  const content = await readClipboard();
+  if (content && (content.html || content.text || content.blobs.length)) {
+    createNoteWithContent(x, y, content);
+  } else {
+    createNote(x, y);
+  }
 });
 
 window.addEventListener("keydown", (e) => {
@@ -112,7 +195,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
-  if (e.key === "Escape") clearSelection();
+  if (e.key === "Escape") clearSelection(); // note.js owns deactivating
 });
 
 document.getElementById("toggle-dates").addEventListener("click", () => {
@@ -139,6 +222,7 @@ setSyncAppliedHandler(async () => {
 });
 
 setPageSwitchHandler(async (id, previous) => {
+  clearActiveNote(); // leaving the page counts as leaving the note
   hideUndo(); // the offer refers to notes on the page being left
   await persistViewNow(previous); // also cancels the pending debounced save
   clearSelection();

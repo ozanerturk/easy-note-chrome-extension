@@ -72,7 +72,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 **Selecting and arranging**
 
 - Left-drag empty canvas to marquee-select; click a note to select it
-- Shift / ⌘ click to add or remove a note from the selection
+- Shift-click to add or remove a note from the selection
 - ⌘A selects all, Esc clears, Delete removes the selection (locked notes survive)
 - Dragging any selected note moves the whole group
 - With 2+ selected, a toolbar offers align (left/centre/right, top/middle/bottom),
@@ -81,23 +81,45 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 | Gesture | Action |
 | --- | --- |
 | Double-click empty canvas | New note |
+| ⌘/Ctrl + V on the canvas | New note holding the clipboard, at the cursor |
+| ⌘/Ctrl + P | The same, without the paste gesture |
 | Left-drag empty canvas | Marquee select |
-| Space + drag, middle-drag | Pan |
-| Scroll / two-finger | Pan |
-| ⌘/Ctrl + scroll, pinch | Zoom at cursor |
+| Drag a note | Move it — from anywhere on an idle note |
+| ⌘/Ctrl + drag a note | Move it in 24px steps, along the grid |
+| Space + drag, middle-drag | Pan, from anywhere including over a note |
+| Scroll / two-finger | Pan (scrolls the note you are working in) |
+| ⌘/Ctrl + scroll, pinch | Zoom at cursor, wherever it is |
 | Double-click note header | Fullscreen (Esc to exit) |
 
 **Notes**
 
 - Double-click empty canvas to create a note
-- Drag notes by their header, resize from the corner
-- Header controls appear only on hover, so the canvas stays clean
-- **Lock** (🔒) guards a note from deletion — it can still be moved and resized
-- **Colour** (◑) switches between eight palette colours
+- Drag a note from anywhere on it, resize from the corner
+- Clicking a note makes it active: its header appears and the caret lands where
+  you clicked. Only the active note shows one, so the canvas stays clean. Esc,
+  or a click on empty canvas, steps back out
+- A drag inside the active note's body selects text — its header is the handle
+- The header is a popover above the active note, in the note's own colour, so
+  it costs the body no room and hides the text of nothing
+- Empty a note and leave it and it removes itself
+- **Lock** (🔒) pins a note where it is and guards it from deletion, including
+  from a bulk delete and from a group drag or an align that moves its
+  neighbours. It can still be resized and edited
+- **Colour** (◑) opens an 18-swatch palette; notes start with no fill
 - **Fullscreen** (⤢, or double-click the header) expands a note; Esc or a
   backdrop click restores it to its exact previous position and size
-- Paste text (inserted as plain text, so foreign markup and styling never leak in)
+- Type to format, with no toolbar in the way: `- ` starts a bullet list, `1. `
+  a numbered one, `[] ` a checkbox, `# ` a heading, `> ` a quote, and a bare
+  address becomes a link as you pass it
+- ⌘B / ⌘I / ⌘U / ⌘⇧S for emphasis, ⌘K for a link, ⌘⌥1 / ⌘⌥2 / ⌘⌥0 for the three
+  text sizes, ⌘Z / ⌘⇧Z to undo within the note
+- Paste text (links survive; fonts and colours from the source do not)
 - Paste images — stored as real Blobs in IndexedDB and referenced by id, not inlined as base64
+- Paste with no note focused and the clipboard becomes a new note at the cursor.
+  ⌘/Ctrl+P does the same by reading the clipboard directly — Chrome asks for
+  permission the first time, and an empty note opens at the cursor if refused
+- Drag notes onto a page in the sidebar to move them; the row fills in and says
+  how many are coming before you let go
 - Delete a note with its × button; its images are cleaned up too
 - Last-edited time per note, toggled globally with 🕘 in the controls bar
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
@@ -109,7 +131,11 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - `js/boot.js` — render-blocking; applies the sidebar state before first paint
 - `js/db.js` — IndexedDB open/upgrade plus small promise helpers
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
-- `js/note.js` — note rendering, drag, resize, paste, lock, colour, fullscreen, dates
+- `js/note.js` — note rendering, drag, resize, lock, colour, fullscreen, dates
+- `js/editor.js` — the editor: schema, input rules, and mounting it on the
+  active note
+- `js/vendor/tiptap.js` — the bundled editor library, built from
+  `src/vendor/tiptap.entry.js` and committed so a clone loads as-is
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
 - `js/pages.js` — page tree, switching, drag-drop of notes between pages
 - `js/search.js` — cross-page search panel
@@ -118,8 +144,50 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - `js/store.js` — the live `id -> {note, el}` map, shared to avoid an import cycle
 - `js/main.js` — wiring and boot
 - `scripts/dev.js` — launches Chrome for Testing with the extension loaded
+- `test/delta.test.mjs` — unit tests for the v1 Delta → HTML conversion
+- `test/ui/` — the interaction suite, driven through the DevTools protocol
 
-Loaded as ES modules (`<script type="module">`), so there is still no build step.
+Everything Easy Note writes is loaded as plain ES modules
+(`<script type="module">`) — no compiling, no source maps to chase. The one
+exception is `js/vendor/tiptap.js`: MV3's `script-src 'self'` forbids loading
+anything from a CDN, and ProseMirror ships bare imports a browser cannot
+resolve, so it is bundled with esbuild:
+
+```
+npm run build     # src/vendor/tiptap.entry.js -> js/vendor/tiptap.js
+```
+
+The output is committed, so `chrome://extensions` → "Load unpacked" works
+straight from a clone. `npm run package` rebuilds it first, so a release can
+never ship a stale one.
+
+### The editor
+
+One ProseMirror view per note would not survive an infinite canvas, and it does
+not have to: only one note is ever active. The editor is mounted on that note
+and destroyed when it is left, so a board of 500 notes holds 500 pieces of
+static HTML and at most one editor.
+
+Notes are stored as HTML, which is what the editor reads and writes, so the
+storage format did not change. The risk with a schema is what it drops: markup
+it cannot model disappears the first time a note is opened. Two extensions
+exist purely to stop that — a paragraph rule that also matches `div`, because
+every note written before the editor is a stack of them, and an image rule that
+matches `img[data-img-id]`, because the src is a per-session blob URL that is
+stripped before saving. `test/ui/editor.test.mjs` opens samples of both the v1
+import and the old contenteditable and checks nothing was lost.
+
+## Tests
+
+```
+npm test        # pure functions: the v1 Delta converter
+npm run test:ui # real Chrome, real pointer input: notes, navigation, pages, clipboard
+```
+
+The UI suite drives the extension over CDP with trusted input events, because
+synthetic ones lie: `el.click()` skips the compatibility-event path that once
+hid a delete button that never fired. It needs Chrome for Testing, the same
+build `npm run dev` uses.
 
 ### Coordinates
 

@@ -77,8 +77,17 @@ body.is-resizing #sidebar {
   transform: translateX(-100%);
 }
 
-#sidebar.is-drop-target {
-  box-shadow: inset -3px 0 0 #3d84d6;
+/* The page about to receive the notes. The row filling in is the whole
+   signal — the panel itself stays as it was. */
+.page-row.is-note-drop {
+  background: #3d84d6;
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-row.is-note-drop .page-action,
+.page-row.is-note-drop .page-twisty {
+  display: none;
 }
 
 #sidebar-head {
@@ -415,22 +424,103 @@ body.is-resizing #sidebar {
   flex-direction: column;
   border-radius: 6px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  resize: both;
+  /* Visible, so the header can float clear of the note. The body does its own
+     clipping, and the resize grip below replaces the CSS resizer that
+     overflow:hidden was the price of. */
+  overflow: visible;
 }
 
+/* The header is a popover, not a strip of the note: it costs the body no
+   room, floats just above the active note, and covers none of its text. It
+   doubles as the drag handle once the body belongs to the caret. */
 .note-header {
-  height: 22px;
-  flex: 0 0 auto;
-  cursor: grab;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px;
-  background: rgba(0, 0, 0, 0.06);
+  padding: 0 5px;
+  border-radius: 7px;
+  /* The note's own colour, so the popover reads as part of it rather than as
+     a piece of browser chrome parked on top. */
+  background: var(--note-surface, #fcfbf8);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.note.is-active > .note-header {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
 }
 
 .note-header:active {
+  cursor: grabbing;
+}
+
+/* Fullscreen has room to spare, so the bar tucks inside the card rather than
+   hanging off the top of the screen. */
+.note.is-fullscreen > .note-header {
+  top: 10px;
+  bottom: auto;
+  left: 10px;
+  right: 10px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+/* Resizing, now that the note cannot use the CSS resizer. */
+.note-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.note-grip::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+  border-bottom-right-radius: 3px;
+}
+
+.note:hover > .note-grip,
+.note.is-active > .note-grip {
+  opacity: 1;
+}
+
+.note.is-fullscreen > .note-grip,
+#drag-layer .note-grip {
+  display: none;
+}
+
+/* An idle note is a handle everywhere; once active, the body is text again. */
+.note:not(.is-active) {
+  cursor: grab;
+}
+
+.note:not(.is-active) .note-body {
+  cursor: inherit;
+}
+
+.note:not(.is-active):active {
   cursor: grabbing;
 }
 
@@ -438,22 +528,6 @@ body.is-resizing #sidebar {
   display: flex;
   align-items: center;
   gap: 1px;
-}
-
-/* Keep headers clean: controls only appear on hover (or while editing, so
-   they stay reachable without the mouse). The locked ring is the one piece
-   of state that stays visible on its own. */
-.note-header .note-btn {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s;
-}
-
-.note:hover .note-header .note-btn,
-.note:has(.note-body:focus) .note-header .note-btn,
-.note.is-fullscreen .note-header .note-btn {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .note-btn {
@@ -487,9 +561,27 @@ body.is-resizing #sidebar {
   background: transparent;
 }
 
-/* Locked notes still move and resize — the lock only guards deletion. */
+/* A note with no fill casts no shadow — there is nothing there to cast one,
+   and it looked like a smudge on the canvas. It shows its edge only when you
+   are near it, so an unfilled note is just text sitting on the board. */
+.note.is-clear {
+  box-shadow: none;
+}
+
+.note.is-clear:hover,
+.note.is-clear.is-active {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.09);
+}
+
+/* A locked note is pinned: it cannot be dragged or deleted. Resizing is still
+   allowed — the lock is about where it is, not how big. */
 .note.is-locked {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 1.5px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+.note.is-clear.is-locked,
+.note.is-clear.is-locked:hover {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16);
 }
 
 .note-date {
@@ -505,16 +597,41 @@ body.show-dates .note-date {
   display: block;
 }
 
+/* The body holds either static markup or the editor's own root; both are the
+   same tree, so nothing shifts when a note is opened. */
 .note-body {
   flex: 1 1 auto;
+  /* A flex item will not shrink below its content unless told to, and since
+     the note stopped hiding its overflow that let long notes spill out over
+     the canvas instead of scrolling inside. */
+  min-height: 0;
   padding: 10px 12px;
   outline: none;
   overflow: auto;
   font-size: 14px;
   line-height: 1.4;
+  /* ProseMirror needs this to place a caret correctly, and it is what keeps
+     the spacing of notes written before the editor existed. */
   white-space: pre-wrap;
   word-break: break-word;
   cursor: text;
+}
+
+.note-body .tiptap {
+  outline: none;
+  min-height: 100%;
+}
+
+.note-body p {
+  margin: 0;
+}
+
+.note-body p + p,
+.note-body p + ul,
+.note-body p + ol,
+.note-body ul + p,
+.note-body ol + p {
+  margin-top: 4px;
 }
 
 /* Privacy blur, for screen sharing. Note content and anything that echoes it
@@ -544,9 +661,13 @@ body.show-dates .note-date {
   background: rgba(198, 40, 40, 0.14);
 }
 
-.note-body.is-empty::before {
+/* The editor marks the empty node it is sitting in; the placeholder floats
+   over it without taking a line of its own. */
+.note-body .is-empty::before {
   content: attr(data-placeholder);
   color: rgba(0, 0, 0, 0.35);
+  float: left;
+  height: 0;
   pointer-events: none;
 }
 
@@ -574,6 +695,40 @@ body.show-dates .note-date {
 .note-body h2 { font-size: 1.2em; }
 .note-body h3 { font-size: 1.08em; }
 .note-body h4 { font-size: 1em; }
+
+/* Checklists: the box and its line share a row rather than stacking. */
+.note-body ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 2px;
+}
+
+.note-body ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.note-body ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  user-select: none;
+  /* Tickable on any note, open or not. */
+  cursor: pointer;
+}
+
+.note-body input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.note-body ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.note-body ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: rgba(0, 0, 0, 0.42);
+  text-decoration: line-through;
+}
 
 .note-body ul,
 .note-body ol {
@@ -641,8 +796,9 @@ body.show-dates .note-date {
   border-color: #3d84d6;
 }
 
+/* Enough to pick out what is selected, not enough to shout about it. */
 .note.is-selected {
-  outline: 2px solid #3d84d6;
+  outline: 1px solid rgba(61, 132, 214, 0.55);
   outline-offset: 1px;
 }
 
@@ -727,11 +883,26 @@ body.show-dates .note-date {
   pointer-events: none;
 }
 
+/* Everything inside a note being dragged has to be see-through to hit-testing,
+   not just the note: the header sets pointer-events itself, and while it was
+   the thing under the cursor the drop landed on the header rather than on the
+   page row beneath it. */
+#drag-layer .note,
+#drag-layer .note * {
+  pointer-events: none;
+}
+
 #drag-layer .note {
   transform-origin: 0 0;
-  pointer-events: none;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
-  resize: none;
+  transition: opacity 0.12s;
+}
+
+/* Over the sidebar the note is the thing in the way: it is wider than the
+   panel and hides the page it is being carried to. Let the list show
+   through — the row lighting up underneath is the part that matters. */
+#drag-layer.is-over-sidebar .note {
+  opacity: 0.25;
 }
 
 /* Fullscreen host. #world is transformed, which would make position:fixed
@@ -754,21 +925,20 @@ body.show-dates .note-date {
   width: auto !important;
   height: auto !important;
   min-width: 0;
-  resize: none;
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 .note.is-fullscreen .note-body {
   font-size: 15px;
-  padding: 20px 26px;
+  padding: 44px 26px 20px; /* clear of the bar pinned inside the card */
 }
 
 .palette {
   position: fixed;
   z-index: 1000;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 5px;
   padding: 7px;
   border-radius: 8px;
@@ -783,6 +953,15 @@ body.show-dates .note-date {
   border-radius: 50%;
   cursor: pointer;
   padding: 0;
+}
+
+/* No fill, drawn the way every image editor draws it. */
+.palette-dot.is-clear {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #d8d4cc 25%, transparent 25%, transparent 75%, #d8d4cc 75%),
+    linear-gradient(45deg, #d8d4cc 25%, transparent 25%, transparent 75%, #d8d4cc 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
 }
 
 .palette-dot.is-current {

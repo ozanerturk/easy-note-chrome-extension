@@ -2,6 +2,7 @@ import { PAGES, NOTES, META, put, del, getAll, getOne } from "./db.js";
 import { notes } from "./store.js";
 
 const sidebar = document.getElementById("sidebar");
+const dragLayer = document.getElementById("drag-layer");
 const treeRoot = document.getElementById("page-tree");
 
 export const pages = new Map(); // id -> page record
@@ -338,9 +339,40 @@ export async function movePage(dragId, targetId, mode) {
 
 /* ------------------------------------------------- notes dropped on a page */
 
+// Dropping notes on a page is invisible unless the sidebar says so, and the
+// row under the cursor filling in says it without decorating the panel.
+let noteDropRow = null;
+
+function markNoteDropRow(row) {
+  if (noteDropRow === row) return;
+  if (noteDropRow) noteDropRow.classList.remove("is-note-drop");
+  noteDropRow = row;
+  if (noteDropRow) noteDropRow.classList.add("is-note-drop");
+}
+
+function onNoteDragMove(e) {
+  if (!dragNoteIds) return;
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const row = under?.closest("[data-page-id]");
+  // The page they are already on cannot receive them, so it must not look
+  // like it can.
+  markNoteDropRow(row && row.dataset.pageId !== currentPageId ? row : null);
+  // A note is wider than the sidebar, so carrying one over it hides the very
+  // list being aimed at — including the row lighting up underneath. Fade the
+  // note out of the way while it is over the panel.
+  dragLayer.classList.toggle("is-over-sidebar", !!under?.closest("#sidebar"));
+}
+
 export function setDraggedNotes(ids) {
   dragNoteIds = ids && ids.length ? ids : null;
   sidebar.classList.toggle("is-drop-target", !!dragNoteIds);
+  if (dragNoteIds) {
+    window.addEventListener("pointermove", onNoteDragMove);
+  } else {
+    window.removeEventListener("pointermove", onNoteDragMove);
+    markNoteDropRow(null);
+    dragLayer.classList.remove("is-over-sidebar");
+  }
 }
 
 export function draggingNotes() {

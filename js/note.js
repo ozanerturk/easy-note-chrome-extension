@@ -1,5 +1,5 @@
 import { NOTES, IMAGES, META, put, del, delMany, getOne, getAll } from "./db.js";
-import { view, world, canvas } from "./view.js";
+import { view, world, canvas, isPanGesture, GRID } from "./view.js";
 import { notes } from "./store.js";
 import {
   isSelected,
@@ -12,17 +12,32 @@ import {
 import { currentPageId, setDraggedNotes, dropNotesAt } from "./pages.js";
 import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
-import { pasteFragment, linkifyText, autolinkAtCaret, setTextStyle, promptForLink } from "./richtext.js";
+import { linkifyText, promptForLink } from "./richtext.js";
+import { mountEditor, insertImage, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
+
+// No fill is the default: a new note is just text on the canvas, and colour
+// is something you reach for when you want it to mean something.
+export const NO_FILL = "transparent";
 
 export const COLORS = [
-  "#fff6a3",
-  "#ffd6d6",
-  "#d6f5d6",
-  "#d6e8ff",
-  "#e6d6ff",
-  "#ffe0bd",
-  "#d3f2f0",
+  NO_FILL,
+  "#ffffff",
   "#ececec",
+  "#c9c9c9",
+  "#fff6a3",
+  "#ffe680",
+  "#ffe0bd",
+  "#ffc17a",
+  "#ffd6d6",
+  "#ffb3b3",
+  "#ffd9ec",
+  "#e6d6ff",
+  "#d6f5d6",
+  "#a8e6a3",
+  "#d3f2f0",
+  "#8fd9d4",
+  "#d6e8ff",
+  "#a9cdf5",
 ];
 
 const overlay = document.getElementById("overlay");
@@ -50,22 +65,53 @@ export function imageIdsIn(html) {
   return [...holder.querySelectorAll("img[data-img-id]")].map((img) => img.dataset.imgId);
 }
 
-// Blob URLs are per-session, so persist only the id and re-resolve on load.
-function serializeBody(body) {
-  const clone = body.cloneNode(true);
-  clone.querySelectorAll("img[data-img-id]").forEach((img) => img.removeAttribute("src"));
-  return clone.innerHTML;
+// Blob URLs, kept by image id. The static copy of a note resolves them on
+// render, so by the time the note is opened the editor can be handed markup
+// that already points at real images — no async gap between the click and the
+// caret appearing.
+const imageUrls = new Map();
+
+function urlFor(blob) {
+  const url = URL.createObjectURL(blob);
+  objectUrls.add(url);
+  return url;
 }
 
 function hydrateImages(body) {
   body.querySelectorAll("img[data-img-id]").forEach((img) => {
-    getOne(IMAGES, img.dataset.imgId).then((record) => {
+    const id = img.dataset.imgId;
+    const known = imageUrls.get(id);
+    if (known) {
+      img.src = known;
+      return;
+    }
+    getOne(IMAGES, id).then((record) => {
       if (!record) return;
-      const url = URL.createObjectURL(record.blob);
-      objectUrls.add(url);
+      const url = urlFor(record.blob);
+      imageUrls.set(id, url);
       img.src = url;
     });
   });
+}
+
+// Markup is stored without src; the editor needs it back to show anything.
+function withImageSrc(html) {
+  if (!html || !html.includes("data-img-id")) return html;
+  const holder = document.createElement("div");
+  holder.innerHTML = html;
+  holder.querySelectorAll("img[data-img-id]").forEach((img) => {
+    const url = imageUrls.get(img.dataset.imgId);
+    if (url) img.src = url;
+  });
+  return holder.innerHTML;
+}
+
+async function storeImage(blob) {
+  const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await put(IMAGES, { id, blob }).catch(() => {});
+  const url = urlFor(blob);
+  imageUrls.set(id, url);
+  return { id, url };
 }
 
 // `updatedAt` moves on every mutation because sync merges on it. `editedAt`
@@ -149,81 +195,46 @@ export function refreshAllDates() {
   notes.forEach(({ note, el }) => refreshDate(note, el));
 }
 
-/* -------------------------------------------------------------- clipboard */
+// Drop clipboard content onto the canvas as a note of its own. Used by the
+// canvas paste and by Ctrl+P; a note that arrives already full never sees the
+// empty state, so it is filled before the first save.
+export async function createNoteWithContent(worldX, worldY, { html, text, blobs = [] } = {}) {
+  const { note, el } = createNote(worldX, worldY);
+  // createNote activates the note, so the editor is already on it. Going in
+  // through the editor means the clipboard is read by the same parser that
+  // handles a paste into an open note: markup the schema does not know is
+  // dropped rather than turned into a run of blank lines.
+  const editor = editorFor(note.id);
+  if (!editor) return { note, el };
 
-function insertAtCaret(node, body) {
-  // Inserting a DocumentFragment empties it, so the caret has to be placed
-  // after its last child — the fragment itself no longer has a parent.
-  const tail =
-    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node;
+  if (html) editor.commands.setContent(html);
+  else if (text) editor.commands.setContent(textToHtml(text));
 
-  const selection = window.getSelection();
-  if (!selection || !selection.rangeCount || !body.contains(selection.anchorNode)) {
-    body.appendChild(node);
-  } else {
-    const range = selection.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(node);
-  }
+  for (const blob of blobs) insertImage(editor, await storeImage(blob));
 
-  if (!tail || !tail.parentNode) return;
-  const after = document.createRange();
-  after.setStartAfter(tail);
-  after.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(after);
+  touch(note, el, cleanHtml(editor.getHTML()));
+  return { note, el };
 }
 
-function handlePaste(event, note, el, body) {
-  const data = event.clipboardData;
-  if (!data) return;
-
-  const images = [...data.items].filter(
-    (item) => item.kind === "file" && item.type.startsWith("image/")
-  );
-
-  if (images.length) {
-    event.preventDefault();
-    images.forEach((item) => {
-      const blob = item.getAsFile();
-      if (!blob) return;
-      const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      put(IMAGES, { id, blob }).then(() => {
-        const img = document.createElement("img");
-        img.dataset.imgId = id;
-        const url = URL.createObjectURL(blob);
-        objectUrls.add(url);
-        img.src = url;
-        insertAtCaret(img, body);
-        touch(note, el, body);
-      });
-    });
-    return;
-  }
-
-  // Foreign fonts and colours are still stripped; links are not. Losing the
-  // href was collateral damage of the old plain-text-only rule.
-  const html = data.getData("text/html");
-  const text = data.getData("text/plain");
-  if (!html && !text) return;
-  event.preventDefault();
-
-  const fragment = html ? pasteFragment(html) : linkifyText(text);
-  insertAtCaret(fragment, body);
-  touch(note, el, body);
+// Plain text arrives as lines, not as markup. Each becomes a paragraph, with
+// any bare address in it turned into a link on the way — nothing else will,
+// since autolinking only happens as you type.
+function textToHtml(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const p = document.createElement("p");
+      p.appendChild(linkifyText(line));
+      return p.outerHTML;
+    })
+    .join("");
 }
 
-function touch(note, el, body) {
-  note.html = serializeBody(body);
+function touch(note, el, html) {
+  note.html = html;
   note.editedAt = Date.now();
   saveNote(note);
-  refreshPlaceholder(body);
   refreshDate(note, el);
-}
-
-function refreshPlaceholder(body) {
-  const blank = !body.textContent.trim() && !body.querySelector("img");
-  body.classList.toggle("is-empty", blank);
 }
 
 /* ----------------------------------------------------------------- colours */
@@ -243,13 +254,18 @@ function showPalette(anchor, note, el) {
   COLORS.forEach((color) => {
     const dot = document.createElement("button");
     dot.className = "palette-dot";
-    dot.style.background = color;
-    dot.title = color;
-    if (color === note.color) dot.classList.add("is-current");
+    if (color === NO_FILL) {
+      dot.classList.add("is-clear");
+      dot.title = "No fill";
+    } else {
+      dot.style.background = color;
+      dot.title = color;
+    }
+    if (color === (note.color || NO_FILL)) dot.classList.add("is-current");
     dot.addEventListener("click", (e) => {
       e.stopPropagation();
       note.color = color;
-      el.style.background = color;
+      applyColor(note, el);
       saveNote(note);
       closePalette();
     });
@@ -298,7 +314,8 @@ export function enterFullscreen(note, el) {
   el.style.height = "";
   overlay.classList.add("is-active");
   overlay.appendChild(el);
-  el.querySelector(".note-body").focus();
+  setActiveNote(note.id);
+  focusEditor(note.id);
 }
 
 export function exitFullscreen() {
@@ -320,10 +337,10 @@ overlay.addEventListener("pointerdown", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (openPalette) return closePalette();
-    exitFullscreen();
-  }
+  if (e.key !== "Escape") return;
+  if (openPalette) return closePalette();
+  if (fullscreenEntry) return exitFullscreen();
+  clearActiveNote(); // step out of the note you were writing in
 });
 
 /* ------------------------------------------------------------------- notes */
@@ -343,7 +360,7 @@ export function createNote(worldX, worldY) {
     width: 200,
     height: 150,
     html: "",
-    color: COLORS[notes.size % COLORS.length],
+    color: NO_FILL,
     z: nextZ(),
     locked: false,
     createdAt: Date.now(),
@@ -354,7 +371,8 @@ export function createNote(worldX, worldY) {
   const el = renderNote(note);
   saveNote(note);
   updateHint();
-  el.querySelector(".note-body").focus();
+  setActiveNote(note.id);
+  focusEditor(note.id);
   return { note, el };
 }
 
@@ -362,14 +380,16 @@ export function createNote(worldX, worldY) {
 // a delete cannot propagate and the note simply reappears from another device
 // on the next sync. Images are kept until the tombstone is purged, since the
 // note may still exist elsewhere.
-export function deleteNote(note, el) {
+export function deleteNote(note, el, { silent = false } = {}) {
   if (note.locked) return false;
   if (fullscreenEntry && fullscreenEntry.note === note) exitFullscreen();
 
+  destroyEditor(notes.get(note.id));
   if (el.__observer) el.__observer.disconnect();
   el.remove();
   notes.delete(note.id);
   forgetSelection(note.id);
+  if (activeId === note.id) activeId = null;
 
   note.deleted = true;
   note.deletedAt = Date.now();
@@ -377,8 +397,20 @@ export function deleteNote(note, el) {
   put(NOTES, note).catch(() => {});
 
   updateHint();
-  rememberForUndo(note);
+  if (!silent) rememberForUndo(note);
   return true;
+}
+
+// An empty note is a note you decided against. Leaving one behind — never
+// typing into a fresh one, or clearing out an old one and walking away —
+// removes it, so the canvas never fills up with blank squares. No undo is
+// offered: there is nothing in it to bring back.
+function discardIfEmpty({ note, el }) {
+  if (note.locked || note.fullscreen) return;
+  const body = el.querySelector(".note-body");
+  if (!body) return;
+  if (body.textContent.trim() || body.querySelector("img")) return;
+  deleteNote(note, el, { silent: true });
 }
 
 /* -------------------------------------------------------------- undo */
@@ -446,8 +478,88 @@ export async function purgeTombstones(maxAgeMs = 30 * 24 * 3600 * 1000) {
 // ready to type into.
 export function activateNote({ note, el }) {
   bringToFront(note, el);
+  setActiveNote(note.id);
+  focusEditor(note.id);
+}
+
+/* ----------------------------------------------------------------- editor */
+
+// Mounted lazily. Activating a note shows its header; the editor only arrives
+// when the body is about to be typed in. Mounting any earlier would tear the
+// DOM out from under a click — a link on an idle note would stop opening.
+export function editorFor(id) {
+  const entry = notes.get(id);
+  if (!entry) return null;
+  if (entry.editor) return entry.editor;
+
+  const { note, el } = entry;
   const body = el.querySelector(".note-body");
-  if (body) body.focus({ preventScroll: true });
+  entry.editor = mountEditor(body, withImageSrc(note.html), {
+    onChange: (html) => touch(note, el, html),
+    onImages: async (files) => {
+      for (const blob of files) insertImage(entry.editor, await storeImage(blob));
+    },
+  });
+  el.classList.add("is-editing");
+  return entry.editor;
+}
+
+function focusEditor(id) {
+  const editor = editorFor(id);
+  if (editor) editor.commands.focus("end");
+}
+
+function destroyEditor(entry) {
+  if (!entry || !entry.editor) return;
+  entry.editor.destroy();
+  entry.editor = null;
+  entry.el.classList.remove("is-editing");
+}
+
+// Hand the body back as static markup. The stored html is the authority: an
+// edit has already written it through onChange, and a note that was only
+// looked at keeps exactly the markup it arrived with.
+function unmountEditor(entry) {
+  if (!entry || !entry.editor) return;
+  destroyEditor(entry);
+  const body = entry.el.querySelector(".note-body");
+  body.innerHTML = entry.note.html || "";
+  hydrateImages(body);
+}
+
+/** Is the caret in this note right now? */
+function isTyping(el) {
+  const active = document.activeElement;
+  return !!active && active.isContentEditable && el.contains(active);
+}
+
+/* ----------------------------------------------------------------- active */
+
+// One note at a time is "active" — the one last clicked. Its header appears;
+// every other note keeps a clean, unbroken face. Being active is also what
+// hands the body back to the caret: on an idle note a drag anywhere moves it.
+let activeId = null;
+
+export function setActiveNote(id) {
+  if (activeId === id) return;
+  const previous = notes.get(activeId);
+  if (previous) {
+    previous.el.classList.remove("is-active");
+    // Tearing the editor down takes the caret with it. Clear the selection
+    // first: left inside the note, Chrome hands focus straight back on the
+    // mousedown that follows and the note springs back to life.
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && previous.el.contains(sel.anchorNode)) sel.removeAllRanges();
+    unmountEditor(previous);
+    discardIfEmpty(previous);
+  }
+  activeId = id || null;
+  const next = notes.get(activeId);
+  if (next) next.el.classList.add("is-active");
+}
+
+export function clearActiveNote() {
+  setActiveNote(null);
 }
 
 function bringToFront(note, el) {
@@ -455,12 +567,25 @@ function bringToFront(note, el) {
   el.style.zIndex = note.z;
 }
 
+// The header floats free of the note, so it borrows the note's colour to
+// read as part of it. A note with no fill has none to lend, so the popover
+// falls back to a neutral card — otherwise its buttons would hang in mid-air.
+function applyColor(note, el) {
+  const color = note.color || NO_FILL;
+  const clear = color === NO_FILL;
+  el.style.background = color;
+  el.style.setProperty("--note-surface", clear ? "#fcfbf8" : color);
+  el.classList.toggle("is-clear", clear);
+}
+
 function applyLockUI(note, el) {
   el.classList.toggle("is-locked", !!note.locked);
   const lockBtn = el.querySelector(".note-btn-lock");
   const closeBtn = el.querySelector(".note-btn-close");
   lockBtn.textContent = note.locked ? "🔒" : "🔓";
-  lockBtn.title = note.locked ? "Unlock note" : "Lock note (prevents deletion)";
+  lockBtn.title = note.locked
+    ? "Unlock note"
+    : "Lock note (pins it in place and guards it from deletion)";
   closeBtn.disabled = !!note.locked;
   closeBtn.title = note.locked ? "Locked — unlock to delete" : "Delete note";
 }
@@ -472,7 +597,6 @@ export function renderNote(note) {
   el.style.top = `${note.y}px`;
   el.style.width = `${note.width}px`;
   el.style.height = `${note.height}px`;
-  el.style.background = note.color;
   el.style.zIndex = note.z;
   el.dataset.id = note.id;
 
@@ -502,64 +626,57 @@ export function renderNote(note) {
   left.append(lockBtn, colorBtn, expandBtn);
   header.append(left, closeBtn);
 
+  const grip = document.createElement("div");
+  grip.className = "note-grip";
+  grip.title = "Drag to resize";
+
+  // Static markup until the note is opened; the editor takes the body over
+  // then and hands it back on the way out.
   const body = document.createElement("div");
   body.className = "note-body";
-  body.contentEditable = "true";
-  body.dataset.placeholder = "Type or paste here…";
   body.innerHTML = note.html || "";
   hydrateImages(body);
-  refreshPlaceholder(body);
 
   const date = document.createElement("div");
   date.className = "note-date";
   date.textContent = formatDate(timestampOf(note));
 
-  el.append(header, body, date);
+  el.append(header, body, date, grip);
   world.appendChild(el);
 
   notes.set(note.id, { note, el });
 
   /* behaviour */
 
-  body.addEventListener("input", (e) => {
-    // Fires however the character arrived — keyup misses input that does not
-    // carry a key, such as dictation or IME commits.
-    if (e.data === " " || e.inputType === "insertParagraph" || e.inputType === "insertLineBreak") {
-      autolinkAtCaret(body);
-    }
-    touch(note, el, body);
-  });
-  body.addEventListener("paste", (e) => handlePaste(e, note, el, body));
+  // A checkbox is worth ticking without opening the note first — reading a
+  // list and crossing something off is not editing. The static copy carries a
+  // real input, so the click only has to be let through and written down.
+  body.addEventListener("change", (e) => {
+    const box = e.target.closest && e.target.closest('input[type="checkbox"]');
+    if (!box) return;
+    const entry = notes.get(note.id);
+    if (!entry || entry.editor) return; // the editor owns its own checkboxes
 
+    const item = box.closest("li");
+    if (item) item.setAttribute("data-checked", box.checked ? "true" : "false");
+    // The property moved, the attribute did not, and the attribute is what
+    // gets serialised.
+    if (box.checked) box.setAttribute("checked", "checked");
+    else box.removeAttribute("checked");
+
+    touch(note, el, cleanHtml(body.innerHTML));
+  });
+
+  // ⌘K is ours: the editor knows how to make a link, but not what to ask.
   body.addEventListener("keydown", (e) => {
-    const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      e.stopPropagation();
-      promptForLink(body, () => touch(note, el, body));
-      return;
-    }
-    // Cmd+Alt+1/2/0 — Chrome claims Cmd+1..9 for tab switching, Alt keeps
-    // these ours.
-    if (mod && e.altKey) {
-      const style = { 1: "title", 2: "small", 0: "body" }[e.code.replace("Digit", "")];
-      if (style) {
-        e.preventDefault();
-        e.stopPropagation();
-        setTextStyle(body, style);
-        touch(note, el, body);
-      }
-    }
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const entry = notes.get(note.id);
+    if (!entry || !entry.editor) return;
+    promptForLink(body, linkAtCaret(entry.editor), (href) => applyLink(entry.editor, href));
   });
 
-  // In a contenteditable a click just places the caret; notes are read far
-  // more than edited, so a link should behave like a link.
-  body.addEventListener("click", (e) => {
-    const link = e.target.closest("a[href]");
-    if (!link) return;
-    e.preventDefault();
-    window.open(link.href, "_blank", "noopener");
-  });
   body.addEventListener("pointerdown", () => bringToFront(note, el));
 
   lockBtn.addEventListener("click", (e) => {
@@ -596,14 +713,23 @@ export function renderNote(note) {
   el.addEventListener(
     "pointerdown",
     (e) => {
-      if (note.fullscreen) return;
-      if (e.shiftKey || e.metaKey || e.ctrlKey) toggleSelect(note.id);
+      if (note.fullscreen || isPanGesture(e)) return; // a pan is not a click
+      setActiveNote(note.id);
+      // Shift adds to the selection. Cmd/Ctrl is left free: held during a
+      // drag it steps the note across the grid instead.
+      if (e.shiftKey) toggleSelect(note.id);
       else if (!isSelected(note.id)) selectOnly(note.id);
     },
     true
   );
 
-  makeDraggable(el, header, note);
+  // Focus can arrive without a click — from search, or from a note just
+  // created — and that counts as activating it too.
+  body.addEventListener("focusin", () => setActiveNote(note.id));
+
+  applyColor(note, el);
+  makeDraggable(el, note);
+  makeResizable(el, note, grip);
   el.__observer = observeResize(el, note);
 
   applyLockUI(note, el);
@@ -642,12 +768,36 @@ function returnToWorld(entries) {
   });
 }
 
-function makeDraggable(el, handle, note) {
-  handle.addEventListener("pointerdown", (e) => {
+// A click that never became a drag opens the note and puts the caret where it
+// landed. The pointerdown was cancelled to keep the drag available, so nothing
+// does this on its own.
+function placeCaret(id, x, y) {
+  const editor = editorFor(id);
+  if (editor) caretAt(editor, x, y);
+}
+
+function makeDraggable(el, note) {
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    // Space+drag pans the board from wherever the cursor is, note or not.
+    if (isPanGesture(e)) return;
     // Buttons in the header must keep their click event: preventDefault() on
     // pointerdown suppresses the compatibility click that follows.
     if (e.target.closest(".note-btn")) return;
     if (note.fullscreen) return;
+
+    // A tick box answers to the click itself; cancelling the pointerdown to
+    // start a drag would swallow it.
+    if (e.target.closest('input[type="checkbox"], label')) return;
+
+    const inBody = !!e.target.closest(".note-body");
+    // A note you are writing in has given its body to the caret: dragging
+    // there selects text, and the header popover is the handle. Its margin
+    // is still a handle too — the editor fills the body, so landing on the
+    // body itself means the pointer is out in the padding, on no text at all.
+    const onMargin = e.target.classList.contains("note-body");
+    if (inBody && !onMargin && isTyping(el)) return;
+    if (e.target.closest("a[href]")) return;
 
     e.preventDefault();
     e.stopPropagation(); // don't let the canvas start a pan or marquee
@@ -656,30 +806,51 @@ function makeDraggable(el, handle, note) {
     const startX = e.clientX;
     const startY = e.clientY;
 
-    // Dragging any member of a multi-selection moves the whole group.
+    // Dragging any member of a multi-selection moves the whole group — bar
+    // the locked ones, which stay exactly where they were put.
     const group =
       isSelected(note.id) && selected.size > 1
         ? selectedList()
         : [{ note, el }];
-    const anchored = group.map((entry) => ({
-      ...entry,
-      startLeft: entry.note.x,
-      startTop: entry.note.y,
-    }));
+    const anchored = group
+      .filter((entry) => !entry.note.locked)
+      .map((entry) => ({
+        ...entry,
+        startLeft: entry.note.x,
+        startTop: entry.note.y,
+      }));
 
     let lifted = false;
+    let moved = false;
+
+    // Snapping steps by the note under the cursor, or by the first that can
+    // actually move if that one is pinned.
+    const lead = anchored.find((entry) => entry.note.id === note.id) || anchored[0];
 
     const onMove = (moveEvent) => {
       // Screen delta -> world delta.
-      const dx = (moveEvent.clientX - startX) / view.zoom;
-      const dy = (moveEvent.clientY - startY) / view.zoom;
+      let dx = (moveEvent.clientX - startX) / view.zoom;
+      let dy = (moveEvent.clientY - startY) / view.zoom;
+
+      // Cmd/Ctrl steps across the grid you can see behind the notes. Read
+      // live, so it can be pressed or let go mid-drag. A group snaps by the
+      // note under the cursor and travels with it, keeping its own shape.
+      if (lead && (moveEvent.metaKey || moveEvent.ctrlKey)) {
+        dx = Math.round((lead.startLeft + dx) / GRID) * GRID - lead.startLeft;
+        dy = Math.round((lead.startTop + dy) / GRID) * GRID - lead.startTop;
+      }
+
       anchored.forEach((entry) => {
         entry.note.x = entry.startLeft + dx;
         entry.note.y = entry.startTop + dy;
       });
 
-      if (!lifted && Math.hypot(dx * view.zoom, dy * view.zoom) > 3) {
+      if (!lifted && anchored.length && Math.hypot(dx * view.zoom, dy * view.zoom) > 3) {
         lifted = true;
+        moved = true;
+        // Only now is this a drag, so only now do the pages light up as drop
+        // targets — a plain click on a note should not flash the sidebar.
+        setDraggedNotes(anchored.map((entry) => entry.note.id));
         liftToDragLayer(anchored);
       }
 
@@ -693,13 +864,18 @@ function makeDraggable(el, handle, note) {
       }
     };
 
-    setDraggedNotes(anchored.map((entry) => entry.note.id));
-
     const onUp = (upEvent) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      dropNotesAt(upEvent.clientX, upEvent.clientY, detachNote).then((moved) => {
-        if (moved) {
+
+      if (!moved) {
+        // A click, not a drag. Clicking the body is how you start writing.
+        if (inBody) placeCaret(note.id, upEvent.clientX, upEvent.clientY);
+        return;
+      }
+
+      dropNotesAt(upEvent.clientX, upEvent.clientY, detachNote).then((changed) => {
+        if (changed) {
           updateHint();
           return; // the notes now live on another page
         }
@@ -710,6 +886,37 @@ function makeDraggable(el, handle, note) {
 
     // Window-level listeners rather than setPointerCapture: capture silently
     // failed to re-establish on repeat drags, stranding the note mid-gesture.
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  });
+}
+
+// CSS `resize: both` was doing this, but it forces overflow:hidden on the
+// note — which would clip the header popover against the note's own edge.
+// Fifteen lines buys the popover its room, and a grip we can style.
+function makeResizable(el, note, grip) {
+  grip.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || note.fullscreen) return;
+    e.preventDefault();
+    e.stopPropagation(); // not a drag of the note itself
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = el.offsetWidth;
+    const startH = el.offsetHeight;
+
+    const onMove = (m) => {
+      // Screen delta -> world delta, as everywhere else on the canvas.
+      el.style.width = `${startW + (m.clientX - startX) / view.zoom}px`;
+      el.style.height = `${startH + (m.clientY - startY) / view.zoom}px`;
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      note.width = el.offsetWidth;
+      note.height = el.offsetHeight;
+      saveNote(note);
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   });
@@ -733,10 +940,12 @@ function observeResize(el, note) {
 // Take a note off the canvas without touching its record — used when it moves
 // to another page, and when switching pages.
 export function detachNote(entry) {
+  destroyEditor(entry);
   if (entry.el.__observer) entry.el.__observer.disconnect();
   entry.el.remove();
   notes.delete(entry.note.id);
   forgetSelection(entry.note.id);
+  if (activeId === entry.note.id) activeId = null;
 }
 
 export function clearBoard() {
@@ -753,6 +962,9 @@ export function loadNote(record) {
 }
 
 window.addEventListener("pagehide", () => {
+  // Closing the tab is leaving too. The write may not outlive the page, in
+  // which case the blank note is simply still there next time.
+  clearActiveNote();
   objectUrls.forEach((url) => URL.revokeObjectURL(url));
   objectUrls.clear();
 });

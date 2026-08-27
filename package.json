@@ -4,10 +4,31 @@
   "description": "Chrome extension for freeform note-taking",
   "scripts": {
     "dev": "node scripts/dev.js",
+    "build": "esbuild src/vendor/tiptap.entry.js --bundle --format=esm --minify --legal-comments=none --target=chrome120 --outfile=js/vendor/tiptap.js",
     "test": "node test/delta.test.mjs",
-    "package": "node scripts/package.js"
+    "test:ui": "node test/ui/run.mjs",
+    "package": "npm run build && node scripts/package.js"
   },
   "devDependencies": {
+    "@tiptap/core": "^3.30.3",
+    "@tiptap/extension-blockquote": "^3.30.3",
+    "@tiptap/extension-bold": "^3.30.3",
+    "@tiptap/extension-code": "^3.30.3",
+    "@tiptap/extension-code-block": "^3.30.3",
+    "@tiptap/extension-document": "^3.30.3",
+    "@tiptap/extension-hard-break": "^3.30.3",
+    "@tiptap/extension-heading": "^3.30.3",
+    "@tiptap/extension-image": "^3.30.3",
+    "@tiptap/extension-italic": "^3.30.3",
+    "@tiptap/extension-link": "^3.30.3",
+    "@tiptap/extension-list": "^3.30.3",
+    "@tiptap/extension-paragraph": "^3.30.3",
+    "@tiptap/extension-strike": "^3.30.3",
+    "@tiptap/extension-text": "^3.30.3",
+    "@tiptap/extension-underline": "^3.30.3",
+    "@tiptap/extensions": "^3.30.3",
+    "@tiptap/pm": "^3.30.3",
+    "esbuild": "^0.28.2",
     "ws": "^8.21.3"
   }
 }

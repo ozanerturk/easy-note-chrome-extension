@@ -124,8 +124,12 @@ function boxes() {
   }));
 }
 
+// A locked note keeps its place. It still counts towards working out where
+// the others go — lining things up against something pinned is half the point
+// of pinning it — but nothing in here moves it.
 function commit(list) {
   list.forEach(({ note, el }) => {
+    if (note.locked) return;
     el.style.left = `${note.x}px`;
     el.style.top = `${note.y}px`;
     put(NOTES, note).catch(() => {});
@@ -141,6 +145,7 @@ export function align(mode) {
     const max = Math.max(...list.map((b) => b.note.x + b.w));
     const mid = (min + max) / 2;
     list.forEach((b) => {
+      if (b.note.locked) return;
       if (mode === "left") b.note.x = min;
       else if (mode === "right") b.note.x = max - b.w;
       else b.note.x = mid - b.w / 2;
@@ -150,6 +155,7 @@ export function align(mode) {
     const max = Math.max(...list.map((b) => b.note.y + b.h));
     const mid = (min + max) / 2;
     list.forEach((b) => {
+      if (b.note.locked) return;
       if (mode === "top") b.note.y = min;
       else if (mode === "bottom") b.note.y = max - b.h;
       else b.note.y = mid - b.h / 2;
@@ -179,7 +185,7 @@ export function distribute(axis) {
 
   let cursor = start;
   list.forEach((b) => {
-    b.note[pos] = cursor;
+    if (!b.note.locked) b.note[pos] = cursor;
     cursor += b[size] + gap;
   });
   commit(list);
@@ -200,6 +206,7 @@ export function arrangeGrid() {
   const originY = Math.min(...list.map((b) => b.note.y));
 
   list.forEach((b, i) => {
+    if (b.note.locked) return; // its cell stays empty rather than moving it
     b.note.x = originX + (i % cols) * colW;
     b.note.y = originY + Math.floor(i / cols) * rowH;
   });
