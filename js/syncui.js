@@ -1,5 +1,6 @@
 import * as auth from "./auth.js";
 import { runSync, getSyncMeta } from "./sync.js";
+import { markUsed } from "./tips.js";
 
 const AUTO_INTERVAL = 2 * 60 * 1000;
 
@@ -91,6 +92,7 @@ export function initSyncUI() {
     show("busy", "Waiting for Google…", "");
     try {
       await auth.signIn();
+      markUsed("sync"); // only once it actually worked
       await paint();
       await sync();
     } catch (e) {

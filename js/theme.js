@@ -6,6 +6,7 @@
 // on every new tab. boot.js applies the mirror; this owns the rest.
 
 import { getPref, setPref } from "./prefs.js";
+import { markUsed } from "./tips.js";
 
 const ORDER = ["system", "light", "dark"];
 
@@ -54,6 +55,7 @@ export function initTheme() {
 
   if (button) {
     button.addEventListener("click", () => {
+      markUsed("theme"); // the boot-time restore below does not count
       applyTheme(ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length]);
     });
   }

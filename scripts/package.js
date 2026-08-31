@@ -24,7 +24,6 @@ const INCLUDE = [
   "js",
   "icons",
   "docs/release-notes.html", // the What's new pill links here
-  "docs/img",
 ];
 
 // Internal docs that would otherwise be swept in with docs/.

@@ -146,6 +146,7 @@ document.addEventListener("paste", (e) => {
   if (!blobs.length && !html && !text) return;
 
   e.preventDefault();
+  markUsed("paste");
   const { x, y } = pasteOrigin();
   createNoteWithContent(x, y, { html, text, blobs });
 });
@@ -176,6 +177,7 @@ window.addEventListener("keydown", async (e) => {
   const { x, y } = pasteOrigin();
   const content = await readClipboard();
   if (content && (content.html || content.text || content.blobs.length)) {
+    markUsed("paste");
     createNoteWithContent(x, y, content);
   } else {
     createNote(x, y);

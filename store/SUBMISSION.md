@@ -7,9 +7,17 @@ Upload package: **`dist/easy-note-3.2.0.zip`** (built by `npm run package`).
 | File | Where it goes |
 | --- | --- |
 | `screenshot-1-canvas.png` | Screenshot (1280×800) — the board and page tree |
-| `screenshot-2-arrange.png` | Screenshot — multi-select and the align toolbar |
-| `screenshot-3-search.png` | Screenshot — search across pages |
-| `screenshot-4-sync.png` | Screenshot — the Drive sync panel |
+| `screenshot-2-clip.png` | Screenshot — clipping a region out of a web page |
+| `screenshot-3-tray.png` | Screenshot — the Capture tray holding what was clipped |
+| `screenshot-4-dark.png` | Screenshot — the same board in dark mode |
+| `screenshot-5-search.png` | Screenshot — search across every page |
+
+Upload them in that order. The store shows five at most, and the first is the
+one most people judge the extension on, so the board leads and the clipper —
+the reason to install 3.2 — comes straight after it.
+
+All five are shot from the real extension at 1280×800 by
+`npm run screenshots` (scripts/screenshots.mjs), not mocked up.
 | `promo-small-440x280.png` | Small promo tile |
 | `promo-marquee-1400x560.png` | Marquee promo tile |
 
