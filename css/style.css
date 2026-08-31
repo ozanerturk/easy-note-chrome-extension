@@ -1581,7 +1581,9 @@ body.show-dates .note-edited {
 #undo-bar {
   position: fixed;
   left: 50%;
-  bottom: calc(18px + var(--tray-h));
+  /* Above the controls rather than beside them: centred on the window, it ran
+     into the bottom-right cluster on a narrow one. */
+  bottom: calc(60px + var(--tray-h));
   z-index: 890;
   display: flex;
   align-items: center;
@@ -1986,8 +1988,12 @@ body.show-dates .note-edited {
 #toast {
   position: fixed;
   left: 50%;
-  bottom: calc(18px + var(--tray-h));
+  bottom: calc(60px + var(--tray-h));
   z-index: 895;
+  /* A tip is a sentence, not a status word. It wraps rather than growing into
+     the controls, and never runs the full width of a wide screen. */
+  max-width: min(560px, calc(100vw - var(--sidebar-w) - 48px));
+  text-align: center;
   padding: 8px 14px;
   border-radius: var(--r);
   background: var(--float-solid);
@@ -2003,6 +2009,12 @@ body.show-dates .note-edited {
 #toast.is-open {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Both at once is rare — a tip landing while a delete is still undoable — but
+   when it happens the tip steps up rather than sitting on top of the offer. */
+#toast:has(~ #undo-bar.is-open) {
+  bottom: calc(112px + var(--tray-h));
 }
 
 /* ---------------------------------------------------------- the lock mark */
