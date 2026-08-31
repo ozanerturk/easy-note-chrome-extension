@@ -160,8 +160,18 @@ async function storeImage(blob) {
 
 // `updatedAt` moves on every mutation because sync merges on it. `editedAt`
 // only moves when the content changes, which is what the note footer shows.
+// Formatting that can only have arrived by typing an input rule or using the
+// selection bar. Checked here rather than hooked into the editor because the
+// input rules live inside Tiptap; what is on the note is the honest evidence.
+let sawFormatting = false;
+const FORMATTED = /<(ul|ol|h[1-6]|blockquote|pre)\b|taskList/i;
+
 function saveNote(note) {
   if (note.deleted) return;
+  if (!sawFormatting && FORMATTED.test(note.html || "")) {
+    sawFormatting = true;
+    markUsed("typing");
+  }
   note.updatedAt = Date.now();
   put(NOTES, note).catch(() => {});
 }
@@ -314,7 +324,6 @@ function showPalette(at, note, el) {
     dot.addEventListener("click", (e) => {
       e.stopPropagation();
       note.color = color;
-      if (color !== NO_FILL) markUsed("colour");
       applyColor(note, el);
       saveNote(note);
       closePalette();
@@ -477,7 +486,6 @@ export function isFullscreen() {
 }
 
 export function enterFullscreen(note, el) {
-  markUsed("fullscreen");
   if (fullscreenEntry) exitFullscreen();
   fullscreenEntry = {
     note,

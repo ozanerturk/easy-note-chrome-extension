@@ -458,7 +458,10 @@ function armSpring(pageId) {
     cancelSpring();
     // The notes stay in hand across the switch — switchPage rebuilds the
     // board under them, it does not end the gesture.
-    if (id) switchPage(id);
+    if (id) {
+      markUsed("spring");
+      switchPage(id);
+    }
   }, SPRING_MS);
 }
 

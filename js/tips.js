@@ -23,16 +23,29 @@ const MAX_SHOWS = 3; // per tip, then it gives up
 const MIN_NOTES = 3; // enough that the board is genuinely in use
 const READ_MS = 7000; // a sentence with a shortcut in it takes a moment
 
-// Ordered by how much they change the day if you did not know them.
+// Ordered by how much they change the day if you did not know them, which in
+// practice means: gestures with no visible affordance first.
+//
+// Anything already sitting in a menu the user will open anyway — colour, lock,
+// fullscreen — is left out on purpose. A tip about a menu item they are about
+// to read is noise, and every tip spent on something discoverable is one not
+// spent on something that isn't.
+//
+// Every key here must have a markUsed() call behind the feature it describes,
+// or the tip will keep coming back to somebody who already knows. Adding a tip
+// without its hook is the one way to make this thing nag.
 const TIPS = [
   { key: "clip", text: "Tip: ⌥⇧S grabs any part of a web page straight into your tray." },
-  { key: "search", text: "Tip: ⌘F searches every note on every page." },
+  { key: "typing", text: "Tip: start a line with “- ”, “[] ” or “# ” for a list, a checkbox or a heading." },
   { key: "filing", text: "Tip: drag a note onto a page in the sidebar to file it there." },
+  { key: "spring", text: "Tip: hold a note over a page and that page opens, so you can put it down where you want." },
+  { key: "paste", text: "Tip: copy anything, press ⌘V on empty board, and it becomes a note." },
+  { key: "search", text: "Tip: ⌘F searches every note on every page." },
+  { key: "homeview", text: "Tip: hold 🏠 to set where this page opens, then click it to come back." },
   { key: "reminder", text: "Tip: right-click a note to have it nudge you later." },
-  { key: "homeview", text: "Tip: hold the 🏠 button to set where this page opens." },
-  { key: "fullscreen", text: "Tip: right-click a note and pick Fullscreen to write without the board." },
-  { key: "colour", text: "Tip: right-click a note to give it a colour." },
+  { key: "theme", text: "Tip: the 🌗 button switches between light, dark and whatever your system is set to." },
   { key: "blur", text: "Tip: Alt+B blurs every note, for sharing your screen." },
+  { key: "sync", text: "Tip: sign in with Google and your notes follow you to your other computers." },
 ];
 
 const usedKey = (key) => `used:${key}`;
