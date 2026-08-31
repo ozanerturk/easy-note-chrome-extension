@@ -1,6 +1,6 @@
-# Chrome Web Store submission — Easy Note 3.1.0
+# Chrome Web Store submission — Easy Note 3.2.0
 
-Upload package: **`dist/easy-note-3.1.0.zip`** (built by `npm run package`).
+Upload package: **`dist/easy-note-3.2.0.zip`** (built by `npm run package`).
 
 ## Assets in this folder
 
@@ -25,12 +25,14 @@ The 128×128 store icon is `icons/icon128.png`.
 
 ## Permission justifications
 
-The extension now requests **one** permission and **no host permissions**.
-Host permissions were removed after verifying that Google's API endpoints
-answer cross-origin requests from an extension page without them — the Drive
-list, upload, userinfo and revoke calls all succeed, and a real authenticated
-sync round trip completes. That also avoids the "in-depth review" delay the
-store warns about for host permissions.
+The extension requests **four** permissions and **no host permissions**.
+
+Host permissions were never added: Google's API endpoints answer cross-origin
+requests from an extension page without them — the Drive list, upload,
+userinfo and revoke calls all succeed, and a real authenticated sync round trip
+completes. The screen clipper added in 3.2 was deliberately built on
+`activeTab` for the same reason, so the extension still avoids the "in-depth
+review" path the store warns about for broad host access.
 
 ### `identity` — paste this
 
@@ -50,6 +52,38 @@ developer server, no analytics and no tracking. The extension is fully usable
 without ever signing in, and signing out revokes the token.
 ```
 
+### `activeTab` — paste this
+
+```
+Used by the screen clipper. When the user presses the extension's toolbar
+icon, its keyboard shortcut, or its right-click menu item, Easy Note draws a
+selection overlay on that one page so the user can drag a box around a region
+and save it as a note.
+
+activeTab grants access to a single tab, only in response to that explicit
+user action, and it expires when the user navigates away. The extension has no
+standing access to any page and reads nothing from a page it was not invoked
+on. It never inspects page content — it captures the visible pixels of the
+region the user drew, and nothing else.
+```
+
+### `scripting` — paste this
+
+```
+Used together with activeTab to inject the clipper's selection overlay into
+the current page on demand. No content script is registered to run
+automatically on any site; the overlay is injected only after the user asks
+for a clip, and it removes itself when the clip is saved or cancelled.
+```
+
+### `contextMenus` — paste this
+
+```
+Adds a single "Clip to Easy Note" item to the page right-click menu, as one of
+the three ways to start a screen clip. It creates no other menu items and
+reads nothing from the page.
+```
+
 ### Host permissions — none requested
 
 If a field still asks, the honest answer is:
@@ -57,12 +91,16 @@ If a field still asks, the honest answer is:
 ```
 This extension requests no host permissions. It calls Google's Drive and
 OAuth endpoints from the extension page using standard cross-origin requests,
-which Google's APIs allow, so no host access is required.
+which Google's APIs allow. The screen clipper uses activeTab, which is granted
+per-invocation by the user, rather than standing access to any site.
 ```
 
 ## Data disclosure
 
-- Notes, pages and pasted images are stored **locally in IndexedDB**.
+- Notes, pages, pasted images and screen clips are stored **locally in
+  IndexedDB**. A clip is a cropped screenshot of the region the user drew,
+  plus the source page's URL and title; it is captured on the user's explicit
+  action and never leaves the device unless they turn on sync.
 - If — and only if — the user signs in, that same data is copied to a
   **hidden per-user Drive app folder** (`drive.appdata`). It does not appear in
   My Drive, and the scope grants no access to any other file in the account.

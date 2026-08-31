@@ -2,6 +2,25 @@
 
 export const title = "notes";
 
+
+// The note's actions live in its context menu now. Open it the way a person
+// would — the ⋯ on the note's header — and pick by label.
+const noteMenu = async (page, id) => {
+  await page.evaluate(`document.querySelector('[data-id="${id}"] .note-btn-more').click()`);
+  await page.settle(250);
+};
+const pick = async (page, label) => {
+  await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`
+  );
+  await page.settle(250);
+};
+const menuItem = (page, label) =>
+  page.evaluate(
+    `(() => { const b = [...document.querySelectorAll('.ctx-item')].find((x) => x.textContent === ${JSON.stringify(label)});
+       return b ? { disabled: b.disabled } : null; })()`
+  );
+
 export default async function run(page, s) {
   const { check } = s;
 
@@ -28,7 +47,9 @@ export default async function run(page, s) {
   check("a new note is active", state.active === true);
   check("the header shows on the active note", Number(state.headerOpacity) > 0.99, state.headerOpacity);
   check("the header floats above the note", state.above === true);
-  check("the header costs the body no room", state.bodyTop === 0, `${state.bodyTop}px`);
+  // 1px of the note's own border, and nothing else: the header is a popover
+  // floating above the note, so it costs the body no room at all.
+  check("the header costs the body no room", state.bodyTop <= 1, `${state.bodyTop}px`);
   check("new notes have no fill", state.clear === true);
   // Hovered or active it shows a hairline; what it must never do is cast the
   // drop shadow a filled note casts, which read as a smudge on the canvas.
@@ -100,7 +121,7 @@ export default async function run(page, s) {
   // the resize grip
   await page.click(950, 250);
   const parked = await rect(page);
-  await page.drag(parked.x + parked.w / 2, parked.y + parked.h / 2, 460 - parked.x, 240 - parked.y);
+  await page.drag(parked.x + 40, parked.y + 20, 460 - parked.x, 240 - parked.y);
   const home = await rect(page);
   await page.drag(home.x + home.w - 5, home.y + home.h - 5, 70, 50);
   const grown = await rect(page);
@@ -124,7 +145,8 @@ export default async function run(page, s) {
 
   // colours
   const palette = await page.evaluate(`(() => {
-    document.querySelector('.note .note-btn-color').click();
+    document.querySelector('.note .note-btn-more').click();
+    [...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === 'Colour…').click();
     const dots = [...document.querySelectorAll('.palette-dot')];
     return { count: dots.length, clear: dots.filter((d) => d.classList.contains('is-clear')).length,
       current: dots.findIndex((d) => d.classList.contains('is-current')) };
@@ -136,18 +158,21 @@ export default async function run(page, s) {
     [...document.querySelectorAll('.palette-dot')][4].click();
     const n = document.querySelector('.note');
     return { note: getComputedStyle(n).backgroundColor,
+      clear: n.classList.contains('is-clear'),
       header: getComputedStyle(n.querySelector('.note-header')).backgroundColor };
   })()`);
-  check("the header takes the note's colour", painted.note === painted.header, JSON.stringify(painted));
+  check("picking a colour fills the note", painted.note === "rgb(255, 246, 163)", JSON.stringify(painted));
+  check("and it stops counting as unfilled", painted.clear === false);
+  // The header is a bare handle now: it holds one button, so it draws no
+  // surface of its own and has no colour to borrow.
+  check("the header stays out of the way", painted.header === "rgba(0, 0, 0, 0)", painted.header);
 
   // deleting, and undo
-  const close = await page.evaluate(`(() => {
-    const b = document.querySelector('.note .note-btn-close').getBoundingClientRect();
-    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
-  })()`);
-  await page.click(close.x, close.y);
+  await page.evaluate(`document.querySelector('.note .note-btn-more').click()`);
+  await page.settle(250);
+  await page.evaluate(`[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === 'Delete note').click()`);
   await page.settle();
-  check("the close button deletes", (await page.evaluate(`document.querySelectorAll('.note').length`)) === 0);
+  check("Delete in the note's menu deletes it", (await page.evaluate(`document.querySelectorAll('.note').length`)) === 0);
   check("a delete offers undo",
     (await page.evaluate(`getComputedStyle(document.getElementById('undo-bar')).opacity !== '0'`)) === true);
   await page.evaluate(`document.getElementById('undo-btn').click()`);

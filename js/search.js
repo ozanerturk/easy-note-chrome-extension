@@ -1,6 +1,7 @@
-import { NOTES, getAll } from "./db.js";
+import { NOTES, TRAY_ID, getAll } from "./db.js";
 import { whenLabel } from "./note.js";
 import { pages, currentPageId } from "./pages.js";
+import { markUsed } from "./tips.js";
 
 const panel = document.getElementById("search");
 const input = document.getElementById("search-input");
@@ -110,7 +111,10 @@ async function run(query) {
   const records = await getAll(NOTES);
   const q = query.trim().toLowerCase();
   const live = records
-    .filter((r) => !r.deleted)
+    // Captures are excluded: an unfiled one is already on screen in the tray,
+    // and search's job is to take you to a note on a board — which a capture,
+    // by definition, is not on yet.
+    .filter((r) => !r.deleted && r.pageId !== TRAY_ID)
     .map((r) => ({
       id: r.id,
       pageId: r.pageId,
@@ -135,6 +139,7 @@ async function run(query) {
 }
 
 export function open() {
+  markUsed("search");
   panel.classList.add("is-open");
   input.value = "";
   matches = [];

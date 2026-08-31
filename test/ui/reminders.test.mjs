@@ -2,6 +2,25 @@
 
 export const title = "reminders";
 
+
+// The note's actions live in its context menu now. Open it the way a person
+// would — the ⋯ on the note's header — and pick by label.
+const noteMenu = async (page, id) => {
+  await page.evaluate(`document.querySelector('[data-id="${id}"] .note-btn-more').click()`);
+  await page.settle(250);
+};
+const pick = async (page, label) => {
+  await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`
+  );
+  await page.settle(250);
+};
+const menuItem = (page, label) =>
+  page.evaluate(
+    `(() => { const b = [...document.querySelectorAll('.ctx-item')].find((x) => x.textContent === ${JSON.stringify(label)});
+       return b ? { disabled: b.disabled } : null; })()`
+  );
+
 export default async function run(page, s) {
   const { check } = s;
 
@@ -17,13 +36,18 @@ export default async function run(page, s) {
     })()`);
   const menu = () =>
     page.evaluate(`[...document.querySelectorAll('.remind-item')].map((b) => b.textContent)`);
+  // Two steps now: the note's own menu, then Remind me… inside it. The label
+  // changes once a reminder is set, so match on either.
   const openMenu = async () => {
     await page.evaluate(`(() => {
       const n = document.querySelector('.note');
       n.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-      n.querySelector('.note-btn-remind').click();
+      n.querySelector('.note-btn-more').click();
     })()`);
-    await page.settle(200);
+    await page.settle(220);
+    await page.evaluate(`[...document.querySelectorAll('.ctx-item')]
+      .find((b) => b.textContent.startsWith('Remind me') || b.textContent.startsWith('Change reminder')).click()`);
+    await page.settle(220);
   };
   const stored = async () => (await page.stored()).find((n) => !n.deleted);
 
@@ -33,13 +57,13 @@ export default async function run(page, s) {
 
   await openMenu();
   let items = await menu();
-  check("the bell offers the quick times", items.slice(0, 6).join(" | ") ===
-    "Now | In 15 minutes | In 40 minutes | In 1 hour | In 2 hours | In 3 hours", items.join(" | "));
+  check("the menu offers the quick times", items.slice(0, 6).join(" | ") ===
+    "In 15 minutes | In an hour | This evening | Tomorrow | In 3 days | In a week", items.join(" | "));
   check("and a way to pick one", items.includes("Pick a time…"));
   check("with nothing to clear yet", !items.includes("Clear reminder"));
 
   const before = Date.now();
-  await page.evaluate(`document.querySelectorAll('.remind-item')[1].click()`); // in 15 minutes
+  await page.evaluate(`document.querySelectorAll('.remind-item')[0].click()`); // in 15 minutes
   await page.settle(300);
 
   let state = await noteState();
@@ -124,12 +148,18 @@ export default async function run(page, s) {
   await page.settle(1400); // long enough for the single hop to have finished
   const away = await page.evaluate(`(() => {
     const marked = [...document.querySelectorAll('.page-row.has-due')];
+    const badge = marked[0] && marked[0].querySelector('.page-badge');
     return { notesHere: document.querySelectorAll('.note').length, rows: marked.length,
-      hopped: marked.map((r) => r.classList.contains('has-hopped')) };
+      count: badge ? badge.textContent : null,
+      badgeShown: badge ? getComputedStyle(badge).display !== 'none' : false,
+      nameAnimation: marked[0] ? getComputedStyle(marked[0].querySelector('.page-name')).animationName : null };
   })()`);
   check("switching pages leaves the due note behind", away.notesHere === 0);
   check("its page is the one that says so", away.rows === 1, `${away.rows} rows marked`);
-  check("by hopping its name, once", away.hopped[0] === true, String(away.hopped));
+  check("with a badge counting what is waiting", away.badgeShown === true && away.count === "1", JSON.stringify(away));
+  // The name used to hop. The badge says the same thing without moving, which
+  // is easier to read and easier to ignore until you want it.
+  check("and its name stays still", away.nameAnimation === "none", String(away.nameAnimation));
 
   // ...and going back finds the note itself wiggling again
   await page.evaluate(`(() => {

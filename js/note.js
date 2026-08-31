@@ -1,5 +1,5 @@
 import { NOTES, IMAGES, META, put, del, delMany, getOne, getAll } from "./db.js";
-import { view, world, canvas, isPanGesture, GRID } from "./view.js";
+import { view, world, canvas, isPanGesture, screenToWorld, GRID } from "./view.js";
 import { notes } from "./store.js";
 import {
   isSelected,
@@ -9,10 +9,19 @@ import {
   selected,
   forgetSelection,
 } from "./selection.js";
-import { currentPageId, setDraggedNotes, dropNotesAt } from "./pages.js";
+import {
+  currentPageId,
+  setDraggedNotes,
+  dropTargetAt,
+  moveNotesToPage,
+  notesInHand,
+  switchPage,
+} from "./pages.js";
 import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
 import { linkifyText, promptForLink } from "./richtext.js";
+import { showMenu, closeMenu } from "./menu.js";
+import { markUsed } from "./tips.js";
 import { mountEditor, insertImage, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
 import {
   PRESETS,
@@ -86,19 +95,45 @@ function urlFor(blob) {
   return url;
 }
 
+// In-flight reads, so the same image wanted twice at once — by the board and
+// by the Capture tray, say — resolves to one blob URL rather than two.
+const imageReads = new Map();
+
+/**
+ * The blob URL for a stored image, minting one on first ask.
+ * Resolves to null if the image is gone.
+ */
+export function imageUrlFor(id) {
+  const known = imageUrls.get(id);
+  if (known) return Promise.resolve(known);
+  if (imageReads.has(id)) return imageReads.get(id);
+
+  const read = getOne(IMAGES, id)
+    .then((record) => {
+      imageReads.delete(id);
+      if (!record) return null;
+      const url = urlFor(record.blob);
+      imageUrls.set(id, url);
+      return url;
+    })
+    .catch(() => {
+      imageReads.delete(id);
+      return null;
+    });
+  imageReads.set(id, read);
+  return read;
+}
+
 function hydrateImages(body) {
   body.querySelectorAll("img[data-img-id]").forEach((img) => {
     const id = img.dataset.imgId;
     const known = imageUrls.get(id);
     if (known) {
-      img.src = known;
+      img.src = known; // synchronously, so a re-render never blinks
       return;
     }
-    getOne(IMAGES, id).then((record) => {
-      if (!record) return;
-      const url = urlFor(record.blob);
-      imageUrls.set(id, url);
-      img.src = url;
+    imageUrlFor(id).then((url) => {
+      if (url) img.src = url;
     });
   });
 }
@@ -261,7 +296,7 @@ function closePalette() {
   openPalette = null;
 }
 
-function showPalette(anchor, note, el) {
+function showPalette(at, note, el) {
   closePalette();
   const palette = document.createElement("div");
   palette.className = "palette";
@@ -279,6 +314,7 @@ function showPalette(anchor, note, el) {
     dot.addEventListener("click", (e) => {
       e.stopPropagation();
       note.color = color;
+      if (color !== NO_FILL) markUsed("colour");
       applyColor(note, el);
       saveNote(note);
       closePalette();
@@ -287,22 +323,12 @@ function showPalette(anchor, note, el) {
   });
 
   // Fixed position: a popover inside .note would be clipped by overflow:hidden.
-  const rect = anchor.getBoundingClientRect();
-  palette.style.left = `${rect.left}px`;
-  palette.style.top = `${rect.bottom + 6}px`;
-  document.body.appendChild(palette);
+  place(palette, at);
   openPalette = palette;
-
-  requestAnimationFrame(() => {
-    const box = palette.getBoundingClientRect();
-    if (box.right > window.innerWidth - 8) {
-      palette.style.left = `${window.innerWidth - box.width - 8}px`;
-    }
-  });
 }
 
 document.addEventListener("pointerdown", (e) => {
-  if (openPalette && !e.target.closest(".palette") && !e.target.closest(".note-btn-color")) {
+  if (openPalette && !e.target.closest(".palette") && !e.target.closest(".ctx-menu")) {
     closePalette();
   }
 });
@@ -318,6 +344,7 @@ function closeReminderMenu() {
 }
 
 function setReminder(note, el, at) {
+  if (at) markUsed("reminder");
   if (at) note.remindAt = at;
   else delete note.remindAt;
   saveNote(note); // a reminder is not an edit, so editedAt stays put
@@ -325,8 +352,13 @@ function setReminder(note, el, at) {
   refreshReminder(note, el);
 }
 
-function place(popover, anchor) {
-  const rect = anchor.getBoundingClientRect();
+/**
+ * Put a popover at a point, nudged back on screen if it would hang off.
+ * `at` is a plain {left, top} in viewport coordinates — the place the menu
+ * that opened it was, since these no longer hang off a button of their own.
+ */
+function place(popover, at) {
+  const rect = { left: at.left, top: at.top, bottom: at.top };
   popover.style.left = `${rect.left}px`;
   popover.style.top = `${rect.bottom + 6}px`;
   document.body.appendChild(popover);
@@ -341,7 +373,7 @@ function place(popover, anchor) {
   });
 }
 
-function showReminderMenu(anchor, note, el) {
+function showReminderMenu(at, note, el) {
   closeReminderMenu();
   const menu = document.createElement("div");
   menu.className = "remind-menu";
@@ -403,12 +435,12 @@ function showReminderMenu(anchor, note, el) {
     );
   }
 
-  place(menu, anchor);
+  place(menu, at);
   openMenu = menu;
 }
 
 document.addEventListener("pointerdown", (e) => {
-  if (openMenu && !e.target.closest(".remind-menu") && !e.target.closest(".note-btn-remind")) {
+  if (openMenu && !e.target.closest(".remind-menu") && !e.target.closest(".ctx-menu")) {
     closeReminderMenu();
   }
 });
@@ -445,6 +477,7 @@ export function isFullscreen() {
 }
 
 export function enterFullscreen(note, el) {
+  markUsed("fullscreen");
   if (fullscreenEntry) exitFullscreen();
   fullscreenEntry = {
     note,
@@ -481,13 +514,35 @@ overlay.addEventListener("pointerdown", (e) => {
   if (e.target === overlay) exitFullscreen();
 });
 
-window.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  if (openPalette) return closePalette();
-  if (openMenu) return closeReminderMenu();
-  if (fullscreenEntry) return exitFullscreen();
-  clearActiveNote(); // step out of the note you were writing in
-});
+/**
+ * Close whatever Escape should close inside a note, innermost first.
+ *
+ * Exported rather than handled here so that Escape has one ladder in one
+ * place: main.js owns the key and walks down it, ending at the board's own
+ * rungs. Two independent listeners could not agree on who had already
+ * consumed the press.
+ *
+ * @returns true if something was dismissed.
+ */
+export function dismissTopmost() {
+  if (openPalette) {
+    closePalette();
+    return true;
+  }
+  if (openMenu) {
+    closeReminderMenu();
+    return true;
+  }
+  if (fullscreenEntry) {
+    exitFullscreen();
+    return true;
+  }
+  if (activeId) {
+    clearActiveNote(); // step out of the note you were writing in
+    return true;
+  }
+  return false;
+}
 
 /* ------------------------------------------------------------------- notes */
 
@@ -720,21 +775,24 @@ function bringToFront(note, el) {
 function applyColor(note, el) {
   const color = note.color || NO_FILL;
   const clear = color === NO_FILL;
-  el.style.background = color;
-  el.style.setProperty("--note-surface", clear ? "#fcfbf8" : color);
+  // An unfilled note gets no inline background at all, rather than an inline
+  // `transparent`. Inline beats the stylesheet, and the stylesheet is what
+  // gives a maximised unfilled note something to read against.
+  el.style.background = clear ? "" : color;
+  // The header popover borrows the note's colour so it reads as part of it.
+  // An unfilled note has none to lend, so it takes the theme's surface —
+  // a hardcoded cream would glow on a dark board.
+  el.style.setProperty("--note-surface", clear ? "var(--surface)" : color);
   el.classList.toggle("is-clear", clear);
 }
 
 function applyLockUI(note, el) {
   el.classList.toggle("is-locked", !!note.locked);
-  const lockBtn = el.querySelector(".note-btn-lock");
-  const closeBtn = el.querySelector(".note-btn-close");
-  lockBtn.textContent = note.locked ? "🔒" : "🔓";
-  lockBtn.title = note.locked
-    ? "Unlock note"
-    : "Lock note (pins it in place and guards it from deletion)";
-  closeBtn.disabled = !!note.locked;
-  closeBtn.title = note.locked ? "Locked — unlock to delete" : "Delete note";
+  const mark = el.querySelector(".note-lock-mark");
+  if (mark) {
+    mark.hidden = !note.locked;
+    mark.title = "Locked — pinned in place and safe from deletion";
+  }
 }
 
 export function renderNote(note) {
@@ -753,30 +811,20 @@ export function renderNote(note) {
   const left = document.createElement("div");
   left.className = "note-tools";
 
-  const lockBtn = document.createElement("button");
-  lockBtn.className = "note-btn note-btn-lock";
+  // The lock is the one state worth seeing without asking for it — a note that
+  // will not move or delete should say so. Everything else is in the menu.
+  const lockMark = document.createElement("span");
+  lockMark.className = "note-lock-mark";
+  lockMark.textContent = "🔒";
+  lockMark.hidden = true;
 
-  const colorBtn = document.createElement("button");
-  colorBtn.className = "note-btn note-btn-color";
-  colorBtn.textContent = "◑";
-  colorBtn.title = "Change colour";
+  const moreBtn = document.createElement("button");
+  moreBtn.className = "note-btn note-btn-more";
+  moreBtn.textContent = "⋯";
+  moreBtn.title = "Note actions";
 
-  const remindBtn = document.createElement("button");
-  remindBtn.className = "note-btn note-btn-remind";
-  remindBtn.textContent = "🔔";
-  remindBtn.title = "Remind me about this";
-
-  const expandBtn = document.createElement("button");
-  expandBtn.className = "note-btn note-btn-expand";
-  expandBtn.textContent = "⤢";
-  expandBtn.title = "Fullscreen (Esc to exit)";
-
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "note-btn note-btn-close";
-  closeBtn.textContent = "×";
-
-  left.append(lockBtn, colorBtn, remindBtn, expandBtn);
-  header.append(left, closeBtn);
+  left.append(lockMark);
+  header.append(left, moreBtn);
 
   const grip = document.createElement("div");
   grip.className = "note-grip";
@@ -846,21 +894,44 @@ export function renderNote(note) {
     if (e.animationName === "note-wiggle") el.classList.add("has-hopped");
   });
 
-  lockBtn.addEventListener("click", (e) => {
+  // Everything a note can have done to it, in one place, opened by the ⋯ or
+  // by right-clicking the note itself.
+  function openNoteMenu(clientX, clientY) {
+    setActiveNote(note.id);
+    showMenu(
+      [
+        { label: "Colour…", run: () => showPalette({ left: clientX, top: clientY }, note, el) },
+        { label: note.remindAt ? "Change reminder…" : "Remind me…", run: () => showReminderMenu({ left: clientX, top: clientY }, note, el) },
+        null,
+        { label: note.fullscreen ? "Exit fullscreen" : "Fullscreen", run: () => {
+          if (note.fullscreen) exitFullscreen();
+          else enterFullscreen(note, el);
+        } },
+        { label: note.locked ? "Unlock" : "Lock", run: () => {
+          note.locked = !note.locked;
+          applyLockUI(note, el);
+          saveNote(note);
+        } },
+        null,
+        { label: "Delete note", run: () => deleteNote(note, el), danger: true, disabled: !!note.locked },
+      ],
+      clientX,
+      clientY
+    );
+  }
+
+  moreBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  moreBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    note.locked = !note.locked;
-    applyLockUI(note, el);
-    saveNote(note);
+    const r = moreBtn.getBoundingClientRect();
+    openNoteMenu(r.left, r.bottom + 4);
   });
 
-  colorBtn.addEventListener("click", (e) => {
+  el.addEventListener("contextmenu", (e) => {
+    if (e.target.closest("a[href]")) return; // the browser's own link menu
+    e.preventDefault();
     e.stopPropagation();
-    showPalette(colorBtn, note, el);
-  });
-
-  remindBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    showReminderMenu(remindBtn, note, el);
+    openNoteMenu(e.clientX, e.clientY);
   });
 
   // The chip is the dismiss button. A note that has started wiggling shows one
@@ -870,17 +941,6 @@ export function renderNote(note) {
   remind.addEventListener("click", (e) => {
     e.stopPropagation();
     setReminder(note, el, null);
-  });
-
-  expandBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (note.fullscreen) exitFullscreen();
-    else enterFullscreen(note, el);
-  });
-
-  closeBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    deleteNote(note, el);
   });
 
   header.addEventListener("dblclick", (e) => {
@@ -923,23 +983,43 @@ export function renderNote(note) {
 // While dragging, a note leaves #world for #drag-layer so it is not clipped by
 // the canvas and floats above the sidebar. Position becomes screen-space, and
 // the world's scale is reapplied per-note so its size does not jump.
-function liftToDragLayer(entries) {
+function liftToDragLayer(entries, pointer) {
   const rect = canvas.getBoundingClientRect();
-  entries.forEach(({ note, el }) => {
+  entries.forEach((entry) => {
+    const { note, el } = entry;
+    const left = rect.left + view.x + note.x * view.zoom;
+    const top = rect.top + view.y + note.y * view.zoom;
     el.style.transform = `scale(${view.zoom})`;
-    el.style.left = `${rect.left + view.x + note.x * view.zoom}px`;
-    el.style.top = `${rect.top + view.y + note.y * view.zoom}px`;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    // Where the note sits relative to the cursor, frozen at the moment it was
+    // picked up. Once it is in hand the pointer carries it directly: spring-
+    // loading a page swaps the view out from under the drag, and anything
+    // deriving screen position from world coordinates would teleport.
+    entry.grabX = left - pointer.x;
+    entry.grabY = top - pointer.y;
     dragLayer.appendChild(el);
   });
 }
 
-function positionInDragLayer(entries) {
-  const rect = canvas.getBoundingClientRect();
-  entries.forEach(({ note, el }) => {
-    el.style.left = `${rect.left + view.x + note.x * view.zoom}px`;
-    el.style.top = `${rect.top + view.y + note.y * view.zoom}px`;
+function positionInDragLayer(entries, pointer) {
+  entries.forEach(({ el, grabX, grabY }) => {
+    el.style.left = `${pointer.x + grabX}px`;
+    el.style.top = `${pointer.y + grabY}px`;
   });
 }
+
+// Where a note in hand currently is, in the world of whatever board is on
+// screen now — which is not necessarily the board it was picked up from.
+function worldPositionOf(el) {
+  const at = screenToWorld(parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+  return { x: Math.round(at.x), y: Math.round(at.y) };
+}
+
+const overCanvas = (e) => {
+  const r = canvas.getBoundingClientRect();
+  return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+};
 
 function returnToWorld(entries) {
   entries.forEach(({ note, el }) => {
@@ -987,6 +1067,10 @@ function makeDraggable(el, note) {
 
     const startX = e.clientX;
     const startY = e.clientY;
+    // Where these notes live. Spring-loading can change the board under the
+    // drag, so "the page they came from" has to be remembered, not read back
+    // off currentPageId at the end.
+    const homePageId = currentPageId;
 
     // Dragging any member of a multi-selection moves the whole group — bar
     // the locked ones, which stay exactly where they were put.
@@ -1033,11 +1117,11 @@ function makeDraggable(el, note) {
         // Only now is this a drag, so only now do the pages light up as drop
         // targets — a plain click on a note should not flash the sidebar.
         setDraggedNotes(anchored.map((entry) => entry.note.id));
-        liftToDragLayer(anchored);
+        liftToDragLayer(anchored, { x: moveEvent.clientX, y: moveEvent.clientY });
       }
 
       if (lifted) {
-        positionInDragLayer(anchored);
+        positionInDragLayer(anchored, { x: moveEvent.clientX, y: moveEvent.clientY });
       } else {
         anchored.forEach((entry) => {
           entry.el.style.left = `${entry.note.x}px`;
@@ -1046,9 +1130,40 @@ function makeDraggable(el, note) {
       }
     };
 
-    const onUp = (upEvent) => {
+    const stopListening = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("keydown", onKey, true);
+    };
+
+    // Put everything back exactly as it was found, including the board that
+    // was on screen when the drag began. Used by Escape, and by dropping the
+    // notes on the row of the page they already live on — "file these where
+    // they already are" means nothing, and stranding them under the sidebar
+    // is not what was meant by it.
+    const revert = async () => {
+      anchored.forEach((entry) => {
+        entry.note.x = entry.startLeft;
+        entry.note.y = entry.startTop;
+      });
+      if (currentPageId !== homePageId) await switchPage(homePageId);
+      if (lifted) returnToWorld(anchored);
+      setDraggedNotes(null); // last: the switch above needs them still in hand
+      updateHint();
+    };
+
+    // Escape abandons the drag at any point, the same as everywhere else in
+    // the app. Capture phase, so it beats the board's own Escape handler.
+    const onKey = (keyEvent) => {
+      if (keyEvent.key !== "Escape" || !moved) return;
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
+      stopListening();
+      revert();
+    };
+
+    const onUp = async (upEvent) => {
+      stopListening();
 
       if (!moved) {
         // A click, not a drag. Clicking the body is how you start writing.
@@ -1056,21 +1171,81 @@ function makeDraggable(el, note) {
         return;
       }
 
-      dropNotesAt(upEvent.clientX, upEvent.clientY, detachNote).then((changed) => {
-        if (changed) {
+      const records = anchored.map((entry) => entry.note);
+      const onRow = dropTargetAt(upEvent.clientX, upEvent.clientY);
+      // Whether a page was sprung open mid-drag, leaving these notes hovering
+      // over a board that is not their own.
+      const sprung = currentPageId !== homePageId;
+
+      // Back onto their own page: a change of mind, so treat it as one.
+      if (onRow && onRow === homePageId) {
+        await revert();
+        return;
+      }
+
+      // Reading the drop target first: this also cancels a spring still
+      // counting down, so letting go never opens a page a beat too late.
+      setDraggedNotes(null);
+
+      // Dropped on another page's row: they go to it unplaced, as they always
+      // have. Their coordinates are left alone — a row says which page, not
+      // where on it, and the sidebar is no place to read a position from.
+      if (onRow) {
+        await moveNotesToPage(records, onRow);
+        if (onRow === currentPageId) returnToWorld(anchored);
+        else anchored.forEach(detachNote);
+        updateHint();
+        loadReminders(); // they may be another page's business now
+        return;
+      }
+
+      // Dropped on the board. If a page was sprung open, this is the whole
+      // point of having opened it: they join that page exactly where they were
+      // put, rather than arriving somewhere on it unseen.
+      if (overCanvas(upEvent)) {
+        if (sprung) {
+          await moveNotesToPage(records, currentPageId);
+          land(anchored);
           updateHint();
-          loadReminders(); // they are another page's business now
-          return;
+          loadReminders();
+        } else {
+          // An ordinary move on the board they came from. The coordinates
+          // onMove computed are kept as they are, so grid snapping survives.
+          if (lifted) returnToWorld(anchored);
+          anchored.forEach((entry) => saveNote(entry.note));
         }
+        return;
+      }
+
+      // Dropped on nothing — the sidebar's empty space, or off the window.
+      if (sprung) {
+        // They still belong to their own page, which is no longer on screen.
+        anchored.forEach((entry) => saveNote(entry.note));
+        anchored.forEach(detachNote);
+        updateHint();
+      } else {
         if (lifted) returnToWorld(anchored);
         anchored.forEach((entry) => saveNote(entry.note));
-      });
+      }
     };
+
+    // Put notes down on the board that is currently up, where they visibly
+    // are — not where their old page's coordinates would have put them.
+    function land(entries) {
+      entries.forEach((entry) => {
+        const at = worldPositionOf(entry.el);
+        entry.note.x = at.x;
+        entry.note.y = at.y;
+      });
+      returnToWorld(entries);
+      entries.forEach((entry) => saveNote(entry.note));
+    }
 
     // Window-level listeners rather than setPointerCapture: capture silently
     // failed to re-establish on repeat drags, stranding the note mid-gesture.
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("keydown", onKey, true);
   });
 }
 
@@ -1085,6 +1260,10 @@ function makeResizable(el, note, grip) {
 
     const startX = e.clientX;
     const startY = e.clientY;
+    // Where these notes live. Spring-loading can change the board under the
+    // drag, so "the page they came from" has to be remembered, not read back
+    // off currentPageId at the end.
+    const homePageId = currentPageId;
     const startW = el.offsetWidth;
     const startH = el.offsetHeight;
 
@@ -1102,6 +1281,7 @@ function makeResizable(el, note, grip) {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("keydown", onKey, true);
   });
 }
 
@@ -1132,7 +1312,13 @@ export function detachNote(entry) {
 }
 
 export function clearBoard() {
-  [...notes.values()].forEach(detachNote);
+  // Whatever is in hand stays there. Spring-loading rebuilds the board in the
+  // middle of a drag, and detaching a note being carried would delete the
+  // element under the cursor halfway through the gesture.
+  const inHand = notesInHand();
+  [...notes.values()]
+    .filter((entry) => !inHand || !inHand.has(entry.note.id))
+    .forEach(detachNote);
 }
 
 export function loadNote(record) {

@@ -2,6 +2,25 @@
 
 export const title = "locking";
 
+
+// The note's actions live in its context menu now. Open it the way a person
+// would — the ⋯ on the note's header — and pick by label.
+const noteMenu = async (page, id) => {
+  await page.evaluate(`document.querySelector('[data-id="${id}"] .note-btn-more').click()`);
+  await page.settle(250);
+};
+const pick = async (page, label) => {
+  await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`
+  );
+  await page.settle(250);
+};
+const menuItem = (page, label) =>
+  page.evaluate(
+    `(() => { const b = [...document.querySelectorAll('.ctx-item')].find((x) => x.textContent === ${JSON.stringify(label)});
+       return b ? { disabled: b.disabled } : null; })()`
+  );
+
 export default async function run(page, s) {
   const { check } = s;
 
@@ -18,12 +37,19 @@ export default async function run(page, s) {
       return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
 
   const pinned = await make(420, 200, "pinned");
-  await page.evaluate(`document.querySelector('[data-id="${pinned}"] .note-btn-lock').click()`);
+  await noteMenu(page, pinned);
+  await pick(page, "Lock");
   await page.settle();
   check("the note reports itself locked",
     (await page.evaluate(`document.querySelector('[data-id="${pinned}"]').classList.contains('is-locked')`)) === true);
   check("and its delete button is out of reach",
-    (await page.evaluate(`document.querySelector('[data-id="${pinned}"] .note-btn-close').disabled`)) === true);
+    (await (async () => {
+      await noteMenu(page, pinned);
+      const item = await menuItem(page, "Delete note");
+      await page.key("Escape", "Escape");
+      await page.settle(150);
+      return item && item.disabled;
+    })()) === true);
 
   // dragging it does nothing
   await page.click(1050, 120);
@@ -75,7 +101,8 @@ export default async function run(page, s) {
   await page.settle();
   await page.click((await boxOf(pinned)).x + 20, (await boxOf(pinned)).y + 20);
   await page.settle();
-  await page.evaluate(`document.querySelector('[data-id="${pinned}"] .note-btn-lock').click()`);
+  await noteMenu(page, pinned);
+  await pick(page, "Unlock"); // the same item, renamed by the state it is in
   await page.settle();
   await page.click(1050, 120);
   await page.settle();
