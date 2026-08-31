@@ -1,7 +1,9 @@
-import { PAGES, NOTES, META, put, del, getAll, getOne } from "./db.js";
+import { PAGES, NOTES, META, TRAY_ID, put, del, getAll, getOne } from "./db.js";
 import { notes } from "./store.js";
 
-import { duePageIds, onReminderTick } from "./reminders.js";
+import { duePageIds, dueOnPage, onReminderTick } from "./reminders.js";
+import { showMenu, closeMenu } from "./menu.js";
+import { markUsed } from "./tips.js";
 
 const sidebar = document.getElementById("sidebar");
 const dragLayer = document.getElementById("drag-layer");
@@ -11,10 +13,27 @@ export const pages = new Map(); // id -> page record
 export let currentPageId = null;
 
 let onSwitch = () => {};
+let onDuePick = () => {};
+let onReselect = () => {};
 let dragNoteIds = null;
 
 export function setPageSwitchHandler(fn) {
   onSwitch = fn;
+}
+
+/** Called with (noteId, pageId) when a page's due badge is clicked. */
+export function setDuePickHandler(fn) {
+  onDuePick = fn;
+}
+
+/**
+ * Called when the page already on screen is clicked again.
+ *
+ * A handler rather than a direct call into view.js: the view imports the
+ * current page from here, and importing it back would close the loop.
+ */
+export function setReselectHandler(fn) {
+  onReselect = fn;
 }
 
 function newId() {
@@ -27,9 +46,12 @@ function savePage(page) {
   return put(PAGES, page);
 }
 
+// The Capture tray is deliberately absent from this. Everything that walks
+// the tree — the sidebar, the root fallback, orphan adoption, page ordering —
+// goes through here, so one exclusion keeps the tray out of all of them.
 function childrenOf(parentId) {
   return [...pages.values()]
-    .filter((p) => !p.deleted && (p.parentId || null) === parentId)
+    .filter((p) => !p.deleted && p.id !== TRAY_ID && (p.parentId || null) === parentId)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
 }
 
@@ -43,7 +65,7 @@ export async function ensureDefaultPage() {
   const records = await getAll(PAGES);
   records.forEach((p) => pages.set(p.id, p));
 
-  if (!pages.size) {
+  if (!childrenOf(null).length) {
     const root = { id: newId(), name: "My notes", parentId: null, order: 0, collapsed: false };
     pages.set(root.id, root);
     await savePage(root);
@@ -71,6 +93,10 @@ export function adoptPages(records) {
 export function adoptOrphans(records) {
   const fallback = childrenOf(null)[0].id;
   records.forEach((r) => {
+    // A capture is never an orphan, even before this tab has heard of the
+    // tray: the service worker can mint the tray page after the sidebar was
+    // built, and adopting them here would drag captures onto a board.
+    if (r.pageId === TRAY_ID) return;
     if (!r.pageId || !pages.has(r.pageId)) r.pageId = fallback;
   });
   return records;
@@ -82,6 +108,9 @@ export function notesOnCurrentPage(records) {
 
 export async function switchPage(id) {
   if (id === currentPageId || !pages.has(id)) return;
+  // The tray has no board of its own; it is the strip along the bottom. There
+  // is no row to click, but sync and search can both name a page by id.
+  if (id === TRAY_ID) return;
   const previous = currentPageId;
   currentPageId = id;
   await put(META, { id: "currentPage", pageId: id });
@@ -122,19 +151,30 @@ export async function createPage(parentId = null) {
 
 async function deletePage(page) {
   if (childrenOf(null).length === 1 && !page.parentId) return; // keep one root
+
   const doomed = descendantIds(page.id);
-  const count = [...notes.values()].filter((n) => doomed.includes(n.note.pageId)).length;
-  const label = count ? ` and its ${count} note${count === 1 ? "" : "s"}` : "";
-  if (!confirm(`Delete “${page.name}”${label}? This cannot be undone.`)) return;
+  const all = await getAll(NOTES);
+  // Counted from the database, not from what happens to be rendered: a
+  // sub-page's notes are just as gone, and were never on screen to be counted.
+  const living = all.filter((n) => !n.deleted && doomed.includes(n.pageId));
+  const count = living.length;
+
+  // An empty page is nothing to lose, so deleting one asks nothing. A page
+  // with notes in it asks twice — once for what is going, and once for the
+  // part that cannot be taken back.
+  if (count) {
+    const notesLabel = `${count} note${count === 1 ? "" : "s"}`;
+    const sub = doomed.length - 1;
+    const subLabel = sub ? ` and ${sub} sub-page${sub === 1 ? "" : "s"}` : "";
+    if (!confirm(`Delete “${page.name}”${subLabel}?\n\nIt holds ${notesLabel}.`)) return;
+    if (!confirm(`Delete ${notesLabel} for good?\n\nThis cannot be undone — the undo bar does not cover it.`)) return;
+  }
 
   // Tombstones, not deletions — the same reasoning as notes: a hard delete
   // cannot propagate and the page would return on the next sync.
   const at = Date.now();
-  const all = await getAll(NOTES);
   await Promise.all(
-    all
-      .filter((n) => !n.deleted && doomed.includes(n.pageId))
-      .map((n) => put(NOTES, { ...n, deleted: true, deletedAt: at, updatedAt: at }))
+    living.map((n) => put(NOTES, { ...n, deleted: true, deletedAt: at, updatedAt: at }))
   );
   await Promise.all(
     doomed.map((id) => {
@@ -150,6 +190,31 @@ async function deletePage(page) {
     onSwitch(currentPageId);
   }
   renderTree();
+}
+
+/* ------------------------------------------------------- the page menu */
+
+// Everything a page can have done to it. Reached by right-clicking the row or
+// by its one ⋯ button — two buttons sitting on every row, waiting to be
+// clicked, was more furniture than the sidebar could carry.
+function openPageMenu(page, clientX, clientY) {
+  // Only root pages are protected, and only when they are the last one: the
+  // tree has to keep somewhere for notes to live.
+  const lastRoot = childrenOf(null).length === 1 && !page.parentId;
+
+  showMenu(
+    [
+      { label: "Rename", run: () => {
+        const row = treeRoot.querySelector(`[data-page-id="${page.id}"] .page-name`);
+        if (row) beginRename(row, page);
+      } },
+      { label: "New sub-page", run: () => createPage(page.id) },
+      null,
+      { label: "Delete page", run: () => deletePage(page), danger: true, disabled: lastRoot },
+    ],
+    clientX,
+    clientY
+  );
 }
 
 export function beginRename(nameEl, page) {
@@ -352,13 +417,60 @@ function markNoteDropRow(row) {
   if (noteDropRow) noteDropRow.classList.add("is-note-drop");
 }
 
+/* ------------------------------------------------------- spring-loading */
+
+// Hovering a page while carrying notes opens it, so they can be put down
+// somewhere chosen rather than dropped into a page sight unseen and hunted
+// for later.
+//
+// The delay is short enough not to read as waiting, but it cannot be zero.
+// Reaching a row means travelling across the rows above or below it, and a
+// switch is not a free redraw: it writes the view of the page being left,
+// rebuilds the whole board, and drops any undo still on offer. Opening every
+// page merely passed over would flash through three boards on the way to the
+// one that was wanted.
+const SPRING_MS = 250;
+
+let springTimer = null;
+let springPageId = null;
+
+function cancelSpring() {
+  clearTimeout(springTimer);
+  springTimer = null;
+  if (springPageId) {
+    treeRoot
+      .querySelector(`[data-page-id="${springPageId}"]`)
+      ?.classList.remove("is-springing");
+  }
+  springPageId = null;
+}
+
+function armSpring(pageId) {
+  if (pageId === springPageId) return; // already counting down on this row
+  cancelSpring();
+  // Nothing to open: no row under the cursor, or it is the board already up.
+  if (!pageId || pageId === currentPageId) return;
+
+  springPageId = pageId;
+  treeRoot.querySelector(`[data-page-id="${pageId}"]`)?.classList.add("is-springing");
+  springTimer = setTimeout(() => {
+    const id = springPageId;
+    cancelSpring();
+    // The notes stay in hand across the switch — switchPage rebuilds the
+    // board under them, it does not end the gesture.
+    if (id) switchPage(id);
+  }, SPRING_MS);
+}
+
 function onNoteDragMove(e) {
   if (!dragNoteIds) return;
   const under = document.elementFromPoint(e.clientX, e.clientY);
   const row = under?.closest("[data-page-id]");
-  // The page they are already on cannot receive them, so it must not look
-  // like it can.
-  markNoteDropRow(row && row.dataset.pageId !== currentPageId ? row : null);
+  // Every page is a target, the notes' own included: having sprung a page open
+  // there has to be a way back, and a row that refuses to light up reads as
+  // broken rather than as "nothing to do here".
+  markNoteDropRow(row || null);
+  armSpring(row ? row.dataset.pageId : null);
   // A note is wider than the sidebar, so carrying one over it hides the very
   // list being aimed at — including the row lighting up underneath. Fade the
   // note out of the way while it is over the panel.
@@ -373,51 +485,76 @@ export function setDraggedNotes(ids) {
   } else {
     window.removeEventListener("pointermove", onNoteDragMove);
     markNoteDropRow(null);
+    cancelSpring();
     dragLayer.classList.remove("is-over-sidebar");
   }
 }
 
-export function draggingNotes() {
-  return !!dragNoteIds;
+// Which notes are in hand. A page switch mid-drag tears the board down and
+// rebuilds it; these have to survive that, or the note being carried is
+// destroyed halfway through the gesture.
+export function notesInHand() {
+  return dragNoteIds ? new Set(dragNoteIds) : null;
 }
 
-// Called on pointerup while notes are being dragged. Returns true if the
-// pointer was over a page row, meaning the notes changed page.
-export async function dropNotesAt(clientX, clientY, moveNote) {
-  if (!dragNoteIds) return false;
-  const ids = dragNoteIds;
-  setDraggedNotes(null);
+/**
+ * Which page's row is under the pointer, if any, and if it can take a drop.
+ *
+ * Separate from the move itself because the two drop paths ask at different
+ * moments: the board reads the target before it lets go of the drag, the
+ * Capture tray reads it while carrying a thumbnail rather than a real note.
+ */
+export function dropTargetAt(clientX, clientY) {
+  const row = document.elementFromPoint(clientX, clientY)?.closest("[data-page-id]");
+  return row ? row.dataset.pageId : null;
+}
 
-  const row = document
-    .elementFromPoint(clientX, clientY)
-    ?.closest("[data-page-id]");
-  if (!row) return false;
-
-  const pageId = row.dataset.pageId;
-  if (pageId === currentPageId) return false;
-
-  for (const id of ids) {
-    const entry = notes.get(id);
-    if (!entry) continue;
-    entry.note.pageId = pageId;
-    entry.note.updatedAt = Date.now();
-    await put(NOTES, entry.note);
-    moveNote(entry);
+/** Move note records to a page. The one write both drop paths share. */
+export async function moveNotesToPage(records, pageId) {
+  if (records.length) markUsed("filing");
+  const at = Date.now();
+  for (const note of records) {
+    note.pageId = pageId;
+    note.updatedAt = at;
+    await put(NOTES, note);
   }
-  return true;
 }
 
 /* -------------------------------------------------------------- reminders */
 
+// Where each page got to in its own queue of due notes, so clicking a badge
+// twice takes you to two different notes rather than the same one.
+const dueCursor = new Map();
+
 // A note that has come due on a page you are not looking at has no way to say
-// so. Its page says it instead.
+// so. Its page says it instead — a count you can click through, rather than
+// only a nudge that something somewhere needs attention.
 export function markDuePages() {
   const due = duePageIds();
   treeRoot.querySelectorAll("[data-page-id]").forEach((row) => {
-    const waiting = due.has(row.dataset.pageId);
+    const pageId = row.dataset.pageId;
+    const waiting = due.has(pageId);
     row.classList.toggle("has-due", waiting);
-    if (!waiting) row.classList.remove("has-hopped");
+    if (!waiting) {
+      row.classList.remove("has-hopped");
+      dueCursor.delete(pageId);
+    }
+
+    const badge = row.querySelector(".page-badge");
+    if (!badge) return;
+    const count = dueOnPage(pageId).length;
+    badge.textContent = String(count);
+    badge.title = count === 1 ? "1 note due — click to go to it" : `${count} notes due — click to step through them`;
   });
+}
+
+// Step to the next due note on a page, wrapping round at the end.
+function visitNextDue(pageId) {
+  const ids = dueOnPage(pageId);
+  if (!ids.length) return;
+  const at = (dueCursor.get(pageId) ?? -1) + 1;
+  dueCursor.set(pageId, at % ids.length);
+  onDuePick(ids[at % ids.length], pageId);
 }
 
 // One hop per spell of being due, as with the notes themselves.
@@ -460,25 +597,32 @@ function rowFor(page, depth) {
     else name.removeAttribute("title");
   });
 
-  const add = document.createElement("button");
-  add.className = "page-action";
-  add.textContent = "+";
-  add.title = "New sub-page";
-  add.addEventListener("click", (e) => {
-    e.stopPropagation();
-    createPage(page.id);
+  // Sits in its own column between the name and the actions, so badges line
+  // up down the tree however long or short the names are.
+  const badge = document.createElement("button");
+  badge.className = "page-badge";
+  badge.addEventListener("click", (e) => {
+    e.stopPropagation(); // the row's own click would only switch page
+    visitNextDue(page.id);
   });
 
-  const remove = document.createElement("button");
-  remove.className = "page-action";
-  remove.textContent = "×";
-  remove.title = "Delete page";
-  remove.addEventListener("click", (e) => {
+  const more = document.createElement("button");
+  more.className = "page-action";
+  more.textContent = "⋯";
+  more.title = "Page actions";
+  more.addEventListener("pointerdown", (e) => e.stopPropagation()); // not a drag
+  more.addEventListener("click", (e) => {
     e.stopPropagation();
-    deletePage(page);
+    const r = more.getBoundingClientRect();
+    openPageMenu(page, r.left, r.bottom + 4);
   });
 
-  row.append(twisty, name, add, remove);
+  row.append(twisty, name, badge, more);
+
+  row.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    openPageMenu(page, e.clientX, e.clientY);
+  });
   row.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest(".page-action, .page-twisty")) return;
@@ -491,7 +635,11 @@ function rowFor(page, depth) {
   row.addEventListener("click", () => {
     // A reorder drag ends in a click on this row; it must not also switch page.
     if (Date.now() - dragEndedAt < 250) return;
-    switchPage(page.id);
+    // Clicking the page you are already on has always done nothing. It now
+    // takes you to that page's home view — the same click, the same place,
+    // whether or not you had wandered off across the board.
+    if (page.id === currentPageId) onReselect(page.id);
+    else switchPage(page.id);
   });
   row.addEventListener("dblclick", (e) => {
     e.stopPropagation();
@@ -510,6 +658,7 @@ function renderBranch(parentId, depth, container) {
 
 export function renderTree() {
   treeRoot.textContent = "";
+  closeMenu(); // it points at rows that are about to be replaced
   renderBranch(null, 0, treeRoot);
   markDuePages(); // the rows were just rebuilt and know nothing yet
 }

@@ -9,14 +9,18 @@
 
 import { NOTES, getAll } from "./db.js";
 
+const HOUR = 60 * 60000;
+const DAY = 24 * HOUR;
+
+// Six, spread out. The old list had four ways to say "later today" and no way
+// to say "next week", so the choice was harder and less useful at once.
 export const PRESETS = [
-  // Straight away, which is mostly useful for seeing what a due note does.
-  { label: "Now", ms: 0 },
   { label: "In 15 minutes", ms: 15 * 60000 },
-  { label: "In 40 minutes", ms: 40 * 60000 },
-  { label: "In 1 hour", ms: 60 * 60000 },
-  { label: "In 2 hours", ms: 2 * 60 * 60000 },
-  { label: "In 3 hours", ms: 3 * 60 * 60000 },
+  { label: "In an hour", ms: HOUR },
+  { label: "This evening", ms: 5 * HOUR },
+  { label: "Tomorrow", ms: DAY },
+  { label: "In 3 days", ms: 3 * DAY },
+  { label: "In a week", ms: 7 * DAY },
 ];
 
 // Often enough that "in 1m" is honest, rare enough to be free.
@@ -62,6 +66,20 @@ export function trackReminder(note) {
 export function duePageIds() {
   const now = Date.now();
   return new Set(pending.filter((entry) => entry.remindAt <= now).map((entry) => entry.pageId));
+}
+
+/**
+ * The notes on one page that have come due, oldest first.
+ *
+ * Ordered so that clicking a page's badge repeatedly walks them in the order
+ * they came due rather than in whatever order the database handed them back.
+ */
+export function dueOnPage(pageId) {
+  const now = Date.now();
+  return pending
+    .filter((entry) => entry.pageId === pageId && entry.remindAt <= now)
+    .sort((a, b) => a.remindAt - b.remindAt)
+    .map((entry) => entry.id);
 }
 
 export function dueCount() {

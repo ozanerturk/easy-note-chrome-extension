@@ -6,6 +6,13 @@ export const IMAGES = "images";
 export const META = "meta";
 export const PAGES = "pages";
 
+// The Capture tray is a page like any other — same store, same sync, same
+// notes — reserved by a fixed id rather than by a schema of its own. Fixed so
+// that two devices syncing their captures agree on which page that is; named
+// here beside the stores because both the board and the service worker that
+// writes clips need to know the id, and they share nothing else.
+export const TRAY_ID = "capture-tray";
+
 let db;
 // Callers such as the sync panel run before boot has finished opening the
 // database, so every helper waits on this rather than touching a null handle.

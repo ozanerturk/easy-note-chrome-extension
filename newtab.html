@@ -31,6 +31,18 @@
       <div id="marquee"></div>
     </div>
 
+    <div id="tray">
+      <div id="tray-head">
+        <button id="tray-collapse" title="Collapse the tray">▾</button>
+        <span id="tray-title">Captures</span>
+        <span id="tray-count">0</span>
+        <span class="tray-spacer"></span>
+        <span id="tray-hint">Drag one onto the board or a page</span>
+        <button id="tray-clear">Clear all</button>
+      </div>
+      <div id="tray-items"></div>
+    </div>
+
     <div id="drag-layer"></div>
     <div id="overlay"></div>
 
@@ -83,6 +95,8 @@
       </div>
     </div>
 
+    <div id="toast"></div>
+
     <div id="undo-bar">
       <span id="undo-text"></span>
       <button id="undo-btn">Undo</button>
@@ -90,6 +104,7 @@
     </div>
 
     <div id="controls">
+      <button id="toggle-theme" title="Theme">🌗</button>
       <button id="toggle-blur" title="Blur notes for screen sharing (Alt+B)">🙈</button>
       <button id="open-sync" title="Google Drive sync">☁</button>
       <button id="open-search" title="Search notes (⌘F)">🔍</button>
@@ -99,6 +114,7 @@
       <button id="zoom-level" title="Reset to 100%">100%</button>
       <button id="zoom-in" title="Zoom in">+</button>
       <span class="sep"></span>
+      <button id="go-home" title="Home view — click to return, hold to set">🏠</button>
       <button id="fit" title="Fit all notes in view">Fit</button>
     </div>
 

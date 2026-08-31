@@ -12,6 +12,8 @@ import {
   fitToNotes,
   persistViewNow,
   viewKey,
+  goHome,
+  setHome,
 } from "./view.js";
 import {
   createNote,
@@ -26,6 +28,7 @@ import {
   isBlurred,
   clearActiveNote,
   createNoteWithContent,
+  dismissTopmost,
 } from "./note.js";
 import {
   initSelection,
@@ -46,8 +49,14 @@ import {
   switchPage,
   applySidebarWidth,
   currentPageId,
+  setDuePickHandler,
+  setReselectHandler,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
+import { initTray, refreshTray } from "./tray.js";
+import { initTheme } from "./theme.js";
+import { toast } from "./toast.js";
+import { initTips, markUsed } from "./tips.js";
 import { initReminders, loadReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
@@ -194,19 +203,82 @@ window.addEventListener("keydown", (e) => {
 
   if (e.altKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {
     e.preventDefault();
+    markUsed("blur");
     setBlurNotes(!isBlurred());
     return;
   }
-
-  if (e.key === "Escape") clearSelection(); // note.js owns deactivating
 });
+
+// Escape, in one place, innermost first. It is deliberately outside the
+// handler above: that one steps aside while you are typing, and stepping out
+// of the note you are typing in is the whole job here.
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (dismissTopmost()) return; // a palette, a menu, fullscreen, the open note
+  if (selectedList().length) {
+    clearSelection();
+    return;
+  }
+  // Nothing left to dismiss, so Escape means "put the board back where I
+  // like it" rather than doing nothing at all.
+  goHome();
+});
+
+/* ----------------------------------------------------------- home view */
+
+// Click to go home, hold to make here home. A press-and-hold rather than a
+// second button: setting a home view is rare and returning to one is not, so
+// the common action gets the plain click.
+// Click to go home, hold to make here home. A press-and-hold rather than a
+// second button: setting a home view is rare and returning to one is not, so
+// the common action gets the plain click. The ring fills while it is held, so
+// the wait is something happening rather than nothing happening.
+const HOLD_MS = 700;
+const homeBtn = document.getElementById("go-home");
+let holdTimer = null;
+let held = false;
+
+homeBtn.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  held = false;
+  homeBtn.classList.add("is-holding"); // starts the ring filling
+  holdTimer = setTimeout(async () => {
+    held = true;
+    homeBtn.classList.remove("is-holding");
+    await setHome();
+    toast("Home view set for this page");
+  }, HOLD_MS);
+});
+
+const endHold = (run) => {
+  clearTimeout(holdTimer);
+  holdTimer = null;
+  homeBtn.classList.remove("is-holding");
+  if (run && !held) goHome();
+  held = false;
+};
+
+homeBtn.addEventListener("pointerup", () => endHold(true));
+homeBtn.addEventListener("pointerleave", () => endHold(false));
 
 document.getElementById("toggle-dates").addEventListener("click", () => {
   setShowDates(!document.body.classList.contains("show-dates"));
 });
 
 document.getElementById("toggle-blur").addEventListener("click", () => {
+  markUsed("blur");
   setBlurNotes(!isBlurred());
+});
+
+/* -------------------------------------------------------------- clipper */
+
+// A clip is saved by the service worker, straight into the database — a tab
+// already open elsewhere drew its tray from a read that happened before the
+// capture existed. The board itself is untouched: captures land in the tray.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.type !== "easynote:clip-saved") return;
+  markUsed("clip");
+  refreshTray();
 });
 
 /* ----------------------------------------------------------------- boot */
@@ -217,12 +289,14 @@ initPages();
 initReminders();
 initSearch();
 initSyncUI();
+initTray();
 
 // A sync that pulled anything has changed pages and notes underneath us.
 setSyncAppliedHandler(async () => {
   adoptPages(await getAll(PAGES));
   renderPageTree();
   await showCurrentPage();
+  await refreshTray(); // a sync can bring captures from another device
 });
 
 setPageSwitchHandler(async (id, previous) => {
@@ -239,18 +313,26 @@ setPageSwitchHandler(async (id, previous) => {
 async function restoreViewFor(pageId) {
   const saved = await getOne(META, viewKey(pageId));
   if (saved) setView(saved);
-  else fitToNotes();
+  else await goHome(); // its home view, or a framing of its notes if it has none
 }
 
-setSearchPickHandler(async (noteId, pageId) => {
-  // A hit on another page needs that page rendered before we can frame it.
+// Going to one named note, wherever it lives. Search uses it for a hit, and a
+// page's due badge uses it to step through what is waiting on that page.
+async function goToNote(noteId, pageId) {
+  // A note on another page needs that page rendered before we can frame it.
   if (pageId !== currentPageId) await switchPage(pageId);
   const entry = notes.get(noteId);
   if (!entry) return;
   selectOnly(noteId);
   focusNote(entry.el); // pans only — the zoom the user set is left alone
   activateNote(entry);
-});
+}
+
+setSearchPickHandler(goToNote);
+setDuePickHandler(goToNote);
+
+// Clicking the page you are on is a request to be put back where you like it.
+setReselectHandler(() => goHome());
 
 openDB()
   .then(async () => {
@@ -302,7 +384,9 @@ openDB()
     else applyView();
 
     await showCurrentPage();
+    await refreshTray();
     if (!startView) fitToNotes();
+    initTheme(); // after loadPrefs, so a synced choice is known
     setShowDates(!!getPref("showDates"), false);
     // boot.js already applied the class from localStorage; this only syncs the
     // button, and covers a profile whose pref arrived by sync.
@@ -317,5 +401,9 @@ openDB()
     const stored = await getAll(NOTES);
     const returning = stored.some((n) => !n.deleted) || migration.imported > 0;
     initWhatsNew(returning).catch(() => {});
+
+    // Last, and quietly: one tip, only if this profile has gone a while
+    // without one and has notes to work with.
+    initTips(stored.filter((n) => !n.deleted).length);
   })
   .catch((err) => console.error("Easy Note failed to start:", err));

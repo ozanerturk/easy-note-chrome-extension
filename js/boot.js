@@ -18,6 +18,13 @@ try {
     document.documentElement.classList.add("blur-notes");
   }
 
+  // Same again for the theme: waiting on the database read would flash a
+  // light page before going dark on every single new tab.
+  const theme = localStorage.getItem("easynote:theme");
+  if (theme === "light" || theme === "dark") {
+    document.documentElement.dataset.theme = theme;
+  }
+
   const width = parseInt(localStorage.getItem("easynote:sidebarWidth"), 10);
   if (Number.isFinite(width) && width >= 150 && width <= 460) {
     document.documentElement.style.setProperty("--sidebar-w", `${width}px`);

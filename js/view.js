@@ -1,4 +1,5 @@
-import { put, META } from "./db.js";
+import { put, getOne, META } from "./db.js";
+import { markUsed } from "./tips.js";
 import { currentPageId } from "./pages.js";
 
 export const MIN_ZOOM = 0.2;
@@ -23,6 +24,34 @@ export function screenToWorld(clientX, clientY) {
 }
 
 export const viewKey = (pageId) => `view:${pageId}`;
+
+/* --------------------------------------------------------------- home view */
+
+// Where a page starts. Distinct from the view above, which follows you around
+// and remembers wherever you happened to stop — this one only moves when it is
+// deliberately set, so there is always somewhere known to get back to.
+export const homeKey = (pageId) => `home:${pageId}`;
+
+/** Return to the page's home view, or frame its notes if it has none yet. */
+export async function goHome() {
+  const pageId = currentPageId;
+  if (!pageId) return fitToNotes();
+  const saved = await getOne(META, homeKey(pageId));
+  if (saved) setView({ x: saved.x, y: saved.y, zoom: saved.zoom });
+  else fitToNotes();
+}
+
+/** Make wherever you are now the page's home view. */
+export async function setHome() {
+  const pageId = currentPageId;
+  if (!pageId) return;
+  markUsed("homeview");
+  await put(META, { id: homeKey(pageId), x: view.x, y: view.y, zoom: view.zoom });
+}
+
+export async function hasHome() {
+  return currentPageId ? !!(await getOne(META, homeKey(currentPageId))) : false;
+}
 
 let viewSaveTimer;
 function saveView() {

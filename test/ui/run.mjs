@@ -6,7 +6,7 @@
 
 import { launch, suite, sleep } from "./harness.mjs";
 
-const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./lock.test.mjs", "./reminders.test.mjs"];
+const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./lock.test.mjs", "./reminders.test.mjs", "./clip.test.mjs", "./tray.test.mjs", "./spring.test.mjs", "./home.test.mjs", "./sidebar.test.mjs"];
 
 const browser = await launch();
 let failed = 0;
