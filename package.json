@@ -7,6 +7,7 @@
     "build": "esbuild src/vendor/tiptap.entry.js --bundle --format=esm --minify --legal-comments=none --target=chrome120 --outfile=js/vendor/tiptap.js",
     "test": "node test/delta.test.mjs && node test/clip.test.mjs",
     "test:ui": "node test/ui/run.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
     "package": "npm run build && node scripts/package.js"
   },
   "devDependencies": {

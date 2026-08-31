@@ -999,6 +999,25 @@ body.show-dates .note-edited {
   pointer-events: none;
 }
 
+/* A filled note is a light surface whatever the theme is, so the native
+   controls inside it — checkboxes, scrollbars — have to be light too. In dark
+   mode the root's colour-scheme would otherwise render a tick box as a dark
+   square on a yellow note. An unfilled note sits on the board, so it follows
+   the board. */
+.note {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] .note.is-clear {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .note.is-clear {
+    color-scheme: dark;
+  }
+}
+
 .note-body img {
   display: block;
   max-width: 100%;
