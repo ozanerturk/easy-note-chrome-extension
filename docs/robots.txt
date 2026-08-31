@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ozanerturk.github.io/easy-note-chrome-extension/sitemap.xml
