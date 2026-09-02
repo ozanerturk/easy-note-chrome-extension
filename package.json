@@ -11,7 +11,7 @@
     "package": "npm run build && node scripts/package.js"
   },
   "devDependencies": {
-    "@tiptap/core": "^3.30.3",
+    "@tiptap/core": "^3.30.4",
     "@tiptap/extension-blockquote": "^3.30.3",
     "@tiptap/extension-bold": "^3.30.3",
     "@tiptap/extension-code": "^3.30.3",
