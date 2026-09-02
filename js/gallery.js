@@ -3,17 +3,24 @@
 // A photo in a note is a thumbnail of itself — the note is sized for the text
 // around it, and the only way to see the picture properly was to blow the
 // whole note up. Double-clicking one opens it here instead, with every other
-// image on the page behind it, so a board that collects pictures can be
+// picture on the board behind it, so notes that collect pictures can be
 // looked through rather than only read.
 //
-// The reel is the current page, in reading order: notes down and across, and
-// the images inside each note in the order they were written. "Go to note"
-// is what makes that safe to wander through — you can always get back to the
-// words the picture belongs to.
+// The reel is the whole board, not the page you happen to be on: every
+// picture in every note, in the order the sidebar reads — down the tree, then
+// notes down and across each page, then the images inside a note in the order
+// they were written. Pictures are filed by what they are about, which is
+// rarely the same as which page they ended up on, so a gallery that stopped
+// at the page edge would be the wrong shape for looking for one.
+//
+// Each frame says which note it came from and where that note lives — the
+// same snippet-and-page pairing search shows — and "go to note" opens it,
+// switching pages if that is what it takes.
 
+import { NOTES, TRAY_ID, getAll } from "./db.js";
 import { notes } from "./store.js";
-import { imageUrlFor } from "./note.js";
-import { currentPageId } from "./pages.js";
+import { imageUrlFor, imageIdsIn, plainText } from "./note.js";
+import { pagesInOrder, pathOf } from "./pages.js";
 import { markUsed } from "./tips.js";
 
 const root = document.getElementById("gallery");
@@ -21,12 +28,15 @@ const frame = document.getElementById("gallery-img");
 const counter = document.getElementById("gallery-count");
 const prevBtn = document.getElementById("gallery-prev");
 const nextBtn = document.getElementById("gallery-next");
+const summary = document.getElementById("gallery-summary");
+const where = document.getElementById("gallery-where");
 const gotoBtn = document.getElementById("gallery-goto");
 const closeBtn = document.getElementById("gallery-close");
 
-// [{ id, noteId }], built when the gallery opens. A snapshot rather than a
-// live list: the board cannot change while it is up, and an index into
-// something that shifts underneath is worse than a stale one.
+// [{ id, noteId, pageId, summary, where }], built when the gallery opens. A
+// snapshot rather than a live list: the board cannot change while it is up,
+// and an index into something that shifts underneath is worse than a stale
+// one.
 let reel = [];
 let at = 0;
 // Bumped on every show, so a slow image arriving after you have paged past it
@@ -38,24 +48,46 @@ export function galleryIsOpen() {
   return !root.hidden;
 }
 
+const SUMMARY_MAX = 90;
+
 /**
- * Every image on the page, in the order they are read.
+ * Every picture on the board, in the order the sidebar reads.
  *
- * Taken off the live bodies rather than the stored markup so an image pasted
- * a second ago — not yet written back to its record — is in the reel too.
+ * Off the records rather than the DOM, because most of these notes are on
+ * pages that are not rendered. The one exception is a note that is on screen:
+ * its live copy carries an edit that the database may be a moment behind on,
+ * so an image pasted a second ago is in the reel too.
  */
-function collect() {
-  return [...notes.values()]
-    .filter((entry) => !entry.note.deleted)
-    .sort((a, b) => a.note.y - b.note.y || a.note.x - b.note.x)
-    .flatMap((entry) => {
-      const body = entry.el.querySelector(".note-body");
-      if (!body) return [];
-      return [...body.querySelectorAll("img[data-img-id]")].map((img) => ({
-        id: img.dataset.imgId,
-        noteId: entry.note.id,
-      }));
-    });
+async function collect() {
+  const records = (await getAll(NOTES))
+    // Captures are not on a board yet, so "go to note" would have nowhere to
+    // go — the same reason search leaves them out.
+    .filter((r) => !r.deleted && r.pageId !== TRAY_ID)
+    .map((r) => notes.get(r.id)?.note || r);
+
+  const byPage = new Map();
+  records.forEach((r) => {
+    if (!byPage.has(r.pageId)) byPage.set(r.pageId, []);
+    byPage.get(r.pageId).push(r);
+  });
+
+  return pagesInOrder().flatMap((page) =>
+    (byPage.get(page.id) || [])
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .flatMap((note) => {
+        // plainText stands a 🖼 in for each image so a search snippet says
+        // there is one. Here the picture is the thing being looked at, so the
+        // glyph is only clutter in front of the words.
+        const text = plainText(note.html).replace(/🖼/g, "").replace(/\s+/g, " ").trim();
+        return imageIdsIn(note.html).map((id) => ({
+          id,
+          noteId: note.id,
+          pageId: page.id,
+          summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX)}…` : text,
+          where: pathOf(page.id),
+        }));
+      })
+  );
 }
 
 async function show(index) {
@@ -64,6 +96,11 @@ async function show(index) {
   const item = reel[at];
 
   counter.textContent = `${at + 1} / ${reel.length}`;
+  // Which note this came out of, and where that note lives. A picture on its
+  // own is hard to place, and the reel now spans every page there is.
+  summary.textContent = item.summary;
+  summary.title = item.summary;
+  where.textContent = item.where;
   // One picture is not a reel; the arrows would be two buttons that do
   // nothing.
   prevBtn.hidden = nextBtn.hidden = reel.length < 2;
@@ -79,8 +116,8 @@ async function show(index) {
 }
 
 /** Open on one image, with the rest of the page's pictures either side. */
-export function openGallery(imgId) {
-  reel = collect();
+export async function openGallery(imgId) {
+  reel = await collect();
   if (!reel.length) return;
   markUsed("gallery");
   const start = reel.findIndex((item) => item.id === imgId);
@@ -104,7 +141,7 @@ export function closeGallery() {
 function goToCurrent() {
   const item = reel[at];
   closeGallery();
-  if (item) onGoTo(item.noteId, currentPageId);
+  if (item) onGoTo(item.noteId, item.pageId);
 }
 
 function onKey(e) {

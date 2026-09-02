@@ -1,5 +1,5 @@
 import { NOTES, TRAY_ID, getAll } from "./db.js";
-import { whenLabel } from "./note.js";
+import { whenLabel, plainText } from "./note.js";
 import { pages, currentPageId } from "./pages.js";
 import { markUsed } from "./tips.js";
 
@@ -14,20 +14,6 @@ let debounce;
 
 export function setSearchPickHandler(fn) {
   onPick = fn;
-}
-
-function plainText(html) {
-  const div = document.createElement("div");
-  div.innerHTML = html || "";
-  div.querySelectorAll("img").forEach((img) => img.replaceWith("🖼 "));
-  // Taking the tags out runs the blocks together — a heading above a list came
-  // back as "Reading listContext switching studyFlameshot's…", which is
-  // unreadable in a snippet and matches across a word boundary that was never
-  // there. Each block gets a space to sit behind.
-  div
-    .querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, div, blockquote, pre, br, tr")
-    .forEach((el) => el.after(" "));
-  return div.textContent.replace(/\s+/g, " ").trim();
 }
 
 function snippet(text, query) {

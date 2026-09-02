@@ -2033,9 +2033,12 @@ body.show-dates .note-edited {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Darker than the fullscreen scrim: a photograph is judged against what is
-     around it, and a light room around it flattens the thing being looked at. */
-  background: rgba(12, 11, 10, 0.9);
+  /* Dark enough that a photograph is judged against something neutral, but
+     not a closed door: the board stays faintly visible behind it, so the
+     gallery reads as something laid over your notes rather than as another
+     screen you have gone away to. */
+  background: rgba(12, 11, 10, 0.72);
+  backdrop-filter: blur(2px);
   user-select: none;
 }
 
@@ -2046,7 +2049,9 @@ body.show-dates .note-edited {
 
 #gallery-img {
   max-width: min(92vw, 100vw - 140px);
-  max-height: calc(100vh - 110px);
+  /* Clear of the bar along the bottom: a caption sitting on the corner of the
+     picture is both harder to read and in the way of what it describes. */
+  max-height: calc(100vh - 150px);
   object-fit: contain;
   border-radius: var(--r);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
@@ -2101,6 +2106,7 @@ body.show-dates .note-edited {
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: min(820px, 94vw);
   padding: 6px 8px 6px 14px;
   border-radius: var(--r);
   background: rgba(0, 0, 0, 0.55);
@@ -2115,8 +2121,51 @@ body.show-dates .note-edited {
   white-space: nowrap;
 }
 
+/* Which note the picture came out of, and where that note lives. A picture
+   on its own is hard to place, and this reel crosses every page there is. */
+#gallery-caption {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0; /* or the flex item refuses to shrink and the bar overflows */
+  font-size: 12px;
+}
+
+#gallery-summary {
+  /* Shrinks first. The page path is short and fixed; the note's own words run
+     as long as they like, so they are the ones that should give way. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* The page path is the answer to a second question, so it is quieter than the
+   note's own words and gives up its room to them first. */
+/* Only when there are words to be separated from. */
+#gallery-summary:not(:empty) + #gallery-where::before {
+  content: "·";
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+#gallery-where {
+  flex: 0 0 auto;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+
 #gallery-bar button {
+  flex: 0 0 auto;
   padding: 5px 10px;
+  white-space: nowrap;
   border: none;
   border-radius: var(--r);
   background: rgba(255, 255, 255, 0.12);
