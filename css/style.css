@@ -2047,6 +2047,16 @@ body.show-dates .note-edited {
   display: none;
 }
 
+/* The picture's own box, and nothing more: a flex item that shrinks to what
+   it holds, so a layer pinned to its edges is pinned to the picture's edges
+   at any window size, with no measuring and nothing to keep in step. */
+#gallery-stage {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
 #gallery-img {
   max-width: min(92vw, 100vw - 140px);
   /* Clear of the bar along the bottom: a caption sitting on the corner of the
@@ -2065,6 +2075,89 @@ body.show-dates .note-edited {
 
 #gallery-img.is-loading {
   opacity: 0;
+}
+
+/* ------------------------------------------------------- text in a picture */
+
+/* The words Tesseract found, laid over the picture so they can be selected
+   and copied. Transparent: the picture already shows them, and a second copy
+   drawn on top in a different typeface is a smudge. What shows is the
+   selection — which is the whole point of the layer being here. */
+#gallery-text {
+  position: absolute;
+  inset: 0;
+  /* So a word can size itself against the picture rather than against the
+     root font, and stay right through a window resize. */
+  container-type: size;
+  user-select: text;
+  cursor: text;
+}
+
+.gallery-word {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  /* The line box is the word's box, which is what a selection draws. */
+  line-height: 1;
+  transform-origin: 0 0;
+}
+
+/* Bright enough to read a selection against a photograph of anything. */
+#gallery-text ::selection {
+  background: rgba(77, 143, 224, 0.5);
+}
+
+/* The one notice this feature gets: a sweep across the picture the moment its
+   words are ready, the way a phone flashes a photo it has found text in.
+   Once, on arrival — a picture that keeps twinkling is a picture nobody can
+   look at. */
+@keyframes gallery-scan {
+  0% { opacity: 0; transform: translateY(-100%); }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+#gallery-stage.is-found::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--r);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.06) 58%,
+    transparent 100%
+  );
+  animation: gallery-scan 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
+  animation-fill-mode: forwards;
+  opacity: 0;
+}
+
+/* The words themselves glow for the length of the sweep, so the flash says
+   "there is text here" rather than only "something happened". */
+#gallery-stage.is-found .gallery-word {
+  animation: gallery-word-lit 0.9s ease-out 1;
+}
+
+@keyframes gallery-word-lit {
+  0%, 100% { box-shadow: none; background: transparent; }
+  40% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gallery-stage.is-found::after,
+  #gallery-stage.is-found .gallery-word {
+    animation: none;
+  }
+
+  /* Still say it, just without the sweep. */
+  #gallery-stage.is-found .gallery-word {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  }
 }
 
 /* Big targets at the edges of the screen, dim until reached for — the picture

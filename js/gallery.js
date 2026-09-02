@@ -16,12 +16,19 @@
 //
 // Each frame says where its note lives and when it was last written in, and
 // "go to note" opens it, switching pages if that is what it takes.
+//
+// A picture that has writing on it also gets that writing read, in the
+// background, once — see ocr.js. When the words come back they are laid over
+// the picture as a selection layer, and the picture flashes once to say so,
+// the way a phone does when it has found text in a photograph.
 
 import { NOTES, TRAY_ID, getAll } from "./db.js";
 import { notes } from "./store.js";
 import { imageUrlFor, imageIdsIn, whenLabel, timestampOf } from "./note.js";
 import { pathOf } from "./pages.js";
 import { markUsed } from "./tips.js";
+import { textIn } from "./ocr.js";
+import { toast } from "./toast.js";
 
 const root = document.getElementById("gallery");
 const frame = document.getElementById("gallery-img");
@@ -30,6 +37,9 @@ const prevBtn = document.getElementById("gallery-prev");
 const nextBtn = document.getElementById("gallery-next");
 const where = document.getElementById("gallery-where");
 const when = document.getElementById("gallery-when");
+const stage = document.getElementById("gallery-stage");
+const layer = document.getElementById("gallery-text");
+const copyBtn = document.getElementById("gallery-copy");
 const gotoBtn = document.getElementById("gallery-goto");
 const closeBtn = document.getElementById("gallery-close");
 
@@ -43,6 +53,8 @@ let at = 0;
 // does not overwrite the one you are looking at.
 let token = 0;
 let onGoTo = () => {};
+// The words on the picture currently up, once they have been read.
+let found = null;
 
 export function galleryIsOpen() {
   return !root.hidden;
@@ -77,6 +89,70 @@ async function collect() {
     );
 }
 
+/**
+ * Lay the words of a picture over it, and say so once.
+ *
+ * The spans carry the text but not its appearance: they are transparent, sized
+ * to the boxes Tesseract found, and there only to be selected. Everything is
+ * in per-cent of the layer, and the layer is the picture's own box, so this
+ * survives a window resize without measuring anything.
+ */
+function paintText(words) {
+  layer.textContent = "";
+  if (!words || !words.length) {
+    layer.hidden = true;
+    copyBtn.hidden = true;
+    return;
+  }
+
+  const placed = words.map((word) => {
+    const span = document.createElement("span");
+    span.className = "gallery-word";
+    // The trailing space is what makes a selection dragged across several
+    // words paste as a sentence rather than as onelongword.
+    span.textContent = `${word.t} `;
+    span.style.left = `${word.x * 100}%`;
+    span.style.top = `${word.y * 100}%`;
+    // cqh is a hundredth of the layer's height, so a word is set at the
+    // height of the box Tesseract found it in, whatever size the picture is
+    // being shown at. With line-height 1 that makes the line box the box —
+    // and the line box is what a selection highlights.
+    span.style.fontSize = `${word.h * 100}cqh`;
+    layer.appendChild(span);
+    return { span, word };
+  });
+
+  layer.hidden = false;
+  copyBtn.hidden = false;
+
+  // Widths, in one read pass and then one write pass: a typeface that is not
+  // the one in the photograph will not set a word to the same width, so each
+  // is stretched to the box it was found in. Ratios rather than pixels, so
+  // resizing the window keeps them true.
+  const box = layer.getBoundingClientRect();
+  const measured = placed.map(({ span, word }) => {
+    const text = span.firstChild;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, word.t.length); // the word, without its trailing space
+    return range.getBoundingClientRect().width;
+  });
+
+  placed.forEach(({ span, word }, i) => {
+    const wanted = word.w * box.width;
+    if (measured[i] > 0.5 && wanted > 0.5) {
+      span.style.transform = `scaleX(${wanted / measured[i]})`;
+    }
+  });
+
+  // One sweep across the picture. It is the whole notice this feature gets —
+  // there is no badge and no banner — so it has to be visible, and it has to
+  // happen only once, on arrival.
+  stage.classList.remove("is-found");
+  void stage.offsetWidth; // let the class removal take, so the run restarts
+  stage.classList.add("is-found");
+}
+
 async function show(index) {
   at = (index + reel.length) % reel.length;
   const mine = ++token;
@@ -92,6 +168,11 @@ async function show(index) {
   // nothing.
   prevBtn.hidden = nextBtn.hidden = reel.length < 2;
 
+  // Whatever was read off the last picture is not this picture's.
+  found = null;
+  paintText(null);
+  stage.classList.remove("is-found");
+
   frame.classList.add("is-loading");
   const url = await imageUrlFor(item.id);
   if (mine !== token) return;
@@ -100,6 +181,15 @@ async function show(index) {
   // before it under the new number.
   frame.src = url || "";
   frame.alt = url ? "" : "This image is no longer stored";
+  if (!url) return;
+
+  // Reading takes a second or two the first time and nothing at all after
+  // that, so it is never waited on: the picture is up, and the words arrive
+  // when they arrive — if the reader is still on this frame by then.
+  const read = await textIn(item.id).catch(() => null);
+  if (mine !== token) return;
+  found = read;
+  paintText(read && read.words);
 }
 
 /** Open on one image, with the rest of the page's pictures either side. */
@@ -121,6 +211,8 @@ export function closeGallery() {
   window.removeEventListener("keydown", onKey, true);
   token++; // anything still loading is no longer wanted
   frame.removeAttribute("src");
+  paintText(null);
+  found = null;
   reel = [];
 }
 
@@ -176,6 +268,17 @@ export function initGallery(goTo) {
     e.preventDefault();
     e.stopPropagation();
     openGallery(img.dataset.imgId);
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    if (!found || !found.text) return;
+    try {
+      await navigator.clipboard.writeText(found.text);
+      markUsed("phototext");
+      toast("Text copied");
+    } catch (err) {
+      toast("Could not reach the clipboard");
+    }
   });
 
   prevBtn.addEventListener("click", () => show(at - 1));

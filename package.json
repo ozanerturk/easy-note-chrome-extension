@@ -4,7 +4,7 @@
   "description": "Chrome extension for freeform note-taking",
   "scripts": {
     "dev": "node scripts/dev.js",
-    "build": "esbuild src/vendor/tiptap.entry.js --bundle --format=esm --minify --legal-comments=none --target=chrome120 --outfile=js/vendor/tiptap.js",
+    "build": "esbuild src/vendor/tiptap.entry.js --bundle --format=esm --minify --legal-comments=none --target=chrome120 --outfile=js/vendor/tiptap.js && node scripts/vendor-ocr.mjs",
     "test": "node test/delta.test.mjs && node test/clip.test.mjs && node test/tips.test.mjs",
     "test:ui": "node test/ui/run.mjs",
     "screenshots": "node scripts/screenshots.mjs",
@@ -30,6 +30,7 @@
     "@tiptap/extensions": "^3.30.3",
     "@tiptap/pm": "^3.30.3",
     "esbuild": "^0.28.2",
+    "tesseract.js": "^7.0.0",
     "ws": "^8.21.3"
   }
 }

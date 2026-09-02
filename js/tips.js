@@ -37,6 +37,7 @@ const READ_MS = 7000; // a sentence with a shortcut in it takes a moment
 const TIPS = [
   { key: "clip", text: "Tip: ⌥⇧S grabs any part of a web page straight into your tray." },
   { key: "typing", text: "Tip: start a line with “- ”, “[] ” or “# ” for a list, a checkbox or a heading." },
+  { key: "phototext", text: "Tip: words inside a picture can be selected and copied — open it and drag across them." },
   { key: "gallery", text: "Tip: double-click a picture to open it full size and page through the rest." },
   { key: "filing", text: "Tip: drag a note onto a page in the sidebar to file it there." },
   { key: "spring", text: "Tip: hold a note over a page and that page opens, so you can put it down where you want." },
