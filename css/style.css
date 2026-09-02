@@ -612,7 +612,10 @@ body.is-resizing #sidebar {
 .note {
   position: absolute;
   min-width: 160px;
-  min-height: 120px;
+  /* One line of body text plus the body's own padding. A note holding a
+     single line should be allowed to be a single line; anything taller is
+     empty space the board has to carry. */
+  min-height: 40px;
   display: flex;
   flex-direction: column;
   /* No border. A line around every note turns a board of thoughts into a
@@ -989,16 +992,6 @@ body.show-dates .note-edited {
   background: rgba(198, 40, 40, 0.14);
 }
 
-/* The editor marks the empty node it is sitting in; the placeholder floats
-   over it without taking a line of its own. */
-.note-body .is-empty::before {
-  content: attr(data-placeholder);
-  color: rgba(0, 0, 0, 0.35);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
 /* A filled note is a light surface whatever the theme is, so the native
    controls inside it — checkboxes, scrollbars — have to be light too. In dark
    mode the root's colour-scheme would otherwise render a tick box as a dark
@@ -1041,9 +1034,9 @@ body.show-dates .note-edited {
 /* The size ladder: small, body, h3, h2, h1, each step clearly bigger than the
    last so a stepper button reads as one. h4 is off the ladder — only the v1
    import produces them. */
-.note-body h1 { font-size: 1.5em; }
-.note-body h2 { font-size: 1.3em; }
-.note-body h3 { font-size: 1.15em; }
+.note-body h1 { font-size: 2em; }
+.note-body h2 { font-size: 1.6em; }
+.note-body h3 { font-size: 1.25em; }
 .note-body h4 { font-size: 1.05em; }
 
 /* Checklists: the box and its line share a row rather than stacking. */
@@ -1113,7 +1106,7 @@ body.show-dates .note-edited {
 /* Three named sizes rather than a font menu: enough for hierarchy, without
    every note ending up in a different typeface. */
 .note-body .t-title {
-  font-size: 1.3em;
+  font-size: 1.6em;
   font-weight: 600;
   line-height: 1.25;
   margin: 2px 0 4px;
@@ -1271,7 +1264,7 @@ body.show-dates .note-edited {
 
 .note.is-fullscreen {
   position: absolute;
-  inset: 4vh 6vw;
+  inset: 2vh 3vw;
   width: auto !important;
   height: auto !important;
   min-width: 0;
@@ -1293,13 +1286,13 @@ body.show-dates .note-edited {
 }
 
 .note.is-fullscreen .note-body {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   /* Room at the top for the ⋯, and a column that stops at a readable measure
      instead of running the full width of the screen. Done with padding rather
      than a max-width on the children, so it holds whatever shape the editor
      wraps the content in. */
-  padding: 40px max(26px, calc((100% - 70ch) / 2)) 32px;
+  padding: 28px max(20px, calc((100% - 96ch) / 2)) 28px;
 }
 
 .note.is-fullscreen .note-header {
@@ -1914,7 +1907,7 @@ body.show-dates .note-edited {
   background: var(--float-solid);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24), inset 0 0 0 1px var(--surface-line);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ctx-item {
@@ -1924,7 +1917,10 @@ body.show-dates .note-edited {
   border: none;
   border-radius: var(--r);
   background: transparent;
-  color: var(--text-2);
+  /* Full-strength ink. The secondary tone reads fine on paper white, but on
+     the dark panel it sank into the surface and the items were hard to pick
+     out at a glance. */
+  color: var(--text);
   font: inherit;
   text-align: left;
   white-space: nowrap;

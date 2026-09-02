@@ -1330,6 +1330,13 @@ export function clearBoard() {
 }
 
 export function loadNote(record) {
+  // A note in hand is already on screen, in the drag layer: clearBoard leaves
+  // it there on purpose so a page switch mid-drag does not destroy the thing
+  // under the cursor. Rendering it again here gave it a second element, which
+  // is how dropping a note back on its own page produced two of it.
+  const inHand = notesInHand();
+  if (inHand && inHand.has(record.id)) return;
+
   // v1 stored plain text under `text`; carry it over as escaped markup.
   if (record.html === undefined) record.html = escapeHtml(record.text || "");
   delete record.deleted;

@@ -33,11 +33,12 @@ import {
   ListKeymap,
   Image,
   UndoRedo,
-  Placeholder,
 } from "./vendor/tiptap.js";
 import { attachBubble } from "./bubble.js";
 
-export const PLACEHOLDER = "Type or paste here…";
+/* There is no placeholder any more. Prompting an empty note with "type here"
+   said nothing the caret sitting in it did not, and it said it in every empty
+   note on the board at once — a page of grey instructions to read past. */
 
 /**
  * The three text sizes, carried as the classes we already store.
@@ -229,7 +230,6 @@ function extensions() {
     NoteImage,
     TextSize,
     UndoRedo, // per note, and scoped to it — ⌘Z on the board still undoes a delete
-    Placeholder.configure({ placeholder: PLACEHOLDER }),
   ];
 }
 
