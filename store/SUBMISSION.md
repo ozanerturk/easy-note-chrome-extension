@@ -1,20 +1,30 @@
-# Chrome Web Store submission — Easy Note 3.2.0
+# Chrome Web Store submission — Easy Note 3.3.0
 
-Upload package: **`dist/easy-note-3.2.0.zip`** (built by `npm run package`).
+Upload package: **`dist/easy-note-3.3.0.zip`** (built by `npm run package`).
+
+> **New in 3.3, and the one thing a reviewer will look twice at:** the package
+> is ~7MB bigger, and the manifest now sets a `content_security_policy`. Both
+> are the on-device text recognition described below. Nothing about the
+> permissions has changed — there are still four, and still no host
+> permissions.
 
 ## Assets in this folder
 
 | File | Where it goes |
 | --- | --- |
 | `screenshot-1-canvas.png` | Screenshot (1280×800) — the board and page tree |
-| `screenshot-2-clip.png` | Screenshot — clipping a region out of a web page |
-| `screenshot-3-tray.png` | Screenshot — the Capture tray holding what was clipped |
-| `screenshot-4-dark.png` | Screenshot — the same board in dark mode |
-| `screenshot-5-search.png` | Screenshot — search across every page |
+| `screenshot-2-gallery.png` | Screenshot — a picture opened full size, with its text selected |
+| `screenshot-3-clip.png` | Screenshot — clipping a region out of a web page |
+| `screenshot-4-tray.png` | Screenshot — the Capture tray holding what was clipped |
+| `screenshot-5-dark.png` | Screenshot — the same board in dark mode |
 
-Upload them in that order. The store shows five at most, and the first is the
-one most people judge the extension on, so the board leads and the clipper —
-the reason to install 3.2 — comes straight after it.
+Upload them in that order — the files are numbered by it. The store shows five
+at most, and the first is the one most people judge the extension on, so the
+board leads and the newest reason to install comes straight after it: in 3.3
+that is a picture opened full size with its own text selected on it. The
+search shot came out to make room; search is not what sells this version.
+
+The picture in the gallery shot is drawn by the script, not a real screen.
 
 All five are shot from the real extension at 1280×800 by
 `npm run screenshots` (scripts/screenshots.mjs), not mocked up.
@@ -92,6 +102,33 @@ the three ways to start a screen clip. It creates no other menu items and
 reads nothing from the page.
 ```
 
+### `content_security_policy` — if the review asks
+
+New in 3.3. The manifest sets:
+
+```json
+"content_security_policy": {
+  "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+}
+```
+
+```
+Easy Note 3.3 can read the text inside a picture in a note, so it can be
+selected and copied — a screenshot of an error message, a photo of a
+whiteboard. The recognition engine is WebAssembly, and 'wasm-unsafe-eval' is
+what Chrome requires to compile WebAssembly at all on an extension page.
+
+It does not relax anything else. script-src is still 'self': no remote code,
+no eval, no inline script. The engine, its wasm core and both language models
+(English and Turkish) are files inside the package — nothing is fetched at
+runtime, and the feature works with the network switched off. That is also why
+the package grew by about 7MB in this version.
+
+No picture, and nothing read out of one, is ever sent anywhere. Recognition
+runs in a Web Worker on the user's own machine and the result is cached
+locally so a picture is only ever read once.
+```
+
 ### Host permissions — none requested
 
 If a field still asks, the honest answer is:
@@ -105,8 +142,10 @@ per-invocation by the user, rather than standing access to any site.
 
 ## Data disclosure
 
-- Notes, pages, pasted images and screen clips are stored **locally in
-  IndexedDB**. A clip is a cropped screenshot of the region the user drew,
+- Notes, pages, pasted images, screen clips and the text recognised inside
+  pictures are stored **locally in IndexedDB**. Text recognition runs
+  on-device, in a worker, from models shipped in the package; no image or
+  recognised text is transmitted anywhere. A clip is a cropped screenshot of the region the user drew,
   plus the source page's URL and title; it is captured on the user's explicit
   action and never leaves the device unless they turn on sync.
 - If — and only if — the user signs in, that same data is copied to a
