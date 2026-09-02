@@ -1,11 +1,11 @@
 // Gallery mode: a picture opened at its own size, with every other picture on
 // the board either side of it.
 //
-// The order is the thing worth pinning down — pages down the sidebar, notes
-// down and across each page, images in writing order — because it is what
-// makes paging through pictures feel like reading the board rather than
-// shuffling it. The second page is here for the crossing: a reel that stopped
-// at the page edge would pass every check on one page alone.
+// The order is the thing worth pinning down — newest note first, wherever it
+// lives, and within a note the order the images were written in — because it
+// is the only order that still means something once the reel crosses pages.
+// The second page is here for that crossing: a reel that stopped at the page
+// edge would pass every check on one page alone.
 
 export const title = "gallery";
 
@@ -17,8 +17,10 @@ export default async function run(page, s) {
   const { check } = s;
 
   const home = (await page.stored("pages"))[0];
-  const at = (x, y, pageId) => ({ x, y, width: 260, height: 330, z: 1, pageId,
-    color: "transparent", createdAt: 1, editedAt: 1, updatedAt: 1 });
+  // Distinct edit times, since that is what the reel is sorted by: note-b is
+  // the most recent, then note-a, then the one on the other page.
+  const at = (x, y, pageId, editedAt) => ({ x, y, width: 260, height: 330, z: 1, pageId,
+    color: "transparent", createdAt: 1, editedAt, updatedAt: editedAt });
 
   // Real blobs in the image store: an <img> with nothing behind it has no box
   // to double-click, so the pictures have to actually be there.
@@ -40,9 +42,9 @@ export default async function run(page, s) {
 
   await page.seed("pages", [{ id: "page-2", name: "Trips", parentId: null, order: 9, collapsed: false }]);
   await page.seed("notes", [
-    { id: "note-a", html: TWO, ...at(320, 140, home.id) },
-    { id: "note-b", html: ONE, ...at(700, 140, home.id) },
-    { id: "note-c", html: AWAY, ...at(320, 140, "page-2") },
+    { id: "note-a", html: TWO, ...at(320, 140, home.id, 2_000_000) },
+    { id: "note-b", html: ONE, ...at(700, 140, home.id, 3_000_000) },
+    { id: "note-c", html: AWAY, ...at(320, 140, "page-2", 1_000_000) },
   ]);
 
   const text = (id) => page.evaluate(`document.getElementById('${id}').textContent`);
@@ -64,26 +66,30 @@ export default async function run(page, s) {
 
   check("double-clicking a picture opens the gallery", (await open()) === true);
   check(
-    "the reel is the whole board, not the page it was opened from",
-    (await count()) === "2 / 4"
+    "the reel is the whole board, and opens on the picture that was clicked",
+    (await count()) === "3 / 4",
+    "g2 is the second image of the second-newest note, of four on the board"
   );
-  check("it names the note the picture came out of", (await text("gallery-summary")).includes("first note"));
-  check("and where that note lives", (await text("gallery-where")) === home.name);
+  check("the caption says where that note lives", (await text("gallery-where")) === home.name);
+  check("and when it was last written in", (await text("gallery-when")).length > 0);
 
   /* ---------------------------------------------------------- navigating */
 
   await page.key("ArrowRight", "ArrowRight");
-  await page.settle(150);
-  check("the right arrow steps forward", (await count()) === "3 / 4");
-
-  await page.key("ArrowRight", "ArrowRight");
   await page.settle(200);
-  check("and carries on into the next page's pictures", (await count()) === "4 / 4");
-  check("which the caption says out loud", (await text("gallery-where")) === "Trips");
+  check("the right arrow steps forward", (await count()) === "4 / 4");
+  check(
+    "and carries on into the oldest note, which is on the other page",
+    (await text("gallery-where")) === "Trips"
+  );
 
   await page.key("ArrowRight", "ArrowRight");
   await page.settle(150);
   check("past the end it wraps round", (await count()) === "1 / 4");
+  check(
+    "onto the picture in the note edited last",
+    (await text("gallery-where")) === home.name
+  );
 
   await page.key("ArrowLeft", "ArrowLeft");
   await page.settle(150);
@@ -130,8 +136,8 @@ export default async function run(page, s) {
   await page.settle(700);
   check("Enter goes to the note the picture is in", (await open()) === false);
   check(
-    "which is the note that picture belongs to",
-    (await page.evaluate(`document.querySelector('.note.is-selected')?.dataset.id`)) === "note-a"
+    "which is the note edited last, back on the first page",
+    (await page.evaluate(`document.querySelector('.note.is-selected')?.dataset.id`)) === "note-b"
   );
 
   const g1 = await boxOf('img[data-img-id="g1"]');

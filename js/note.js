@@ -214,7 +214,7 @@ function formatDate(ts) {
 
 // Older notes predate editedAt; fall back to updatedAt, then to the timestamp
 // embedded in ids minted before uuids.
-function timestampOf(note) {
+export function timestampOf(note) {
   if (note.editedAt) return note.editedAt;
   if (note.updatedAt) return note.updatedAt;
   const parsed = parseInt(String(note.id).split("-")[0], 10);

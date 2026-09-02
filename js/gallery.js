@@ -7,20 +7,20 @@
 // looked through rather than only read.
 //
 // The reel is the whole board, not the page you happen to be on: every
-// picture in every note, in the order the sidebar reads — down the tree, then
-// notes down and across each page, then the images inside a note in the order
-// they were written. Pictures are filed by what they are about, which is
-// rarely the same as which page they ended up on, so a gallery that stopped
-// at the page edge would be the wrong shape for looking for one.
+// picture in every note, newest note first. Pictures are filed by what they
+// are about, which is rarely the same as which page they ended up on, so a
+// gallery that stopped at the page edge would be the wrong shape for looking
+// for one — and once it crosses pages, "where on the board" is no longer an
+// order anyone can hold in their head. When a picture was put down is, which
+// is why they run by date instead.
 //
-// Each frame says which note it came from and where that note lives — the
-// same snippet-and-page pairing search shows — and "go to note" opens it,
-// switching pages if that is what it takes.
+// Each frame says where its note lives and when it was last written in, and
+// "go to note" opens it, switching pages if that is what it takes.
 
 import { NOTES, TRAY_ID, getAll } from "./db.js";
 import { notes } from "./store.js";
-import { imageUrlFor, imageIdsIn, plainText } from "./note.js";
-import { pagesInOrder, pathOf } from "./pages.js";
+import { imageUrlFor, imageIdsIn, whenLabel, timestampOf } from "./note.js";
+import { pathOf } from "./pages.js";
 import { markUsed } from "./tips.js";
 
 const root = document.getElementById("gallery");
@@ -28,12 +28,12 @@ const frame = document.getElementById("gallery-img");
 const counter = document.getElementById("gallery-count");
 const prevBtn = document.getElementById("gallery-prev");
 const nextBtn = document.getElementById("gallery-next");
-const summary = document.getElementById("gallery-summary");
 const where = document.getElementById("gallery-where");
+const when = document.getElementById("gallery-when");
 const gotoBtn = document.getElementById("gallery-goto");
 const closeBtn = document.getElementById("gallery-close");
 
-// [{ id, noteId, pageId, summary, where }], built when the gallery opens. A
+// [{ id, noteId, pageId, where, when }], built when the gallery opens. A
 // snapshot rather than a live list: the board cannot change while it is up,
 // and an index into something that shifts underneath is worse than a stale
 // one.
@@ -48,10 +48,8 @@ export function galleryIsOpen() {
   return !root.hidden;
 }
 
-const SUMMARY_MAX = 90;
-
 /**
- * Every picture on the board, in the order the sidebar reads.
+ * Every picture on the board, newest note first.
  *
  * Off the records rather than the DOM, because most of these notes are on
  * pages that are not rendered. The one exception is a note that is on screen:
@@ -59,35 +57,24 @@ const SUMMARY_MAX = 90;
  * so an image pasted a second ago is in the reel too.
  */
 async function collect() {
-  const records = (await getAll(NOTES))
+  return (await getAll(NOTES))
     // Captures are not on a board yet, so "go to note" would have nowhere to
     // go — the same reason search leaves them out.
     .filter((r) => !r.deleted && r.pageId !== TRAY_ID)
-    .map((r) => notes.get(r.id)?.note || r);
-
-  const byPage = new Map();
-  records.forEach((r) => {
-    if (!byPage.has(r.pageId)) byPage.set(r.pageId, []);
-    byPage.get(r.pageId).push(r);
-  });
-
-  return pagesInOrder().flatMap((page) =>
-    (byPage.get(page.id) || [])
-      .sort((a, b) => a.y - b.y || a.x - b.x)
-      .flatMap((note) => {
-        // plainText stands a 🖼 in for each image so a search snippet says
-        // there is one. Here the picture is the thing being looked at, so the
-        // glyph is only clutter in front of the words.
-        const text = plainText(note.html).replace(/🖼/g, "").replace(/\s+/g, " ").trim();
-        return imageIdsIn(note.html).map((id) => ({
-          id,
-          noteId: note.id,
-          pageId: page.id,
-          summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX)}…` : text,
-          where: pathOf(page.id),
-        }));
-      })
-  );
+    .map((r) => notes.get(r.id)?.note || r)
+    .sort((a, b) => timestampOf(b) - timestampOf(a))
+    .flatMap((note) =>
+      // Within one note the images keep the order they were written in:
+      // whatever a note has to say about its own pictures, it says by the
+      // order it puts them in.
+      imageIdsIn(note.html).map((id) => ({
+        id,
+        noteId: note.id,
+        pageId: note.pageId,
+        where: pathOf(note.pageId),
+        when: whenLabel(note),
+      }))
+    );
 }
 
 async function show(index) {
@@ -96,11 +83,11 @@ async function show(index) {
   const item = reel[at];
 
   counter.textContent = `${at + 1} / ${reel.length}`;
-  // Which note this came out of, and where that note lives. A picture on its
-  // own is hard to place, and the reel now spans every page there is.
-  summary.textContent = item.summary;
-  summary.title = item.summary;
+  // Where this picture lives and when its note was last written in. Two facts
+  // that place it, rather than a line of the note's text — which is as likely
+  // to be about something else entirely as it is to be about the picture.
   where.textContent = item.where;
+  when.textContent = item.when;
   // One picture is not a reel; the arrows would be two buttons that do
   // nothing.
   prevBtn.hidden = nextBtn.hidden = reel.length < 2;

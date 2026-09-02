@@ -55,17 +55,6 @@ function childrenOf(parentId) {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
 }
 
-/**
- * Every page in sidebar order, flattened.
- *
- * For anything that walks the whole tree rather than drawing it — the gallery
- * reads its pictures in this order, so paging through them is the same
- * journey as reading down the sidebar.
- */
-export function pagesInOrder(parentId = null) {
-  return childrenOf(parentId).flatMap((page) => [page, ...pagesInOrder(page.id)]);
-}
-
 /** "Work › Trips" — where a page sits, for anything naming a note's home. */
 export function pathOf(pageId) {
   const parts = [];

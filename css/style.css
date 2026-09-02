@@ -2121,46 +2121,44 @@ body.show-dates .note-edited {
   white-space: nowrap;
 }
 
-/* Which note the picture came out of, and where that note lives. A picture
-   on its own is hard to place, and this reel crosses every page there is. */
+/* Where the picture lives and when its note was last written in. Two facts
+   that place a picture, which is the whole job of a caption in a reel that
+   crosses every page there is. */
 #gallery-caption {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   display: flex;
   align-items: baseline;
   gap: 8px;
   min-width: 0; /* or the flex item refuses to shrink and the bar overflows */
-  font-size: 12px;
 }
 
-#gallery-summary {
-  /* Shrinks first. The page path is short and fixed; the note's own words run
-     as long as they like, so they are the ones that should give way. */
+/* The page path is the answer, so it is the size of one — the old caption put
+   it in the small print beside a line of the note's text, where it was the
+   easiest thing on the bar to miss. */
+#gallery-where {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
 }
 
-/* The page path is the answer to a second question, so it is quieter than the
-   note's own words and gives up its room to them first. */
-/* Only when there are words to be separated from. */
-#gallery-summary:not(:empty) + #gallery-where::before {
+#gallery-when {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+/* The same wording as the line under a note, so "3h ago" means the same thing
+   wherever it is read. */
+#gallery-where:not(:empty) + #gallery-when::before {
   content: "·";
   margin-right: 8px;
   opacity: 0.6;
 }
-
-#gallery-where {
-  flex: 0 0 auto;
-  max-width: 30%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(255, 255, 255, 0.5);
-}
-
 
 #gallery-bar button {
   flex: 0 0 auto;
