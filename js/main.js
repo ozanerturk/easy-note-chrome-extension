@@ -53,6 +53,7 @@ import {
   setReselectHandler,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
+import { initGallery } from "./gallery.js";
 import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
 import { toast } from "./toast.js";
@@ -332,6 +333,9 @@ async function goToNote(noteId, pageId) {
 
 setSearchPickHandler(goToNote);
 setDuePickHandler(goToNote);
+// Double-clicking a picture opens the page's pictures; "go to note" brings you
+// back to the one it belongs to, by the same door search uses.
+initGallery(goToNote);
 
 // Clicking the page you are on is a request to be put back where you like it.
 setReselectHandler(() => goHome());
