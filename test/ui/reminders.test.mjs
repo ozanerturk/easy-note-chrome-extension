@@ -100,8 +100,11 @@ export default async function run(page, s) {
       };
     };
   })`);
-  await page.cdp.send("Page.reload");
-  await page.settle(1600);
+  await page.reload(); // back when the app has booted, not when a timer says so
+  // The hop is a one-off animation the note runs on arrival, and `has-hopped`
+  // is the note saying it has finished. Waiting for that rather than for a
+  // stopwatch is what makes this check about the behaviour again.
+  await page.waitFor(`!!document.querySelector('.note.has-hopped')`);
 
   state = await noteState();
   check("a note that came due while away hops on arrival",

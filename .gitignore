@@ -13,3 +13,6 @@ dist/
 
 # UI test profiles
 .ui-profile-*/
+
+# written by the build; the notices it feeds are checked in
+.build-meta.json

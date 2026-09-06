@@ -143,6 +143,19 @@ export default async function run(page, s) {
     Math.abs(dragged.x - handle.x + 60) < 4 && Math.abs(dragged.y - handle.y - 40) < 4,
     `dx=${(dragged.x - handle.x).toFixed(0)} dy=${(dragged.y - handle.y).toFixed(0)}`);
 
+  // pasting into the note the menu was opened from
+  const items = await page.evaluate(`(() => {
+    document.querySelector('.note .note-btn-more').click();
+    return [...document.querySelectorAll('.ctx-item')].map((b) => b.textContent);
+  })()`);
+  check("the note's menu offers a paste", items.includes("Paste"), String(items));
+  check("and one that leaves the formatting behind",
+    items.includes("Paste without formatting"), String(items));
+  check("with the paste at the top, where the words are",
+    items[0] === "Paste", String(items));
+  await page.key("Escape", "Escape");
+  await page.settle(150);
+
   // colours
   const palette = await page.evaluate(`(() => {
     document.querySelector('.note .note-btn-more').click();
@@ -212,7 +225,54 @@ export default async function run(page, s) {
     (await page.evaluate(`document.querySelectorAll('.note').length`)) === 2);
   check("discarding it says nothing",
     (await page.evaluate(`getComputedStyle(document.getElementById('undo-bar')).opacity === '0'`)) === true);
+
+  /* -------------------------------------------------- the canvas's own menu */
+
+  // Right-clicking nothing in particular used to hand over to Chrome's menu,
+  // which knows nothing about the board.
+  await rightClick(page, 280, 500);
+  check("right-clicking the bare canvas opens a menu",
+    (await page.evaluate(`document.querySelectorAll('.ctx-menu').length`)) === 1);
+  const canvasItems = await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].map((b) => b.textContent).join(',')`
+  );
+  check("with what there is to do out here",
+    canvasItems === "New note,Paste,Paste without formatting", canvasItems);
+
+  await pick(page, "New note");
+  const made = await page.evaluate(`(() => {
+    const n = document.querySelector('.note.is-active');
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    return { x: r.x, y: r.y };
+  })()`);
+  check("New note puts one where you clicked", !!made && Math.abs(made.x - 280) < 60 && Math.abs(made.y - 500) < 60,
+    JSON.stringify(made));
+
+  // The note carries its own menu, and it says more than the canvas's.
+  await page.type("mine");
+  await page.settle();
+  await page.click(950, 250);
+  await page.settle();
+  await rightClick(page, 280, 500);
+  const overNote = await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].map((b) => b.textContent).join(',')`
+  );
+  check("right-clicking a note still gets the note's menu", overNote.includes("Delete note"), overNote);
+  await page.key("Escape", "Escape");
+  await page.settle(250);
 }
+
+const rightClick = async (page, x, y) => {
+  await page.cdp.send("Input.dispatchMouseEvent", {
+    type: "mousePressed", x, y, button: "right", buttons: 2, clickCount: 1,
+  });
+  await page.settle(60);
+  await page.cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased", x, y, button: "right", buttons: 0, clickCount: 1,
+  });
+  await page.settle(300);
+};
 
 const rect = (page) =>
   page.evaluate(`(() => {

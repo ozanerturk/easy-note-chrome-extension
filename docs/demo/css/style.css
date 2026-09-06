@@ -1,0 +1,2275 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ theme
+
+   One palette, named by role rather than by colour, so the dark set is the
+   same stylesheet with different values. Anything that is a surface, a line,
+   ink or the accent goes through these; the note fills the user picks do not,
+   since a yellow note is yellow in either theme.
+
+   `data-theme` is stamped on <html> by boot.js before first paint when the
+   user has chosen light or dark outright. Left unstamped it means "follow the
+   system", which is what the media query below answers. */
+:root {
+  --sidebar-w: 208px;
+  --sidebar-min: 150px;
+  --sidebar-max: 460px;
+  /* Set by tray.js. An empty tray costs the board nothing at all. */
+  --tray-h: 0px;
+
+  /* One corner radius for the whole app, and a small one. Rounding is a
+     decoration that every element pays for; at this size it takes the hard
+     edge off without turning the board into a field of lozenges. */
+  --r: 3px;
+
+  color-scheme: light;
+
+  --bg: #f4f2ee;
+  --grid: #d8d3ca;
+  --panel: #eceae4;
+  --panel-line: #dcd8d0;
+  --surface: #fcfbf8;
+  --surface-2: #e4e0d8;
+  --surface-line: #d8d4cc;
+  --chip: #d9d5cc;
+
+  --text: #33302b;
+  --text-2: #4a4740;
+  --text-3: #6b6459;
+  --muted: #8a8378;
+  --faint: #b3aca3;
+
+  --accent: #3d84d6;
+  --accent-strong: #2f6fd0;
+  --accent-soft: rgba(61, 132, 214, 0.16);
+  --danger: #b4451f;
+  /* The due badge sits in the sidebar all day, so it is tinted rather than
+     filled — loud enough to find, quiet enough to sit beside. */
+  --badge: rgba(180, 69, 31, 0.16);
+  --badge-ink: #9c4726;
+
+  /* Washes for hover and pressed states. They invert with the theme, which a
+     hardcoded black at 8% cannot do. */
+  --wash-1: rgba(0, 0, 0, 0.05);
+  --wash-2: rgba(0, 0, 0, 0.08);
+  --wash-3: rgba(0, 0, 0, 0.12);
+
+  /* Chrome that floats over the board. */
+  --float: rgba(255, 255, 255, 0.9);
+  --float-solid: rgba(255, 255, 255, 0.96);
+
+  /* The ink inside a note. Independent of the theme while the note has a
+     fill — the palette is light pastels either way — and overridden for
+     unfilled notes in dark, where there is no fill to read against. */
+  --note-ink: #23211d;
+  --note-edge: rgba(0, 0, 0, 0.16);
+}
+
+/* System-following, which is the default. Guarded so an explicit light choice
+   is not overruled by the OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #1a1917;
+    --grid: #322f2a;
+    --panel: #232220;
+    --panel-line: #34322d;
+    --surface: #2b2926;
+    --surface-2: #35322d;
+    --surface-line: #3d3a35;
+    --chip: #3d3a35;
+
+    --text: #ece8e1;
+    --text-2: #dad5cc;
+    --text-3: #b5aea4;
+    --muted: #8f887d;
+    --faint: #6f6960;
+
+    --accent: #4d8fe0;
+    --accent-strong: #6ea6ee;
+    --accent-soft: rgba(77, 143, 224, 0.24);
+    --danger: #e07a52;
+    --badge: rgba(224, 122, 82, 0.2);
+    --badge-ink: #e8a184;
+
+    --wash-1: rgba(255, 255, 255, 0.06);
+    --wash-2: rgba(255, 255, 255, 0.1);
+    --wash-3: rgba(255, 255, 255, 0.15);
+
+    --float: rgba(43, 41, 38, 0.92);
+    --float-solid: rgba(43, 41, 38, 0.98);
+
+    --note-edge: rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Chosen outright, which wins over the system in both directions. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #1a1917;
+  --grid: #322f2a;
+  --panel: #232220;
+  --panel-line: #34322d;
+  --surface: #2b2926;
+  --surface-2: #35322d;
+  --surface-line: #3d3a35;
+  --chip: #3d3a35;
+
+  --text: #ece8e1;
+  --text-2: #dad5cc;
+  --text-3: #b5aea4;
+  --muted: #8f887d;
+  --faint: #6f6960;
+
+  --accent: #4d8fe0;
+  --accent-strong: #6ea6ee;
+  --accent-soft: rgba(77, 143, 224, 0.24);
+  --danger: #e07a52;
+  --badge: rgba(224, 122, 82, 0.2);
+  --badge-ink: #e8a184;
+
+  --wash-1: rgba(255, 255, 255, 0.06);
+  --wash-2: rgba(255, 255, 255, 0.1);
+  --wash-3: rgba(255, 255, 255, 0.15);
+
+  --float: rgba(43, 41, 38, 0.92);
+  --float-solid: rgba(43, 41, 38, 0.98);
+
+  --note-edge: rgba(0, 0, 0, 0.5);
+}
+
+/* The grab strip on the sidebar's edge. It only shows ink on hover or while
+   dragging, so it stays out of the way. */
+#sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+#sidebar-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+#sidebar-resize:hover::after,
+body.is-resizing #sidebar-resize::after {
+  background: var(--accent);
+}
+
+/* While dragging, nothing else should take the pointer or select text. */
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.is-resizing #canvas,
+body.is-resizing #sidebar {
+  transition: none;
+}
+
+/* ------------------------------------------------------------- page tree */
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  z-index: 700;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid var(--panel-line);
+  transition: transform 0.16s;
+}
+
+.sidebar-hidden #sidebar {
+  transform: translateX(-100%);
+}
+
+#sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px 6px 12px;
+}
+
+#sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#add-page {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+#add-page:hover {
+  background: var(--wash-2);
+}
+
+#page-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.page-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding-right: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.page-row:hover {
+  background: var(--wash-1);
+}
+
+.page-row.is-current {
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+
+/* The page about to receive the notes. The row filling in is the whole
+   signal — the panel itself stays as it was.
+
+   It has to out-rank .is-current above: the page being dropped on can be the
+   one already open (spring-loaded, or a capture dragged out of the tray), and
+   losing this fill puts white text on a near-white row. */
+.page-row.is-note-drop,
+.page-row.is-current.is-note-drop {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-row.is-note-drop .page-name {
+  color: #fff;
+}
+
+.page-row.is-note-drop .page-action,
+.page-row.is-note-drop .page-twisty {
+  display: none;
+}
+
+/* Reordering: a line at the edge means "drop between", a filled row means
+   "drop inside". */
+#sidebar.is-reordering .page-row {
+  cursor: grabbing;
+}
+
+.page-row.is-dragging {
+  opacity: 0.4;
+}
+
+.page-row.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.page-row.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.page-row.drop-child {
+  background: rgba(61, 132, 214, 0.22);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.page-twisty {
+  width: 14px;
+  flex: 0 0 14px;
+  border: none;
+  background: transparent;
+  font-size: 9px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.page-twisty:disabled {
+  cursor: default;
+}
+
+.page-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+
+/* .page-row sets user-select:none so dragging a row doesn't smear a text
+   selection — but the name inherits it, and a contenteditable that cannot be
+   selected cannot be typed into either. Editing has to opt back in. */
+.page-name.is-editing {
+  background: #fff;
+  color: #1b1a17;
+  border-radius: var(--r);
+  padding: 0 3px;
+  box-shadow: 0 0 0 1.5px var(--accent);
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* The due count. Its own column between the name and the actions, so the
+   badges line up down the tree however long the names are, and the name is
+   ellipsised against the badge rather than running underneath it. */
+.page-badge {
+  display: none;
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: 17px;
+  height: 16px;
+  margin: 0 4px 0 8px;
+  padding: 0 5px;
+  border: none;
+  border-radius: var(--r);
+  background: var(--badge);
+  color: var(--badge-ink);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.page-row.has-due .page-badge {
+  display: block;
+}
+
+/* Only on the way to being clicked does it come up to full strength. */
+.page-badge:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.page-row.is-note-drop .page-badge {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--accent);
+}
+
+.page-action {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+}
+
+.page-row:hover .page-action {
+  opacity: 1;
+}
+
+.page-action:hover {
+  background: var(--wash-3);
+}
+
+#toggle-sidebar {
+  position: fixed;
+  top: 12px;
+  left: calc(var(--sidebar-w) + 12px);
+  z-index: 750;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--r);
+  background: var(--float);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: left 0.16s;
+}
+
+.sidebar-hidden #toggle-sidebar {
+  left: 12px;
+}
+
+/* A quiet help affordance, tucked into the corner opposite the controls. */
+#help {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 760;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--float);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+#help:hover {
+  opacity: 1;
+  color: var(--accent-strong);
+}
+
+/* ----------------------------------------------------------------- search */
+
+#search {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  width: min(520px, 70vw);
+  z-index: 950;
+  border-radius: var(--r);
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.26);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s;
+  overflow: hidden;
+}
+
+#search.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#search-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 1px solid #eae7e1;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+}
+
+#search-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.search-row:hover,
+.search-row.is-active {
+  background: rgba(61, 132, 214, 0.12);
+}
+
+.search-swatch {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: var(--r);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.search-text {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.search-text mark {
+  background: #ffe082;
+  color: inherit;
+  border-radius: var(--r);
+}
+
+.search-when {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.38);
+  white-space: nowrap;
+}
+
+.search-page {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.search-empty {
+  padding: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.search-label {
+  padding: 9px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #a8a196;
+}
+
+/* Viewport. The dot grid scrolls and scales with the view, which is what
+   makes the canvas read as continuous rather than fixed. */
+#canvas {
+  position: absolute;
+  inset: 0;
+  left: var(--sidebar-w);
+  /* The tray is not an overlay: it takes its height out of the board rather
+     than covering the bottom of it. Zero when the tray is empty. */
+  bottom: var(--tray-h);
+  overflow: hidden;
+  cursor: default;
+  background-image: radial-gradient(circle, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+}
+
+#canvas.is-panning {
+  cursor: grabbing;
+}
+
+/* Infinite plane: zero-sized, so only its transform matters. */
+#world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+#hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--faint);
+  font-size: 15px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.note {
+  position: absolute;
+  min-width: 160px;
+  /* One line of body text plus the body's own padding. A note holding a
+     single line should be allowed to be a single line; anything taller is
+     empty space the board has to carry. */
+  min-height: 40px;
+  display: flex;
+  flex-direction: column;
+  /* No border. A line around every note turns a board of thoughts into a
+     board of boxes; the shadow alone is enough to lift a filled note off the
+     canvas, and an unfilled one should not be lifted at all. */
+  border-radius: var(--r);
+  color: var(--note-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  /* Visible, so the header can float clear of the note. The body does its own
+     clipping, and the resize grip below replaces the CSS resizer that
+     overflow:hidden was the price of. */
+  overflow: visible;
+}
+
+/* The header is a popover, not a strip of the note: it costs the body no
+   room, floats just above the active note, and covers none of its text. It
+   doubles as the drag handle once the body belongs to the caret. */
+.note-header {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 3px);
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  /* No slab. It held five buttons once and had to be a surface to hold them;
+     it holds one now, and a white bar hanging over every open note was the
+     loudest thing on the board. The full width is still the drag handle — it
+     just stopped drawing itself. */
+  background: transparent;
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.note.is-active > .note-header {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+
+.note-header:active {
+  cursor: grabbing;
+}
+
+/* Fullscreen has room to spare, so the bar tucks inside the card rather than
+   hanging off the top of the screen. */
+.note.is-fullscreen > .note-header {
+  top: 10px;
+  bottom: auto;
+  left: 10px;
+  right: 10px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+/* Resizing, now that the note cannot use the CSS resizer. */
+.note-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.note-grip::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+  border-bottom-right-radius: 3px;
+}
+
+.note:hover > .note-grip,
+.note.is-active > .note-grip {
+  opacity: 1;
+}
+
+.note.is-fullscreen > .note-grip,
+#drag-layer .note-grip {
+  display: none;
+}
+
+/* An idle note is a handle everywhere; once active, the body is text again. */
+.note:not(.is-active) {
+  cursor: grab;
+}
+
+.note:not(.is-active) .note-body {
+  cursor: inherit;
+}
+
+.note:not(.is-active):active {
+  cursor: grabbing;
+}
+
+.note-tools {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+/* The only button left on a note. Quiet until reached for. */
+.note-btn-more {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  opacity: 0.4;
+  color: var(--note-ink);
+}
+
+.note-btn-more:hover {
+  opacity: 1;
+  background: var(--wash-2);
+}
+
+:root[data-theme="dark"] .note.is-clear .note-btn-more {
+  color: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .note.is-clear .note-btn-more {
+    color: var(--text);
+  }
+}
+
+.note-btn {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.5);
+  padding: 0;
+}
+
+.note-btn:hover {
+  background: var(--wash-3);
+}
+
+.note-btn-lock {
+  font-size: 9px;
+}
+
+.note-btn-close:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.note-btn-close:disabled:hover {
+  background: transparent;
+}
+
+/* A note with no fill casts no shadow — there is nothing there to cast one,
+   and it looked like a smudge on the canvas. It shows its edge only when you
+   are near it, so an unfilled note is just text sitting on the board. */
+.note.is-clear {
+  box-shadow: none;
+}
+
+/* Reaching for an unfilled note shows you its extent, and nothing more. */
+.note.is-clear:hover,
+.note.is-clear.is-active {
+  box-shadow: inset 0 0 0 1px var(--note-edge);
+}
+
+/* An unfilled note is ink straight on the board, so in dark it has to be
+   light ink. A filled one keeps its dark ink in either theme — the palette
+   is pastels, and they do not change. */
+:root[data-theme="dark"] .note.is-clear {
+  color: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .note.is-clear {
+    color: var(--text);
+  }
+}
+
+/* A locked note is pinned: it cannot be dragged or deleted. Resizing is still
+   allowed — the lock is about where it is, not how big. */
+.note.is-locked {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--note-edge);
+}
+
+.note.is-clear.is-locked,
+.note.is-clear.is-locked:hover {
+  box-shadow: inset 0 0 0 1px var(--note-edge);
+}
+
+.note-date {
+  display: none;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 12px 6px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+
+/* The line shows on request — and on its own once something has come due,
+   because the reminder chip is also the button that stops the wiggling. */
+body.show-dates .note-date,
+.note.is-due .note-date {
+  display: flex;
+}
+
+.note-edited {
+  display: none;
+}
+
+body.show-dates .note-edited {
+  display: inline;
+}
+
+.note-remind {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.note-remind:hover {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.note.is-due .note-remind {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Due, and saying so: crouch, spring, and two smaller bounces that die away.
+   It plays once — when the page opens, and again the moment a reminder comes
+   round while you are looking at it. Something repeating forever in the corner
+   of the eye is a thing you learn to ignore. */
+@keyframes note-wiggle {
+  0% { transform: translateY(0) scale(1, 1); }
+  9% { transform: translateY(0) scale(1.05, 0.92); }
+  27% { transform: translateY(-15px) scale(0.97, 1.05); }
+  45% { transform: translateY(0) scale(1.06, 0.93); }
+  59% { transform: translateY(-7px) scale(0.98, 1.03); }
+  73% { transform: translateY(0) scale(1.03, 0.97); }
+  82% { transform: translateY(-2px) scale(1, 1.01); }
+  91% { transform: translateY(0) scale(1.01, 0.99); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+.note.is-due {
+  /* Squashing from the foot, so it reads as weight on the ground. */
+  transform-origin: 50% 100%;
+  animation: note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+/* Hopped already. The class goes back on the next time it falls due. */
+.note.has-hopped {
+  animation: none;
+}
+
+/* A note being carried already has a transform of its own. And once you have
+   opened one you have plainly seen it, so it stops hopping while you are in
+   it — the reminder is still due until it is dismissed. */
+#drag-layer .note,
+.note.is-fullscreen,
+.note.is-active {
+  animation: none;
+}
+
+/* The same hop at the size of a line of text. The name is not recoloured —
+   a page that looks ordinary until it moves is quieter to sit next to, and
+   the movement is the whole message. */
+@keyframes name-wiggle {
+  0% { transform: translateY(0); }
+  14% { transform: translateY(1px); }
+  33% { transform: translateY(-5px); }
+  52% { transform: translateY(0); }
+  67% { transform: translateY(-2px); }
+  81% { transform: translateY(0); }
+  91% { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+
+/* The page name stays still. It used to hop when something came due, which
+   was a second thing moving to say what the badge already says — and a name
+   that jumps is hard to read and hard to ignore. */
+
+@media (prefers-reduced-motion: reduce) {
+  .note.is-due,
+  .page-row.has-due:not(.is-current) .page-name {
+    animation: none;
+  }
+
+
+  .note.is-due {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 2px var(--danger);
+  }
+}
+
+/* The body holds either static markup or the editor's own root; both are the
+   same tree, so nothing shifts when a note is opened. */
+.note-body {
+  flex: 1 1 auto;
+  /* A flex item will not shrink below its content unless told to, and since
+     the note stopped hiding its overflow that let long notes spill out over
+     the canvas instead of scrolling inside. */
+  min-height: 0;
+  padding: 10px 12px;
+  outline: none;
+  overflow: auto;
+  font-size: 14px;
+  line-height: 1.4;
+  /* ProseMirror needs this to place a caret correctly, and it is what keeps
+     the spacing of notes written before the editor existed. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+
+.note-body .tiptap {
+  outline: none;
+  min-height: 100%;
+}
+
+.note-body p {
+  margin: 0;
+}
+
+.note-body p + p,
+.note-body p + ul,
+.note-body p + ol,
+.note-body ul + p,
+.note-body ol + p {
+  margin-top: 4px;
+}
+
+/* Privacy blur, for screen sharing. Note content and anything that echoes it
+   — search snippets, the account email — go soft. Page names stay legible so
+   the app is still navigable. */
+.blur-notes .note-body,
+.blur-notes .note-date,
+.blur-notes .search-text,
+.blur-notes #sync-status {
+  filter: blur(6px);
+  transition: filter 0.12s;
+}
+
+/* The note you are actually typing in comes back, so the mode is usable
+   rather than just an off switch. Hovering deliberately does not reveal —
+   a stray cursor should never uncover anything on a shared screen. */
+.blur-notes .note:has(.note-body:focus) .note-body,
+.blur-notes .note:has(.note-body:focus) .note-date {
+  filter: none;
+}
+
+.blur-notes #hint::after {
+  content: " · notes are blurred";
+}
+
+#toggle-blur.is-active {
+  background: rgba(198, 40, 40, 0.14);
+}
+
+/* A filled note is a light surface whatever the theme is, so the native
+   controls inside it — checkboxes, scrollbars — have to be light too. In dark
+   mode the root's colour-scheme would otherwise render a tick box as a dark
+   square on a yellow note. An unfilled note sits on the board, so it follows
+   the board. */
+.note {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] .note.is-clear {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .note.is-clear {
+    color-scheme: dark;
+  }
+}
+
+.note-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 6px 0;
+  border-radius: var(--r);
+}
+
+/* Rich content, mostly arriving from imported v1 notes. Browser defaults give
+   headings and lists margins sized for a document, which look cramped and
+   uneven inside a small note. */
+.note-body h1,
+.note-body h2,
+.note-body h3,
+.note-body h4 {
+  margin: 2px 0 4px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+/* The size ladder: small, body, h3, h2, h1, each step clearly bigger than the
+   last so a stepper button reads as one. h4 is off the ladder — only the v1
+   import produces them. */
+.note-body h1 { font-size: 2em; }
+.note-body h2 { font-size: 1.6em; }
+.note-body h3 { font-size: 1.25em; }
+.note-body h4 { font-size: 1.05em; }
+
+/* Checklists: the box and its line share a row rather than stacking. */
+.note-body ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 2px;
+}
+
+.note-body ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.note-body ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  user-select: none;
+  /* Tickable on any note, open or not. */
+  cursor: pointer;
+}
+
+.note-body input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.note-body ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.note-body ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: rgba(0, 0, 0, 0.42);
+  text-decoration: line-through;
+}
+
+.note-body ul,
+.note-body ol {
+  margin: 3px 0;
+  padding-left: 1.35em;
+}
+
+.note-body li { margin: 1px 0; }
+
+.note-body blockquote {
+  margin: 4px 0;
+  padding-left: 9px;
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.note-body pre {
+  margin: 4px 0;
+  padding: 7px 9px;
+  border-radius: var(--r);
+  background: rgba(0, 0, 0, 0.07);
+  font-size: 0.92em;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.note-body a {
+  color: #1a5fb4;
+  cursor: pointer;
+}
+
+/* Three named sizes rather than a font menu: enough for hierarchy, without
+   every note ending up in a different typeface. */
+.note-body .t-title {
+  font-size: 1.6em;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 2px 0 4px;
+}
+
+.note-body .t-small {
+  font-size: 0.85em;
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.link-box {
+  position: fixed;
+  z-index: 1000;
+  padding: 6px;
+  border-radius: var(--r);
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.24);
+}
+
+.link-box input {
+  width: 264px;
+  padding: 6px 9px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  font-size: 13px;
+  outline: none;
+}
+
+.link-box input:focus {
+  border-color: var(--accent);
+}
+
+/* Enough to pick out what is selected, not enough to shout about it. */
+.note.is-selected {
+  outline: 1px solid rgba(61, 132, 214, 0.55);
+  outline-offset: 1px;
+}
+
+#marquee {
+  position: fixed;
+  display: none;
+  z-index: 500;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: rgba(61, 132, 214, 0.1);
+}
+
+#arrange {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: var(--r);
+  background: var(--float-solid);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s;
+  user-select: none;
+  z-index: 800;
+}
+
+#arrange.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#arrange-count {
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#arrange button {
+  width: 28px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+#arrange button:hover {
+  background: var(--wash-2);
+}
+
+#arrange svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-2);
+  stroke: var(--text-2);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+#arrange svg rect {
+  stroke: none;
+}
+
+/* Notes being dragged are re-parented here. #canvas clips (overflow:hidden)
+   and starts after the sidebar, so a note dragged over the tree would be cut
+   off; this layer sits above the sidebar so it stays whole and visible. */
+#drag-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 860;
+  pointer-events: none;
+}
+
+/* Everything inside a note being dragged has to be see-through to hit-testing,
+   not just the note: the header sets pointer-events itself, and while it was
+   the thing under the cursor the drop landed on the header rather than on the
+   page row beneath it. */
+#drag-layer .note,
+#drag-layer .note * {
+  pointer-events: none;
+}
+
+#drag-layer .note {
+  transform-origin: 0 0;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  transition: opacity 0.12s;
+}
+
+/* Over the sidebar the note is the thing in the way: it is wider than the
+   panel and hides the page it is being carried to. Let the list show
+   through — the row lighting up underneath is the part that matters. */
+#drag-layer.is-over-sidebar .note {
+  opacity: 0.25;
+}
+
+/* Fullscreen host. #world is transformed, which would make position:fixed
+   resolve against it, so the note is re-parented here instead. */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: none;
+  background: rgba(30, 27, 22, 0.35);
+}
+
+#overlay.is-active {
+  display: block;
+}
+
+.note.is-fullscreen {
+  position: absolute;
+  inset: 2vh 3vw;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  border-radius: var(--r);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Unfilled is right for a note sitting on the board — it is just text there.
+   Blown up to fill the screen it is a page of text floating on the dimmed
+   canvas with nothing behind it, which is tiring to read. Maximising gives it
+   a surface; shrinking it back takes it away again. */
+/* Unfilled is right for a note on the board — it is just text there. Blown up
+   to fill the screen it would be a page of text on the dimmed canvas with
+   nothing behind it, which is tiring to read and hard to tell from the board
+   itself. Maximising gives it a surface; closing it takes the surface away. */
+.note.is-fullscreen.is-clear {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.note.is-fullscreen .note-body {
+  font-size: 16px;
+  line-height: 1.6;
+  /* Room at the top for the ⋯, and a column that stops at a readable measure
+     instead of running the full width of the screen. Done with padding rather
+     than a max-width on the children, so it holds whatever shape the editor
+     wraps the content in. */
+  padding: 28px max(20px, calc((100% - 96ch) / 2)) 28px;
+}
+
+.note.is-fullscreen .note-header {
+  padding: 0 14px;
+}
+
+/* Over the words it acts on, and only while there are some. */
+.bubble {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: var(--r);
+  background: var(--float-solid);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22), inset 0 0 0 1px var(--surface-line);
+}
+
+.bubble-btn {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.bubble-btn:hover:not(:disabled) {
+  background: var(--wash-2);
+}
+
+.bubble-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bubble-btn.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.bubble-btn.is-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bubble-btn.is-small {
+  font-size: 10px;
+}
+
+.bubble-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--wash-3);
+}
+
+.remind-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 5px;
+  border-radius: var(--r);
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+.remind-item {
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.remind-item:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.remind-item.is-clear {
+  margin-top: 3px;
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 0 0 var(--r) var(--r);
+  color: var(--danger);
+}
+
+.remind-item.is-primary {
+  margin-top: 5px;
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+}
+
+.remind-when {
+  padding: 5px 7px;
+  border: 1px solid #d5d1c9;
+  border-radius: var(--r);
+  font: inherit;
+  font-size: 12px;
+}
+
+.palette {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+  padding: 7px;
+  border-radius: var(--r);
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+}
+
+.palette-dot {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* No fill, drawn the way every image editor draws it. */
+.palette-dot.is-clear {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, var(--surface-line) 25%, transparent 25%, transparent 75%, var(--surface-line) 75%),
+    linear-gradient(45deg, var(--surface-line) 25%, transparent 25%, transparent 75%, var(--surface-line) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+.palette-dot.is-current {
+  outline: 2px solid var(--text-3);
+  outline-offset: 1px;
+}
+
+#sync-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 58px;
+  z-index: 900;
+  width: 260px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.24);
+  display: none;
+}
+
+#sync-panel.is-open {
+  display: block;
+}
+
+#sync-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#sync-detail {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+#sync-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+#sync-actions button {
+  flex: 1 1 auto;
+  height: 28px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: #faf9f7;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#sync-actions button:hover {
+  background: #f0eee9;
+}
+
+#open-sync[data-state="on"] {
+  color: #2e7d32;
+}
+
+#open-sync[data-state="busy"] {
+  color: var(--accent);
+}
+
+#open-sync[data-state="error"] {
+  color: #c62828;
+}
+
+#whatsnew {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 880;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 2px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow: 0 4px 18px rgba(47, 111, 208, 0.35);
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+#whatsnew.is-in {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#whatsnew button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+  border-radius: 999px;
+}
+
+.wn-open {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+}
+
+.wn-open:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.wn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffe95c;
+}
+
+.wn-close {
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.wn-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 1;
+}
+
+/* Undo toast. Sits bottom-centre with a bar that depletes over the window, so
+   the time left to change your mind is visible rather than guessed at. */
+#undo-bar {
+  position: fixed;
+  left: 50%;
+  /* Above the controls rather than beside them: centred on the window, it ran
+     into the bottom-right cluster on a narrow one. */
+  bottom: calc(60px + var(--tray-h));
+  z-index: 890;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 14px;
+  border-radius: var(--r);
+  background: #2f2c27;
+  color: #f4f1ea;
+  font-size: 13px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
+  transition: opacity 0.14s, transform 0.14s;
+  overflow: hidden;
+}
+
+#undo-bar.is-open {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+#undo-btn {
+  border: none;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+
+#undo-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+#undo-meter {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: #7aabf0;
+  transform-origin: left center;
+}
+
+@keyframes undo-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #undo-meter { animation: none !important; }
+}
+
+#controls {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + var(--tray-h));
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--r);
+  background: var(--float);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  user-select: none;
+}
+
+#controls button {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+#controls button:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+#controls button.is-active {
+  background: var(--wash-3);
+}
+
+#canvas.space-held {
+  cursor: grab;
+}
+
+.sidebar-hidden #canvas,
+.sidebar-hidden #tray {
+  left: 0;
+}
+
+#controls .sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--wash-3);
+}
+
+#zoom-level {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------- capture tray */
+
+/* An empty tray is not an empty strip — it is nothing. Captures are the only
+   reason it exists, so with none there is no header, no placeholder and no
+   sliver of chrome along the bottom of the board. */
+#tray {
+  display: none;
+  position: fixed;
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 0;
+  height: var(--tray-h);
+  z-index: 690;
+  flex-direction: column;
+  background: var(--panel);
+  border-top: 1px solid var(--panel-line);
+  user-select: none;
+}
+
+#tray.is-open {
+  display: flex;
+}
+
+#tray-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  flex: 0 0 30px;
+  padding: 0 10px 0 6px;
+}
+
+#tray-collapse {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+#tray.is-collapsed #tray-collapse {
+  transform: rotate(-90deg);
+}
+
+#tray-collapse:hover {
+  background: var(--wash-2);
+}
+
+#tray-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#tray-count {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: var(--r);
+  background: var(--chip);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.tray-spacer {
+  flex: 1;
+}
+
+/* The one instruction the tray needs, and only while it is open — dragging a
+   thumbnail out is not a gesture anyone guesses on their first capture. */
+#tray-hint {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+#tray.is-collapsed #tray-hint {
+  display: none;
+}
+
+#tray-clear {
+  border: none;
+  border-radius: var(--r);
+  padding: 3px 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#tray-clear:hover {
+  background: var(--wash-2);
+  color: var(--text);
+}
+
+/* Collapsing hides the contents without touching them: the header stays, the
+   count stays, nothing is thrown away. */
+#tray-items {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 10px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#tray.is-collapsed #tray-items {
+  display: none;
+}
+
+.tray-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 132px;
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  cursor: grab;
+  transition: box-shadow 0.12s, opacity 0.12s;
+}
+
+.tray-item:hover {
+  /* Age fades an item, but reaching for one brings it all the way back. */
+  opacity: 1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.tray-item.is-dragging {
+  opacity: 0.35 !important;
+}
+
+.tray-shot {
+  display: block;
+  width: 100%;
+  height: 58px;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: var(--r) var(--r) 0 0;
+  background: var(--surface-2);
+}
+
+.tray-caption {
+  display: block;
+  padding: 4px 6px 5px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tray-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 17px;
+  height: 17px;
+  border: none;
+  border-radius: var(--r);
+  background: rgba(20, 20, 22, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.tray-item:hover .tray-remove {
+  opacity: 1;
+}
+
+.tray-remove:hover {
+  background: var(--danger);
+}
+
+/* The thumbnail carried under the cursor. Like a dragged note, it must be
+   invisible to hit-testing or the drop lands on the ghost. */
+#drag-layer .tray-item.is-ghost {
+  position: absolute;
+  opacity: 0.9;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.blur-notes .tray-shot,
+.blur-notes .tray-caption {
+  filter: blur(6px);
+}
+
+/* Held long enough to set the page's home view. A moment of accent is the
+   whole confirmation — the action is small and instantly repeatable. */
+#go-home.is-set {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ----------------------------------------------------------- context menu */
+
+/* One menu for pages and for notes. Small type and generous rounding: it is
+   meant to be read at a glance and dismissed, not studied. */
+.ctx-menu {
+  position: fixed;
+  z-index: 900;
+  min-width: 132px;
+  padding: 5px;
+  border-radius: var(--r);
+  background: var(--float-solid);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24), inset 0 0 0 1px var(--surface-line);
+  font-size: 13px;
+}
+
+.ctx-item {
+  display: block;
+  width: 100%;
+  padding: 5px 9px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  /* Full-strength ink. The secondary tone reads fine on paper white, but on
+     the dark panel it sank into the surface and the items were hard to pick
+     out at a glance. */
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ctx-item:hover:not(:disabled) {
+  background: var(--wash-2);
+}
+
+.ctx-item.is-danger {
+  color: var(--danger);
+}
+
+.ctx-item:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ctx-sep {
+  display: block;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--surface-line);
+}
+
+/* ------------------------------------------------------ hold to set home */
+
+/* The ring fills while the button is held. Without it the wait is a button
+   that appears to be doing nothing until it suddenly is. */
+@property --hold {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+#go-home {
+  position: relative;
+}
+
+#go-home.is-holding::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--r);
+  background: conic-gradient(var(--accent) var(--hold), transparent 0);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: hold-fill 700ms linear forwards;
+}
+
+@keyframes hold-fill {
+  from { --hold: 0%; }
+  to { --hold: 100%; }
+}
+
+/* ------------------------------------------------------------------ toast */
+
+/* Says what just happened, then gets out of the way. No button, nothing to
+   dismiss — the undo bar is the one that asks for a decision. */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(60px + var(--tray-h));
+  z-index: 895;
+  /* A tip is a sentence, not a status word. It wraps rather than growing into
+     the controls, and never runs the full width of a wide screen. */
+  max-width: min(560px, calc(100vw - var(--sidebar-w) - 48px));
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  background: var(--float-solid);
+  color: var(--text);
+  font-size: 12px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.24), inset 0 0 0 1px var(--surface-line);
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.14s, transform 0.14s;
+  pointer-events: none;
+}
+
+#toast.is-open {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Both at once is rare — a tip landing while a delete is still undoable — but
+   when it happens the tip steps up rather than sitting on top of the offer. */
+#toast:has(~ #undo-bar.is-open) {
+  bottom: calc(112px + var(--tray-h));
+}
+
+/* ---------------------------------------------------------- the lock mark */
+
+.note-lock-mark {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+/* -------------------------------------------------------------- gallery */
+
+/* A picture in a note is a thumbnail of itself. Double-clicking one puts it
+   up here at its own size, over everything — including a fullscreen note,
+   which is where a picture is most likely to be double-clicked. */
+#gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Dark enough that a photograph is judged against something neutral, but
+     not a closed door: the board stays faintly visible behind it, so the
+     gallery reads as something laid over your notes rather than as another
+     screen you have gone away to. */
+  background: rgba(12, 11, 10, 0.72);
+  backdrop-filter: blur(2px);
+  user-select: none;
+}
+
+/* The attribute is the state; without this the flex above would win. */
+#gallery[hidden] {
+  display: none;
+}
+
+/* The picture's own box, and nothing more: a flex item that shrinks to what
+   it holds, so a layer pinned to its edges is pinned to the picture's edges
+   at any window size, with no measuring and nothing to keep in step. */
+#gallery-stage {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+#gallery-img {
+  max-width: min(92vw, 100vw - 140px);
+  /* Clear of the bar along the bottom: a caption sitting on the corner of the
+     picture is both harder to read and in the way of what it describes. */
+  max-height: calc(100vh - 150px);
+  object-fit: contain;
+  border-radius: var(--r);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  /* No white plate behind a transparent PNG, and no jump while the blob URL
+     is still being read. */
+  background: transparent;
+  transition: opacity 0.12s;
+  color: var(--faint); /* the alt text, on the rare occasion it shows */
+  font-size: 12px;
+}
+
+#gallery-img.is-loading {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------- text in a picture */
+
+/* The words Tesseract found, laid over the picture so they can be selected
+   and copied. Transparent: the picture already shows them, and a second copy
+   drawn on top in a different typeface is a smudge. What shows is the
+   selection — which is the whole point of the layer being here. */
+#gallery-text {
+  position: absolute;
+  inset: 0;
+  /* So a word can size itself against the picture rather than against the
+     root font, and stay right through a window resize. */
+  container-type: size;
+  user-select: text;
+  cursor: text;
+}
+
+.gallery-word {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  /* The line box is the word's box, which is what a selection draws. */
+  line-height: 1;
+  transform-origin: 0 0;
+}
+
+/* Bright enough to read a selection against a photograph of anything. */
+#gallery-text ::selection {
+  background: rgba(77, 143, 224, 0.5);
+}
+
+/* The one notice this feature gets: a sweep across the picture the moment its
+   words are ready, the way a phone flashes a photo it has found text in.
+   Once, on arrival — a picture that keeps twinkling is a picture nobody can
+   look at. */
+@keyframes gallery-scan {
+  0% { opacity: 0; transform: translateY(-100%); }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+#gallery-stage.is-found::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--r);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.06) 58%,
+    transparent 100%
+  );
+  animation: gallery-scan 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
+  animation-fill-mode: forwards;
+  opacity: 0;
+}
+
+/* The words themselves glow for the length of the sweep, so the flash says
+   "there is text here" rather than only "something happened". */
+#gallery-stage.is-found .gallery-word {
+  animation: gallery-word-lit 0.9s ease-out 1;
+}
+
+@keyframes gallery-word-lit {
+  0%, 100% { box-shadow: none; background: transparent; }
+  40% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gallery-stage.is-found::after,
+  #gallery-stage.is-found .gallery-word {
+    animation: none;
+  }
+
+  /* Still say it, just without the sweep. */
+  #gallery-stage.is-found .gallery-word {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  }
+}
+
+/* Big targets at the edges of the screen, dim until reached for — the picture
+   is the thing on screen, not the buttons around it. */
+#gallery-prev,
+#gallery-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 76px;
+  border: none;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+#gallery-prev:hover,
+#gallery-next:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+#gallery-prev { left: 14px; }
+#gallery-next { right: 14px; }
+
+/* One strip along the bottom: where you are, the way back to the words, and
+   the way out. */
+#gallery-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(820px, 94vw);
+  padding: 6px 8px 6px 14px;
+  border-radius: var(--r);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+#gallery-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Where the picture lives and when its note was last written in. Two facts
+   that place a picture, which is the whole job of a caption in a reel that
+   crosses every page there is. */
+#gallery-caption {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0; /* or the flex item refuses to shrink and the bar overflows */
+}
+
+/* The page path is the answer, so it is the size of one — the old caption put
+   it in the small print beside a line of the note's text, where it was the
+   easiest thing on the bar to miss. */
+#gallery-where {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+#gallery-when {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+/* The same wording as the line under a note, so "3h ago" means the same thing
+   wherever it is read. */
+#gallery-where:not(:empty) + #gallery-when::before {
+  content: "·";
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+#gallery-bar button {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  white-space: nowrap;
+  border: none;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#gallery-bar button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+#gallery-close {
+  font-size: 13px;
+}

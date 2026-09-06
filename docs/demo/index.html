@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Easy Note — try it here</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="demo.js"></script>
+    <script src="js/boot.js"></script>
+  </head>
+  <body>
+    <aside id="sidebar">
+      <div id="sidebar-head">
+        <span id="sidebar-title">Pages</span>
+        <button id="add-page" title="New page">+</button>
+      </div>
+      <div id="page-tree"></div>
+      <div id="sidebar-resize" title="Drag to resize · double-click to reset"></div>
+    </aside>
+
+    <button id="toggle-sidebar" title="Toggle sidebar">☰</button>
+    <a id="help" href="https://ozanerturk.github.io/easy-note-chrome-extension/tips.html"
+       target="_blank" rel="noopener" title="Tips &amp; shortcuts">?</a>
+
+    <div id="search">
+      <input id="search-input" type="text" placeholder="Search all notes…" autocomplete="off" />
+      <div id="search-results"></div>
+    </div>
+
+    <div id="canvas">
+      <div id="world"></div>
+      <div id="hint">Double-click anywhere to add a note</div>
+      <div id="marquee"></div>
+    </div>
+
+    <div id="tray">
+      <div id="tray-head">
+        <button id="tray-collapse" title="Collapse the tray">▾</button>
+        <span id="tray-title">Captures</span>
+        <span id="tray-count">0</span>
+        <span class="tray-spacer"></span>
+        <span id="tray-hint">Drag one onto the board or a page</span>
+        <button id="tray-clear">Clear all</button>
+      </div>
+      <div id="tray-items"></div>
+    </div>
+
+    <div id="drag-layer"></div>
+    <div id="overlay"></div>
+
+    <div id="gallery" hidden>
+      <button id="gallery-prev" title="Previous  ←">‹</button>
+      <div id="gallery-stage">
+        <img id="gallery-img" alt="" />
+        <div id="gallery-text" hidden></div>
+      </div>
+      <button id="gallery-next" title="Next  →">›</button>
+      <div id="gallery-bar">
+        <span id="gallery-caption">
+          <span id="gallery-where"></span>
+          <span id="gallery-when"></span>
+        </span>
+        <span id="gallery-count"></span>
+        <button id="gallery-copy" title="Copy the text in this picture" hidden>Copy text</button>
+        <button id="gallery-goto" title="Go to note  ⏎">Go to note</button>
+        <button id="gallery-close" title="Close  Esc">✕</button>
+      </div>
+    </div>
+
+    <div id="arrange">
+      <span id="arrange-count">0 selected</span>
+      <span class="sep"></span>
+
+      <button data-align="left" title="Align left">
+        <svg viewBox="0 0 16 16"><path d="M2 2v12" /><rect x="4.5" y="4" width="9" height="3" /><rect x="4.5" y="9" width="5.5" height="3" /></svg>
+      </button>
+      <button data-align="centre" title="Align horizontal centres">
+        <svg viewBox="0 0 16 16"><path d="M8 1.5v13" /><rect x="2.5" y="4" width="11" height="3" /><rect x="5" y="9" width="6" height="3" /></svg>
+      </button>
+      <button data-align="right" title="Align right">
+        <svg viewBox="0 0 16 16"><path d="M14 2v12" /><rect x="2.5" y="4" width="9" height="3" /><rect x="6" y="9" width="5.5" height="3" /></svg>
+      </button>
+
+      <span class="sep"></span>
+
+      <button data-align="top" title="Align top">
+        <svg viewBox="0 0 16 16"><path d="M2 2h12" /><rect x="4" y="4.5" width="3" height="9" /><rect x="9" y="4.5" width="3" height="5.5" /></svg>
+      </button>
+      <button data-align="middle" title="Align vertical centres">
+        <svg viewBox="0 0 16 16"><path d="M1.5 8h13" /><rect x="4" y="2.5" width="3" height="11" /><rect x="9" y="5" width="3" height="6" /></svg>
+      </button>
+      <button data-align="bottom" title="Align bottom">
+        <svg viewBox="0 0 16 16"><path d="M2 14h12" /><rect x="4" y="2.5" width="3" height="9" /><rect x="9" y="6" width="3" height="5.5" /></svg>
+      </button>
+
+      <span class="sep"></span>
+
+      <button data-distribute="h" title="Distribute horizontally (3+)">
+        <svg viewBox="0 0 16 16"><rect x="1.5" y="3" width="2.5" height="10" /><rect x="6.75" y="3" width="2.5" height="10" /><rect x="12" y="3" width="2.5" height="10" /></svg>
+      </button>
+      <button data-distribute="v" title="Distribute vertically (3+)">
+        <svg viewBox="0 0 16 16"><rect x="3" y="1.5" width="10" height="2.5" /><rect x="3" y="6.75" width="10" height="2.5" /><rect x="3" y="12" width="10" height="2.5" /></svg>
+      </button>
+      <button data-grid title="Arrange in a grid">
+        <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" /><rect x="9" y="2" width="5" height="5" /><rect x="2" y="9" width="5" height="5" /><rect x="9" y="9" width="5" height="5" /></svg>
+      </button>
+    </div>
+
+    <div id="sync-panel">
+      <div id="sync-status">Not signed in</div>
+      <div id="sync-detail"></div>
+      <div id="sync-actions">
+        <button id="sync-signin">Sign in with Google</button>
+        <button id="sync-now" hidden>Sync now</button>
+        <button id="sync-signout" hidden>Sign out</button>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="undo-bar">
+      <span id="undo-text"></span>
+      <button id="undo-btn">Undo</button>
+      <span id="undo-meter"></span>
+    </div>
+
+    <div id="controls">
+      <button id="toggle-theme" title="Theme">🌗</button>
+      <button id="toggle-blur" title="Blur notes for screen sharing (Alt+B)">🙈</button>
+      <button id="open-sync" title="Google Drive sync">☁</button>
+      <button id="open-search" title="Search notes (⌘F)">🔍</button>
+      <button id="toggle-dates" title="Show last edited time">🕘</button>
+      <span class="sep"></span>
+      <button id="zoom-out" title="Zoom out">−</button>
+      <button id="zoom-level" title="Reset to 100%">100%</button>
+      <button id="zoom-in" title="Zoom in">+</button>
+      <span class="sep"></span>
+      <button id="go-home" title="Home view — click to return, hold to set">🏠</button>
+      <button id="fit" title="Fit all notes in view">Fit</button>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  
+    <div id="demo-banner">
+      <span><strong>Easy Note</strong> — the real thing, running in this tab. Your notes stay in this browser.</span>
+      <a href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">Add to your browser</a>
+    </div>
+    <style>
+      #demo-banner {
+        position: fixed; z-index: 1000; left: 50%; top: 12px; transform: translateX(-50%);
+        display: flex; align-items: center; gap: 12px; max-width: min(680px, calc(100vw - 24px));
+        padding: 8px 10px 8px 14px; border-radius: 999px;
+        background: #2f2c27; color: #f4f1ea; font-size: 13px;
+        box-shadow: 0 6px 22px rgba(0,0,0,.3);
+      }
+      #demo-banner span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #demo-banner a {
+        flex: 0 0 auto; padding: 5px 12px; border-radius: 999px;
+        background: #f4f1ea; color: #2f2c27; text-decoration: none; font-weight: 600;
+      }
+      @media (max-width: 620px) { #demo-banner span { display: none; } }
+    </style>
+    <script>
+      // Inside the iframe on the release notes, the page around it already
+      // says all this.
+      if (window.top !== window.self) document.getElementById("demo-banner").remove();
+    </script>
+  </body>
+</html>

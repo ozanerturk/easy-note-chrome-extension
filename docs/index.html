@@ -110,6 +110,14 @@
   }
   p { margin: 14px 0 0; color: var(--graphite); }
 
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; align-items: center; }
+  .cta a { display: inline-flex; align-items: center; padding: 11px 18px; border-radius: 999px;
+           text-decoration: none; font-weight: 600; }
+  .cta .primary { background: var(--ink); color: var(--paper); }
+  .cta .primary:hover { background: var(--accent); }
+  .cta .secondary { border: 1px solid var(--rule); color: var(--ink); background: var(--surface); }
+  .cta .secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
+
   ul { list-style: none; margin: 30px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   a.card {
     display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
@@ -134,7 +142,18 @@
       mistake.
     </p>
 
+    <div class="cta">
+      <a class="primary" href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">Add to your browser</a>
+      <a class="secondary" href="demo/">Quick try — no install</a>
+    </div>
+
     <ul>
+      <li>
+        <a class="card" href="demo/">
+          <strong>Try it here</strong>
+          <span>The extension itself, running in this tab</span>
+        </a>
+      </li>
       <li>
         <a class="card" href="release-notes.html">
           <strong>What's new in v3</strong>

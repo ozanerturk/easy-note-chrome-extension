@@ -137,13 +137,18 @@ export async function launch({ port: wanted = 9333, profile } = {}) {
       const { targetId } = await browser.send("Target.createTarget", {
         url: `chrome-extension://${EXTENSION_ID}/newtab.html`,
       });
-      await sleep(1200);
-      const target = (await getJson(port, "/json/list")).find((t) => t.id === targetId);
+      // The debugging endpoint lists a target a beat after it is created.
+      let target;
+      for (let i = 0; i < 60 && !target; i++) {
+        target = (await getJson(port, "/json/list")).find((t) => t.id === targetId);
+        if (!target) await sleep(50);
+      }
       const cdp = await connect(target.webSocketDebuggerUrl);
       await cdp.send("Runtime.enable");
       await cdp.send("Page.bringToFront").catch(() => {}); // :hover needs the foreground
-      await sleep(500);
-      return makePage(cdp, targetId, browser);
+      const page = makePage(cdp, targetId, browser);
+      await page.ready();
+      return page;
     },
     async close() {
       await browser.send("Browser.close").catch(() => {});
@@ -183,10 +188,61 @@ function makePage(cdp, targetId, browser) {
       ...extra,
     });
 
+  /**
+   * Poll until an expression is true.
+   *
+   * Every wait in here used to be a sleep long enough for the slowest machine,
+   * which is dead time on every other one and still a coin toss on that one.
+   * Polling is both faster and steadier: it returns the moment the thing is
+   * true, and it fails loudly rather than carrying on against a page that was
+   * never ready.
+   */
+  const waitFor = async (expression, { timeout = 10000, every = 30 } = {}) => {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+      try {
+        if (await evaluate(expression)) return true;
+      } catch (err) {
+        // A navigation in flight takes the execution context with it.
+      }
+      if (Date.now() > deadline) throw new Error(`timed out waiting for: ${expression}`);
+      await sleep(every);
+    }
+  };
+
+  // main.js sets this at the end of its boot chain — the board is up and
+  // everything that reads the database has read it.
+  const ready = async () => {
+    await waitFor(`document.documentElement.dataset.ready === "1"`);
+    // The flag says the data is in; the board still has a frame of layout and
+    // a fade or two to get through. A short grace after it beats the second
+    // and a half of guessing this replaced, and keeps a test that measures a
+    // note's position from measuring it mid-animation.
+    await sleep(250);
+  };
+
+  /**
+   * Reload, and come back when the app has booted again.
+   *
+   * The flag has to be taken down first. A page that has already booted still
+   * says it is ready for the whole of the navigation that is replacing it, so
+   * a wait started after the reload was asked for reads the answer from the
+   * document on its way out — and the test then runs against a page that is
+   * about to vanish underneath it.
+   */
+  const reload = async () => {
+    await evaluate(`delete document.documentElement.dataset.ready`).catch(() => {});
+    await cdp.send("Page.reload");
+    await ready();
+  };
+
   return {
     cdp,
     evaluate,
     mouse,
+    waitFor,
+    ready,
+    reload,
 
     async click(x, y, times = 1, extra = {}) {
       for (let i = 1; i <= times; i++) {
@@ -212,7 +268,7 @@ function makePage(cdp, targetId, browser) {
     move: (x, y) => mouse("mouseMoved", x, y, { buttons: 0 }),
 
     /** Let async work — an IndexedDB write, a clipboard read — actually land. */
-    settle: (ms = 350) => sleep(ms),
+    settle: (ms = 250) => sleep(ms),
 
     wheel: (x, y, deltaY, modifiers = 0) =>
       cdp.send("Input.dispatchMouseEvent", {
@@ -225,7 +281,9 @@ function makePage(cdp, targetId, browser) {
       await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...shared });
     },
 
-    type: (text) => evaluate(`document.execCommand('insertText', false, ${JSON.stringify(text)})`),
+    async type(text) {
+      return evaluate(`document.execCommand('insertText', false, ${JSON.stringify(text)})`);
+    },
 
     /** Real per-character key events, so the editor's input rules see them. */
     async typeKeys(text) {
@@ -251,8 +309,7 @@ function makePage(cdp, targetId, browser) {
           tx.oncomplete = () => resolve(true);
         };
       })`);
-      await cdp.send("Page.reload");
-      await sleep(1400);
+      await reload();
     },
 
     /** What actually reached the database, not what the DOM claims. */
@@ -284,8 +341,7 @@ function makePage(cdp, targetId, browser) {
         };
       })`);
       await evaluate(`try { localStorage.clear(); } catch (e) {}`);
-      await cdp.send("Page.reload");
-      await sleep(1400);
+      await reload();
     },
 
     async close() {

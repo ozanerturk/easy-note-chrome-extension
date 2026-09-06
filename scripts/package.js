@@ -23,7 +23,11 @@ const INCLUDE = [
   "css",
   "js",
   "icons",
-  "docs/release-notes.html", // the What's new pill links here
+  "docs/release-notes.html", // the What's new pill falls back to this offline
+  // MIT and Apache-2.0 both ask for their notices to travel with the code, and
+  // the bundle is minified with the licence headers stripped out of it. This
+  // file is where that obligation is met — see scripts/notices.mjs.
+  "THIRD-PARTY-NOTICES.md",
 ];
 
 // Internal docs that would otherwise be swept in with docs/.
