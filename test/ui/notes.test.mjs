@@ -237,7 +237,7 @@ export default async function run(page, s) {
     `[...document.querySelectorAll('.ctx-item')].map((b) => b.textContent).join(',')`
   );
   check("with what there is to do out here",
-    canvasItems === "New note,Paste,Paste without formatting", canvasItems);
+    canvasItems === "New note,New list,Paste,Paste without formatting", canvasItems);
 
   await pick(page, "New note");
   const made = await page.evaluate(`(() => {

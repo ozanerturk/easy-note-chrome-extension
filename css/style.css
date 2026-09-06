@@ -1894,6 +1894,175 @@ body.show-dates .note-edited {
   color: #fff;
 }
 
+/* ------------------------------------------------------------------ lists */
+
+/* A list is a thing on the board, positioned like a note and carrying notes
+   inside it. It draws a quiet surface rather than a card: what should stand
+   out on the canvas is the notes, not the box they are stacked in. */
+.list {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: var(--panel);
+  /* Behind every note. A list is furniture; the notes are the content, and one
+     dragged over a list has to read as being above it. */
+  z-index: 0;
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 8px;
+  /* The whole head is the handle, the way a note's header is. */
+  cursor: grab;
+  user-select: none;
+}
+
+.list-head:active {
+  cursor: grabbing;
+}
+
+/* Names are short by design — a column header, not a sentence. One that runs
+   long is cut rather than allowed to set the width of the list. */
+.list-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-name.is-editing {
+  /* Same as a page row: the caret needs selectable text, and the outline says
+     the name is open rather than merely hovered. */
+  user-select: text;
+  cursor: text;
+  overflow: visible;
+  outline: 1px solid var(--accent);
+  border-radius: 2px;
+}
+
+.list-count {
+  flex: 0 0 auto;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--r);
+  background: var(--chip);
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.list-btn-more {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.list:hover .list-btn-more {
+  opacity: 1;
+}
+
+.list-btn-more:hover {
+  background: var(--wash-2);
+}
+
+/* The stack, and the drop target. It keeps a floor of empty height so that a
+   list with nothing in it is still something you can aim a note at. */
+.list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 6px 6px;
+  border-radius: 0 0 var(--r) var(--r);
+  transition: background 0.12s;
+}
+
+/* Carrying a note over a list fills it in, the same answer a page row gives. */
+.list-body.is-drop {
+  background: var(--accent-soft);
+}
+
+/* The space held open for the card in hand. Drawn as an outline rather than a
+   solid, so it reads as somewhere to put something rather than as another
+   card already there. */
+.list-gap {
+  flex: 0 0 auto;
+  border: 1px dashed var(--accent);
+  border-radius: var(--r);
+  background: var(--wash-1);
+  pointer-events: none;
+}
+
+.list.is-empty .list-body::after {
+  content: "Drop notes here";
+  padding: 12px 2px;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* A note in a list. The column owns the width and the words own the height, so
+   the absolute geometry it carries on the canvas is dropped — but it stays
+   positioned, or its header popover would anchor to the list instead of to the
+   note it belongs to. */
+.note.is-listed {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.note.is-listed > .note-grip {
+  display: none;
+}
+
+/* On the board an unfilled note is ink straight on the canvas, with no edge at
+   all — deliberately, so a board of thoughts is not a board of boxes. Stacked
+   in a list that reading collapses: six of them run together into one block of
+   text with no telling where one stops. In a list a card is a card. It gets a
+   surface and an edge whether or not it has been given a colour, and a filled
+   one keeps its colour, which is set inline and wins over this. */
+.note.is-listed,
+.note.is-listed.is-clear,
+.note.is-listed.is-clear:hover,
+.note.is-listed.is-clear.is-active {
+  background: var(--surface);
+  box-shadow: 0 1px 2px var(--note-edge);
+}
+
+/* Reaching for one lifts it, the way the tray answers a hover. */
+.note.is-listed:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* The ink has to suit the card, not the board behind it: an unfilled note goes
+   light in dark mode because the canvas is dark, but a listed one is sitting on
+   a light-ish surface of its own in either theme. */
+.note.is-listed.is-clear {
+  color: var(--text);
+}
+
 /* ----------------------------------------------------------- context menu */
 
 /* One menu for pages and for notes. Small type and generous rounding: it is

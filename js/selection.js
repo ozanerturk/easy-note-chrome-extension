@@ -117,16 +117,23 @@ function endMarquee(e) {
 /* --------------------------------------------------------------- arranging */
 
 function boxes() {
-  return selectedList().map(({ note, el }) => ({
-    note,
-    el,
-    w: el.offsetWidth,
-    h: el.offsetHeight,
-    // Where it stood before any of this. Tidying a board is exactly the kind
-    // of thing you want to be able to take back in one go, so every arrange
-    // carries what it would take to put things back.
-    from: { x: note.x, y: note.y },
-  }));
+  // A note in a list is not on the canvas in any sense an arrange can use: it
+  // has no position of its own, and writing one would scatter the board behind
+  // the list without anything visibly happening. A marquee dragged across a
+  // list still selects its cards — that is fine, and useful — they simply do
+  // not take part in lining things up.
+  return selectedList()
+    .filter(({ note }) => !note.listId)
+    .map(({ note, el }) => ({
+      note,
+      el,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+      // Where it stood before any of this. Tidying a board is exactly the kind
+      // of thing you want to be able to take back in one go, so every arrange
+      // carries what it would take to put things back.
+      from: { x: note.x, y: note.y },
+    }));
 }
 
 // A locked note keeps its place. It still counts towards working out where

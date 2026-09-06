@@ -133,7 +133,10 @@ function frame(bounds, pad, maxZoom) {
 }
 
 export function fitToNotes() {
-  const els = [...world.querySelectorAll(".note")];
+  // Direct children only. A note inside a list is laid out by the list and has
+  // no left/top of its own to measure — and the list itself is a thing on the
+  // board, so fitting the board has to include it.
+  const els = [...world.querySelectorAll(":scope > .note, :scope > .list")];
   if (!els.length) {
     setView({ x: 0, y: 0, zoom: 1 });
     return;
@@ -147,14 +150,21 @@ export function fitToNotes() {
 // than as navigation.
 export function focusNote(el) {
   const rect = canvas.getBoundingClientRect();
-  const x = parseFloat(el.style.left) || 0;
-  const y = parseFloat(el.style.top) || 0;
-  const cx = x + el.offsetWidth / 2;
-  const cy = y + el.offsetHeight / 2;
+  // A note in a list has no left/top of its own — parseFloat would read NaN,
+  // fall back to 0, and quietly pan the board to the origin *and save that*.
+  // The list is the thing on the canvas, so the list is what to aim at; the
+  // card is then scrolled into view inside it.
+  const listed = el.closest(".list");
+  const box = listed || el;
+  const x = parseFloat(box.style.left) || 0;
+  const y = parseFloat(box.style.top) || 0;
+  const cx = x + box.offsetWidth / 2;
+  const cy = y + box.offsetHeight / 2;
 
   view.x = rect.width / 2 - cx * view.zoom;
   view.y = rect.height / 2 - cy * view.zoom;
   applyView();
+  if (listed) el.scrollIntoView({ block: "nearest" });
 }
 
 /* ------------------------------------------------------------ interaction */

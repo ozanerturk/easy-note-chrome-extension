@@ -17,9 +17,6 @@ import {
 } from "./view.js";
 import {
   createNote,
-  loadNote,
-  clearBoard,
-  updateHint,
   setShowDates,
   isFullscreen,
   deleteNote,
@@ -43,8 +40,6 @@ import {
 import {
   initPages,
   ensureDefaultPage,
-  adoptOrphans,
-  notesOnCurrentPage,
   renderTree,
   setPageSwitchHandler,
   switchPage,
@@ -59,7 +54,7 @@ import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
 import { toast } from "./toast.js";
 import { initTips, markUsed } from "./tips.js";
-import { initReminders, loadReminders } from "./reminders.js";
+import { initReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
@@ -71,20 +66,23 @@ import { hideUndo } from "./undo.js";
 import { undo, redo, clearHistory } from "./history.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
-import { PAGES } from "./db.js";
+import { PAGES, LISTS } from "./db.js";
+import { drawBoard } from "./board.js";
+import { createList } from "./list.js";
+import { registerSyncedStore } from "./sync.js";
+
+// Lists ride the same document as notes and pages. Registered here rather than
+// in list.js so that everything that crosses the wire is declared in one place.
+registerSyncedStore(LISTS);
 
 const isEditing = () =>
   document.activeElement &&
   (document.activeElement.isContentEditable || document.activeElement.tagName === "INPUT");
 
-async function showCurrentPage() {
-  clearBoard();
-  const records = adoptOrphans(await getAll(NOTES));
-  notesOnCurrentPage(records).forEach(loadNote);
-  updateHint();
-  // Whatever came due while this page was not on screen starts wiggling now.
-  await loadReminders();
-}
+// Opening a page is the board's business now, not this file's. Each kind of
+// thing that draws on it registers a layer and says how to clear and load
+// itself; adding another does not come back through here.
+const showCurrentPage = () => drawBoard(currentPageId);
 
 /* --------------------------------------------------------------- canvas */
 
@@ -183,6 +181,7 @@ canvas.addEventListener("contextmenu", (e) => {
   showMenu(
     [
       { label: "New note", run: () => createNote(x, y) },
+      { label: "New list", run: () => createList(x, y) },
       null,
       { label: "Paste", run: () => pasteOntoCanvas(x, y, { formatted: true }) },
       { label: "Paste without formatting", run: () => pasteOntoCanvas(x, y, { formatted: false }) },

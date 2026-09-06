@@ -48,6 +48,19 @@ export async function getSyncMeta() {
   return (await getOne(META, "sync")) || {};
 }
 
+// Which stores go up and down. Notes and pages were written out by hand twice
+// each — a merge, a write-back, a key in the document, a line in the summary —
+// so a third kind of record meant four more edits in here and one in the panel
+// that reports it. A store registers instead, and the pass below loops.
+//
+// The store's name is its key in the remote document, which is what the two
+// original stores already used, so nothing about the file on Drive changes.
+const syncedStores = [NOTES, PAGES];
+
+export function registerSyncedStore(name) {
+  if (!syncedStores.includes(name)) syncedStores.push(name);
+}
+
 /**
  * One sync pass. Returns a summary of what moved.
  *
@@ -58,7 +71,7 @@ export async function runSync({ drive = realDrive } = {}) {
   const files = await drive.list();
   const docFile = files.find((f) => f.name === DOC_NAME) || null;
 
-  let remoteDoc = { notes: [], pages: [] };
+  let remoteDoc = {};
   if (docFile) {
     try {
       remoteDoc = JSON.parse(await drive.downloadText(docFile.id));
@@ -67,28 +80,39 @@ export async function runSync({ drive = realDrive } = {}) {
     }
   }
 
-  const [localNotes, localPages] = await Promise.all([getAll(NOTES), getAll(PAGES)]);
-  const n = mergeById(localNotes, remoteDoc.notes || []);
-  const p = mergeById(localPages, remoteDoc.pages || []);
+  // Every registered store, merged the same way. A store the remote document
+  // has never heard of merges against nothing, which is exactly what should
+  // happen the first time a new kind of record syncs.
+  const results = {};
+  const pulled = {};
+  for (const store of syncedStores) {
+    const result = mergeById(await getAll(store), remoteDoc[store] || []);
+    for (const rec of result.incoming) await put(store, rec);
+    results[store] = result;
+    pulled[store] = result.incoming.length;
+  }
 
-  for (const rec of n.incoming) await put(NOTES, rec);
-  for (const rec of p.incoming) await put(PAGES, rec);
+  // Images hang off the notes that mention them, so that one store's merge is
+  // the only one this needs by name.
+  const images = await syncImages(drive, files, results[NOTES].merged);
 
-  const images = await syncImages(drive, files, n.merged);
-
-  if (!docFile || n.remoteStale || p.remoteStale || images.uploaded) {
+  const stale = syncedStores.some((store) => results[store].remoteStale);
+  if (!docFile || stale || images.uploaded) {
+    const data = { version: DOC_VERSION };
+    syncedStores.forEach((store) => {
+      data[store] = results[store].merged;
+    });
     await drive.uploadJson({
       fileId: docFile ? docFile.id : undefined,
       name: DOC_NAME,
-      data: { version: DOC_VERSION, notes: n.merged, pages: p.merged },
+      data,
     });
   }
 
   const summary = {
     lastSyncedAt: Date.now(),
-    pulledNotes: n.incoming.length,
-    pulledPages: p.incoming.length,
-    pushed: !docFile || n.remoteStale || p.remoteStale,
+    pulled,
+    pushed: !docFile || stale,
     imagesUp: images.uploaded,
     imagesDown: images.downloaded,
     imagesRemoved: images.removed,

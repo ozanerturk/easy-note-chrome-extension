@@ -7,7 +7,7 @@
 
 import { launch, suite, sleep } from "./harness.mjs";
 
-const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./lock.test.mjs", "./reminders.test.mjs", "./clip.test.mjs", "./tray.test.mjs", "./spring.test.mjs", "./home.test.mjs", "./sidebar.test.mjs", "./gallery.test.mjs", "./ocr.test.mjs", "./history.test.mjs"];
+const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./lock.test.mjs", "./reminders.test.mjs", "./clip.test.mjs", "./tray.test.mjs", "./spring.test.mjs", "./home.test.mjs", "./sidebar.test.mjs", "./gallery.test.mjs", "./ocr.test.mjs", "./history.test.mjs", "./lists.test.mjs", "./sync.test.mjs"];
 
 const filters = process.argv.slice(2).map((a) => a.toLowerCase());
 const wanted = filters.length

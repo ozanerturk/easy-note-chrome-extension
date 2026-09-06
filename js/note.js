@@ -16,7 +16,24 @@ import {
   moveNotesToPage,
   notesInHand,
   switchPage,
+  adoptOrphans,
+  notesOnCurrentPage,
 } from "./pages.js";
+import { registerLayer } from "./board.js";
+import {
+  bodyFor,
+  listIsOnBoard,
+  mountCard,
+  unmountCard,
+  fileIntoList,
+  freeNote,
+  dropAt,
+  markDropList,
+  updateGap,
+  hideGap,
+  gapTarget,
+  listCount,
+} from "./list.js";
 import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
 import { record, forget } from "./history.js";
@@ -169,7 +186,7 @@ async function storeImage(blob) {
 let sawFormatting = false;
 const FORMATTED = /<(ul|ol|h[1-6]|blockquote|pre)\b|taskList/i;
 
-function saveNote(note) {
+export function saveNote(note) {
   if (note.deleted) return;
   if (!sawFormatting && FORMATTED.test(note.html || "")) {
     sawFormatting = true;
@@ -225,7 +242,9 @@ export function timestampOf(note) {
 }
 
 export function updateHint() {
-  hint.style.display = notes.size ? "none" : "block";
+  // A board holding an empty list is not an empty board — it is one somebody
+  // has already started arranging, and telling them how to begin is noise.
+  hint.style.display = notes.size || listCount() ? "none" : "block";
 }
 
 export function nextZ() {
@@ -558,7 +577,10 @@ export function exitFullscreen() {
   el.style.top = style.top;
   el.style.width = style.width;
   el.style.height = style.height;
-  world.appendChild(el);
+  // Back where it came from. A note opened full-screen out of a list has to
+  // return to that list — dropping it on the canvas instead would take it out
+  // of the list by way of a gesture that was only ever about reading it.
+  if (!mountCard(note, el)) world.appendChild(el);
   overlay.classList.remove("is-active");
   note.fullscreen = false;
   fullscreenEntry = null;
@@ -793,6 +815,58 @@ export function recordMove(moves, label) {
     undo: () => real.forEach(({ note, from }) => applyBox(note, from)),
     redo: () => real.forEach(({ note, to }) => applyBox(note, to)),
   });
+}
+
+/**
+ * Record notes having joined, left, or moved within a list.
+ *
+ * Separate from recordMove because taking one back means restoring membership
+ * and rank, not only a position — and because a note coming out of a list has
+ * both to restore, from one step. Notes whose list and rank both came out
+ * unchanged are left out: a drag that ended where it started costs nothing.
+ */
+function recordListing(anchored) {
+  const changes = anchored
+    .map((entry) => ({
+      note: entry.note,
+      from: {
+        listId: entry.startListId,
+        listOrder: entry.startListOrder,
+        x: entry.startLeft,
+        y: entry.startTop,
+      },
+      to: {
+        listId: entry.note.listId,
+        listOrder: entry.note.listOrder,
+        x: entry.note.x,
+        y: entry.note.y,
+      },
+    }))
+    .filter(({ from, to }) => from.listId !== to.listId || from.listOrder !== to.listOrder);
+  if (!changes.length) return;
+
+  record({
+    kind: "listing",
+    noteId: changes.length === 1 ? changes[0].note.id : null,
+    label: changes.length === 1 ? "the move" : `the move of ${changes.length} notes`,
+    undo: () => changes.forEach(({ note, from }) => applyListing(note, from)),
+    redo: () => changes.forEach(({ note, to }) => applyListing(note, to)),
+  });
+}
+
+// Put a note back in, or out of, a list. A list that is no longer on the board
+// leaves the note on the canvas, which is the same rule the renderer follows.
+function applyListing(note, at) {
+  const entry = reviveNote(note);
+  if (!entry) return;
+  if (at.listId && listIsOnBoard(at.listId)) {
+    note.listId = at.listId;
+    note.listOrder = at.listOrder;
+    saveNote(note);
+    mountCard(note, entry.el);
+  } else {
+    freeNote(note, entry.el, at.x, at.y);
+  }
 }
 
 // A note whose page has changed is on the wrong board until this is called:
@@ -1164,6 +1238,12 @@ export function renderNote(note) {
 
   notes.set(note.id, { note, el });
 
+  // A note that belongs to a list on this board is moved into it. One that
+  // names a list which is missing, deleted, or on another page is simply a note
+  // on the canvas — the coupling is deliberately loose, so a half-synced board
+  // shows everything it has rather than hiding what it cannot place.
+  if (listIsOnBoard(note.listId)) mountCard(note, el);
+
   /* behaviour */
 
   // A checkbox is worth ticking without opening the note first — reading a
@@ -1301,6 +1381,14 @@ function liftToDragLayer(entries, pointer) {
   const rect = canvas.getBoundingClientRect();
   entries.forEach((entry) => {
     const { note, el } = entry;
+    // A card being lifted out of a list becomes a note again on the way up: the
+    // drag layer positions absolutely, which a listed card is not, and the size
+    // it is about to have on the board is the honest thing to drag.
+    if (el.classList.contains("is-listed")) {
+      el.classList.remove("is-listed");
+      el.style.width = `${note.width}px`;
+      el.style.height = `${note.height}px`;
+    }
     const left = rect.left + view.x + note.x * view.zoom;
     const top = rect.top + view.y + note.y * view.zoom;
     el.style.transform = `scale(${view.zoom})`;
@@ -1340,7 +1428,11 @@ function returnToWorld(entries) {
     el.style.transform = "";
     el.style.left = `${note.x}px`;
     el.style.top = `${note.y}px`;
-    if (el.isConnected) world.appendChild(el);
+    if (!el.isConnected) return;
+    // A note picked up out of a list belongs back in it, not on the canvas
+    // underneath — this is the path Escape takes, and abandoning a drag should
+    // put things back exactly as they were found.
+    if (!mountCard(note, el)) world.appendChild(el);
   });
 }
 
@@ -1398,11 +1490,26 @@ function makeDraggable(el, note) {
         : [{ note, el }];
     const anchored = group
       .filter((entry) => !entry.note.locked)
-      .map((entry) => ({
-        ...entry,
-        startLeft: entry.note.x,
-        startTop: entry.note.y,
-      }));
+      .map((entry) => {
+        // A note in a list has no meaningful place on the canvas: its stored
+        // x/y is wherever it sat before it was filed, which may be far off
+        // screen. Starting from where it visibly is means lifting one out of a
+        // list does not teleport it, and dropping it on the board leaves it
+        // where it was let go.
+        const box = entry.note.listId ? entry.el.getBoundingClientRect() : null;
+        const at = box ? screenToWorld(box.left, box.top) : { x: entry.note.x, y: entry.note.y };
+        return {
+          ...entry,
+          startLeft: Math.round(at.x),
+          startTop: Math.round(at.y),
+          startListId: entry.note.listId,
+          startListOrder: entry.note.listOrder,
+          // How much room to hold open for it. Measured now, while it is still
+          // standing where it started, because a moment later it is in the drag
+          // layer at the world's scale and no longer the size a list sees.
+          cardHeight: Math.round(entry.el.getBoundingClientRect().height / view.zoom),
+        };
+      });
 
     let lifted = false;
     let moved = false;
@@ -1440,8 +1547,23 @@ function makeDraggable(el, note) {
 
       if (lifted) {
         positionInDragLayer(anchored, { x: moveEvent.clientX, y: moveEvent.clientY });
+        // The list under the cursor fills in and opens a gap where the card
+        // would land, the way a page row lights up. Without it, dropping into a
+        // list is aiming at something that never answers.
+        const over = updateGap(
+          moveEvent.clientX,
+          moveEvent.clientY,
+          lead ? lead.cardHeight : 40
+        );
+        markDropList(over && over.listId);
       } else {
         anchored.forEach((entry) => {
+          // A card in a list is placed by the list, not by coordinates. Writing
+          // left/top on one shoves it across the board by its own world
+          // position — it is `position: relative` in there, so these are an
+          // offset from where it is standing rather than where it is. Nothing
+          // needs moving before the lift anyway: the gap does that work.
+          if (entry.note.listId) return;
           entry.el.style.left = `${entry.note.x}px`;
           entry.el.style.top = `${entry.note.y}px`;
         });
@@ -1460,6 +1582,8 @@ function makeDraggable(el, note) {
     // they already are" means nothing, and stranding them under the sidebar
     // is not what was meant by it.
     const revert = async () => {
+      hideGap();
+      markDropList(null);
       anchored.forEach((entry) => {
         entry.note.x = entry.startLeft;
         entry.note.y = entry.startTop;
@@ -1489,8 +1613,14 @@ function makeDraggable(el, note) {
         return;
       }
 
+      markDropList(null);
       const records = anchored.map((entry) => entry.note);
       const onRow = dropTargetAt(upEvent.clientX, upEvent.clientY);
+      // The gap is the promise the drag made about where this lands, so it is
+      // what the drop reads. Falling back to the pointer covers a drop that
+      // never moved far enough to open one.
+      const intoList = gapTarget() || dropAt(upEvent.clientX, upEvent.clientY);
+      hideGap();
       // Whether a page was sprung open mid-drag, leaving these notes hovering
       // over a board that is not their own.
       const sprung = currentPageId !== homePageId;
@@ -1518,10 +1648,27 @@ function makeDraggable(el, note) {
         return;
       }
 
+      // Dropped into a list. Checked before the board, because a list is on the
+      // board — the more specific target has to be asked about first.
+      if (intoList && !sprung) {
+        anchored.forEach((entry, i) => {
+          fileIntoList(entry.note, entry.el, intoList.listId, intoList.index + i);
+        });
+        recordListing(anchored);
+        updateHint();
+        return;
+      }
+
       // Dropped on the board. If a page was sprung open, this is the whole
       // point of having opened it: they join that page exactly where they were
       // put, rather than arriving somewhere on it unseen.
       if (overCanvas(upEvent)) {
+        // Out of a list and onto the canvas: the note stops being in the list,
+        // and the position it was let go at becomes its own again.
+        const wasListed = anchored.some((entry) => entry.startListId);
+        anchored.forEach((entry) => {
+          if (entry.note.listId) freeNote(entry.note, entry.el, entry.note.x, entry.note.y);
+        });
         if (sprung) {
           const target = currentPageId;
           await moveNotesToPage(records, target);
@@ -1534,7 +1681,11 @@ function makeDraggable(el, note) {
           // onMove computed are kept as they are, so grid snapping survives.
           if (lifted) returnToWorld(anchored);
           anchored.forEach((entry) => saveNote(entry.note));
-          recordMove(movesOf(anchored));
+          // Coming out of a list is one thing that happened, not two: the step
+          // that restores the membership restores the position with it, so a
+          // move step on top would take two ⌘Z to undo one drag.
+          if (wasListed) recordListing(anchored);
+          else recordMove(movesOf(anchored));
         }
         return;
       }
@@ -1578,6 +1729,9 @@ function makeDraggable(el, note) {
 function makeResizable(el, note, grip) {
   grip.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || note.fullscreen) return;
+    // In a list the column owns the width and the words own the height. The
+    // grip is hidden there; this is the guard behind the styling.
+    if (note.listId) return;
     e.preventDefault();
     e.stopPropagation(); // not a drag of the note itself
 
@@ -1628,6 +1782,10 @@ function observeResize(el, note) {
     // Removal fires this with a 0x0 box; fullscreen fires it with the viewport
     // size. Neither is a real resize of the note.
     if (note.deleted || note.fullscreen || !el.isConnected) return;
+    // Nor is being in a list: there the column sets the width and the content
+    // sets the height, and writing those back would overwrite the size the note
+    // has on the board — and sync the overwrite — the moment it was filed.
+    if (note.listId) return;
     note.width = el.offsetWidth;
     note.height = el.offsetHeight;
     saveNote(note);
@@ -1674,6 +1832,22 @@ export function loadNote(record) {
   seedZ(record.z || 1);
   renderNote(record);
 }
+
+// Notes draw after lists, so that a note belonging to one has a list body to be
+// rendered into. Everything a page needs to show its notes is in here; opening
+// a page is board.js's business, and no longer main.js's.
+registerLayer({
+  name: "notes",
+  order: 20,
+  clear: clearBoard,
+  load: async () => {
+    const records = adoptOrphans(await getAll(NOTES));
+    notesOnCurrentPage(records).forEach(loadNote);
+    updateHint();
+    // Whatever came due while this page was not on screen starts wiggling now.
+    await loadReminders();
+  },
+});
 
 window.addEventListener("pagehide", () => {
   // Closing the tab is leaving too. The write may not outlive the page, in

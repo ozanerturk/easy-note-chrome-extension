@@ -39,6 +39,7 @@ const TIPS = [
   { key: "typing", text: "Tip: start a line with “- ”, “[] ” or “# ” for a list, a checkbox or a heading." },
   { key: "phototext", text: "Tip: words inside a picture can be selected and copied — open it and drag across them." },
   { key: "gallery", text: "Tip: double-click a picture to open it full size and page through the rest." },
+  { key: "lists", text: "Tip: right-click the board for a list, then drag notes into it to group them." },
   { key: "filing", text: "Tip: drag a note onto a page in the sidebar to file it there." },
   { key: "spring", text: "Tip: hold a note over a page and that page opens, so you can put it down where you want." },
   { key: "paste", text: "Tip: copy anything, press ⌘V on empty board, and it becomes a note." },

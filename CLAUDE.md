@@ -42,6 +42,8 @@ already failing for unrelated reasons.
 | `js/gallery.js` | `gallery` |
 | `js/ocr.js` | `ocr` |
 | `js/tray.js` | `tray`, `sidebar` |
+| `js/list.js`, `js/board.js` | `lists`, `notes` |
+| `js/sync.js`, `js/syncui.js` | `sync` |
 | `js/undo.js`, `js/history.js` | `history` |
 | `js/reminders.js` | `reminders` |
 | `js/auth.js`, locking | `lock` |
