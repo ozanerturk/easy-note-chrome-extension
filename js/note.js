@@ -40,7 +40,7 @@ import { record, forget } from "./history.js";
 import { linkifyText, promptForLink } from "./richtext.js";
 import { showMenu, closeMenu } from "./menu.js";
 import { markUsed } from "./tips.js";
-import { mountEditor, insertImage, pasteInto, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
+import { mountEditor, insertImage, insertTable, pasteInto, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
 import { readClipboard, hasContent, pasteByCommand } from "./clipboard.js";
 import { toast } from "./toast.js";
 import {
@@ -1086,6 +1086,12 @@ async function pasteIntoNote(note, el, { formatted }) {
   touch(note, el, cleanHtml(editor.getHTML()));
 }
 
+/** A table in the note the menu was opened from. */
+function addTable(note) {
+  const editor = editorFor(note.id); // the menu has already made this the active note
+  if (editor) insertTable(editor);
+}
+
 function focusEditor(id) {
   const editor = editorFor(id);
   if (editor) editor.commands.focus("end");
@@ -1293,6 +1299,9 @@ export function renderNote(note) {
       [
         { label: "Paste", run: () => pasteIntoNote(note, el, { formatted: true }) },
         { label: "Paste without formatting", run: () => pasteIntoNote(note, el, { formatted: false }) },
+        // Rows and columns are added and removed from the table itself, on
+        // hover; this only has to get the first one into the note.
+        ...(note.app ? [] : [{ label: "Table", run: () => addTable(note) }]),
         null,
         { label: "Colour…", run: () => showPalette({ left: clientX, top: clientY }, note, el) },
         { label: note.remindAt ? "Change reminder…" : "Remind me…", run: () => showReminderMenu({ left: clientX, top: clientY }, note, el) },

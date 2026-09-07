@@ -27,6 +27,7 @@
     "@tiptap/extension-list": "^3.30.3",
     "@tiptap/extension-paragraph": "^3.30.3",
     "@tiptap/extension-strike": "^3.30.3",
+    "@tiptap/extension-table": "^3.30.3",
     "@tiptap/extension-text": "^3.30.3",
     "@tiptap/extension-underline": "^3.30.3",
     "@tiptap/extensions": "^3.30.3",

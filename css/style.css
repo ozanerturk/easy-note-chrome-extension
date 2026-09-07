@@ -1117,6 +1117,132 @@ body.show-dates .note-edited {
   color: rgba(0, 0, 0, 0.62);
 }
 
+/* ------------------------------------------------------------------ tables */
+
+/* A note has one width and no sideways scroll, so a table takes the width it
+   is given and shares it out evenly however many columns there are. Nothing
+   here sets a column width, which is what keeps that true. */
+.note-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  /* More room under it than over it: that gap is where the + for a new row
+     appears, and it has to land on the note rather than on the next line. */
+  margin: 6px 0 13px;
+}
+
+.note-table td,
+.note-table th {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 4px 7px;
+  vertical-align: top;
+}
+
+.note-table th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.note-table p {
+  margin: 0;
+}
+
+/* The cell the caret is in, and a run of cells dragged across: enough to see
+   where you are, and nothing at rest. */
+.note-table .selectedCell {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* The caret that stands beside a table rather than in it — what you get from
+   clicking under one that is the last thing in the note. ProseMirror draws it
+   as an empty element, so the line is ours to paint. */
+.note-body .ProseMirror-gapcursor {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.note-body .ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 24px;
+  border-top: 1px solid currentColor;
+  animation: gapcursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes gapcursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* The hover controls. Kept off the note, like the selection bar: anything
+   inside a note is text the note has, and would end up in what is saved. The
+   layer has no size of its own — it only holds the four controls, which place
+   themselves over whatever the canvas is showing. */
+.table-controls {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.table-ctl {
+  position: fixed;
+  z-index: 999; /* under the selection bar, over everything else */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.62);
+  background: var(--surface, #fff);
+  /* A hairline as well as the shadow: on a coloured note a soft shadow alone
+     left them looking like part of the paper rather than something to press. */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+}
+
+/* display:flex above beats the hidden attribute's own display:none, which put
+   all four controls in the top-left corner of every note ever opened. */
+.table-ctl[hidden] {
+  display: none;
+}
+
+.table-ctl:hover {
+  color: var(--text, #222);
+}
+
+.is-row-x,
+.is-col-x {
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.is-row-x:hover,
+.is-col-x:hover {
+  color: #fff;
+  background: var(--danger, #c33);
+}
+
+.is-row-plus,
+.is-col-plus {
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.is-row-plus:hover,
+.is-col-plus:hover {
+  background: var(--surface-2, #f0ede6);
+}
+
 .link-box {
   position: fixed;
   z-index: 1000;

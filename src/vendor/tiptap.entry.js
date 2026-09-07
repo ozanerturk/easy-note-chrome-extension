@@ -26,6 +26,9 @@ export { Code } from "@tiptap/extension-code";
 export { Link } from "@tiptap/extension-link";
 
 export { BulletList, OrderedList, ListItem, TaskList, TaskItem, ListKeymap } from "@tiptap/extension-list";
+// All four table nodes live in the one package; the extension-table-row and
+// friends packages are re-exports of it, so they would only be more to install.
+export { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 export { Image } from "@tiptap/extension-image";
 
-export { UndoRedo, Placeholder } from "@tiptap/extensions";
+export { UndoRedo, Placeholder, Gapcursor } from "@tiptap/extensions";

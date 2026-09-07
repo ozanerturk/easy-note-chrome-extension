@@ -12,6 +12,7 @@
 import {
   Editor,
   Extension,
+  mergeAttributes,
   Document,
   Paragraph,
   Text,
@@ -32,9 +33,15 @@ import {
   TaskItem,
   ListKeymap,
   Image,
+  Table,
+  TableRow,
+  TableHeader,
+  TableCell,
+  Gapcursor,
   UndoRedo,
 } from "./vendor/tiptap.js";
 import { attachBubble } from "./bubble.js";
+import { attachTableControls } from "./table.js";
 
 /* There is no placeholder any more. Prompting an empty note with "type here"
    said nothing the caret sitting in it did not, and it said it in every empty
@@ -195,6 +202,35 @@ const NoteImage = Image.extend({
   },
 });
 
+/**
+ * A table is as wide as the note and no wider.
+ *
+ * Tiptap renders a `<colgroup>` and a `min-width` sized off the column count,
+ * which is what a spreadsheet wants: columns keep their own widths and the
+ * table scrolls sideways. A note is not a spreadsheet — there is nowhere to
+ * scroll to and no handles to set a width with — so the markup goes out plain
+ * and `table-layout: fixed` in the stylesheet shares the note's width out
+ * evenly. It also keeps what we store down to a table, rows and cells.
+ */
+const NoteTable = Table.extend({
+  renderHTML({ HTMLAttributes }) {
+    return ["table", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), ["tbody", 0]];
+  },
+});
+
+/**
+ * A table arriving from Sheets, Excel or a web page brings its own widths —
+ * a `<colgroup>`, or `width=` on the cells — measured for the window it was
+ * copied out of. Kept, they would pin the columns to somebody else's layout;
+ * dropped, a pasted table looks like one that was inserted here.
+ */
+function withoutWidths(html) {
+  return html
+    .replace(/<colgroup>[\s\S]*?<\/colgroup>/gi, "")
+    .replace(/\swidth="[^"]*"/gi, "")
+    .replace(/\swidth:\s*[^;"]+;?/gi, "");
+}
+
 function extensions() {
   return [
     Document,
@@ -228,6 +264,19 @@ function extensions() {
     ListKeymap,
 
     NoteImage,
+    // Rows and columns are added and deleted from the hover controls in
+    // js/table.js; there is no resizing, so no drag handles come with it.
+    // `View: null` turns off Tiptap's own table node view, which exists to
+    // draw the colgroup of pixel widths that resizing needs. Without it the
+    // table on screen is the same markup we store.
+    NoteTable.configure({ resizable: false, View: null, HTMLAttributes: { class: "note-table" } }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    // A table can be the last thing in a note, or the first, and then there is
+    // no line to click on above or below it. This is the caret that can stand
+    // in those places; typing there makes the paragraph that was missing.
+    Gapcursor,
     TextSize,
     UndoRedo, // per note, and scoped to it — outside a note ⌘Z is the board's own
   ];
@@ -266,11 +315,13 @@ export function mountEditor(body, html, { onChange, onImages }) {
         onImages(files);
         return true;
       },
+      transformPastedHTML: withoutWidths,
     },
     onUpdate: ({ editor: instance }) => onChange(cleanHtml(instance.getHTML())),
   });
 
   attachBubble(editor);
+  attachTableControls(editor, body);
   return editor;
 }
 
@@ -301,6 +352,18 @@ export function pasteInto(editor, { html = "", text = "" } = {}, { formatted = t
         }));
   editor.chain().focus().insertContent(content).run();
   return true;
+}
+
+/** A 3x3 table at the caret. No header row: one less thing to explain. */
+export function insertTable(editor) {
+  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run();
+  // A table put in at the end of a note would leave nowhere to go on writing:
+  // no line under it to click on, only the table. So it comes with one — left
+  // empty, and with the caret staying up in the first cell where it belongs.
+  const { doc } = editor.state;
+  if (doc.lastChild && doc.lastChild.type.name === "table") {
+    editor.commands.insertContentAt(doc.content.size, { type: "paragraph" }, { updateSelection: false });
+  }
 }
 
 /** Insert a stored image at the caret. */

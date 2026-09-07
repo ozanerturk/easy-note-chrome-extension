@@ -26,6 +26,7 @@ the exact set of sources that reached the bundle — and is rewritten by every
 | [@tiptap/extension-list](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-paragraph](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-strike](https://tiptap.dev) | 3.30.3 | MIT |
+| [@tiptap/extension-table](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-text](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-underline](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extensions](https://tiptap.dev) | 3.30.3 | MIT |
@@ -40,6 +41,7 @@ the exact set of sources that reached the bundle — and is rewritten by every
 | [prosemirror-model](https://www.npmjs.com/package/prosemirror-model) | 1.25.11 | MIT |
 | [prosemirror-schema-list](https://www.npmjs.com/package/prosemirror-schema-list) | 1.5.1 | MIT |
 | [prosemirror-state](https://www.npmjs.com/package/prosemirror-state) | 1.4.4 | MIT |
+| [prosemirror-tables](https://www.npmjs.com/package/prosemirror-tables) | 1.8.5 | MIT |
 | [prosemirror-transform](https://www.npmjs.com/package/prosemirror-transform) | 1.12.0 | MIT |
 | [prosemirror-view](https://www.npmjs.com/package/prosemirror-view) | 1.42.3 | MIT |
 | [rope-sequence](https://www.npmjs.com/package/rope-sequence) | 1.3.4 | MIT |
@@ -51,7 +53,7 @@ the exact set of sources that reached the bundle — and is rewritten by every
 Entries with no licence section of their own are covered by the text of the
 same licence carried below by the package that ships them.
 
-## 1. MIT — 18 packages
+## 1. MIT — 19 packages
 
 - @tiptap/core 3.30.3
 - @tiptap/extension-blockquote 3.30.3
@@ -67,6 +69,7 @@ same licence carried below by the package that ships them.
 - @tiptap/extension-list 3.30.3
 - @tiptap/extension-paragraph 3.30.3
 - @tiptap/extension-strike 3.30.3
+- @tiptap/extension-table 3.30.3
 - @tiptap/extension-text 3.30.3
 - @tiptap/extension-underline 3.30.3
 - @tiptap/extensions 3.30.3
@@ -182,7 +185,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 5. MIT — rope-sequence
+## 5. MIT — prosemirror-tables
+
+```
+Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## 6. MIT — rope-sequence
 
 ```
 Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin>
@@ -206,7 +233,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 6. Apache-2.0 — 2 packages
+## 7. Apache-2.0 — 2 packages
 
 - tesseract.js 7.0.0
 - tesseract.js-core 7.0.0
