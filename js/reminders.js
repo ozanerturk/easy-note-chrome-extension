@@ -1,11 +1,15 @@
 // Reminders.
 //
-// A reminder is a timestamp on the note and nothing else — no background
-// worker, no notifications permission, nothing that outlives the tab. When the
-// time passes the note starts wiggling, and it keeps wiggling until it is
-// dismissed, because being due is worked out from the record rather than
-// remembered by a timer. That is what makes it survive switching pages,
-// opening a second tab, or closing the browser for the afternoon.
+// A reminder is a timestamp on the note and nothing else. When the time passes
+// the note starts wiggling, and it keeps wiggling until it is dismissed,
+// because being due is worked out from the record rather than remembered by a
+// timer. That is what makes it survive switching pages, opening a second tab,
+// or closing the browser for the afternoon.
+//
+// The service worker reads the same record to put up a system notification
+// when no tab is looking (js/notify/worker.js). It keeps nothing of its own
+// that could disagree with the board; a tab only has to say when the set of
+// reminders has changed.
 
 import { NOTES, getAll } from "./db.js";
 
@@ -14,7 +18,12 @@ const DAY = 24 * HOUR;
 
 // Six, spread out. The old list had four ways to say "later today" and no way
 // to say "next week", so the choice was harder and less useful at once.
+//
+// Now comes first and is due the moment it is set: the note hops and the
+// notification arrives at once. Flagging something for your attention in a
+// minute's time, and finding out whether notifications work at all.
 export const PRESETS = [
+  { label: "Now", ms: 0 },
   { label: "In 15 minutes", ms: 15 * 60000 },
   { label: "In an hour", ms: HOUR },
   { label: "This evening", ms: 5 * HOUR },
@@ -40,6 +49,45 @@ export function tick() {
   listeners.forEach((fn) => fn());
 }
 
+// Told only when something actually changed. trackReminder runs on every
+// delete and loadReminders on every page switch, and nearly all of those leave
+// the reminders exactly as they were.
+let told = "";
+let telling = null;
+function tellWorker() {
+  const now = pending.map((e) => `${e.id}@${e.remindAt}`).sort().join();
+  if (now === told) return;
+  told = now;
+  // A beat later, so that filing twenty notes at once is one message.
+  clearTimeout(telling);
+  telling = setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "easynote:reminders" }).catch(() => {});
+  }, 200);
+}
+
+const ASKED = "easynote:askedToNotify";
+
+/**
+ * Ask, once, whether reminders may notify.
+ *
+ * Asked at the moment a reminder is set — the only time the question makes
+ * sense — and never again on this device, whatever the answer. Chrome requires
+ * a click to be in progress, so this has to run before anything is awaited.
+ * Device-local on purpose: permissions are per install, and a synced pref
+ * would stop every other device from ever asking.
+ */
+export function askToNotify() {
+  try {
+    if (localStorage.getItem(ASKED)) return;
+    localStorage.setItem(ASKED, "1");
+  } catch (e) {
+    return;
+  }
+  chrome.permissions
+    .request({ permissions: ["notifications"] })
+    .catch(() => {}); // the worker hears about a grant from permissions.onAdded
+}
+
 export function isDue(note) {
   return !!(note && note.remindAt) && note.remindAt <= Date.now();
 }
@@ -50,6 +98,7 @@ export async function loadReminders() {
   pending = all
     .filter((note) => !note.deleted && note.remindAt)
     .map(({ id, pageId, remindAt }) => ({ id, pageId, remindAt }));
+  tellWorker();
   tick();
 }
 
@@ -59,6 +108,7 @@ export function trackReminder(note) {
   if (note.remindAt && !note.deleted) {
     pending.push({ id: note.id, pageId: note.pageId, remindAt: note.remindAt });
   }
+  tellWorker();
   tick();
 }
 

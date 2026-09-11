@@ -56,6 +56,12 @@ export function openDB() {
   });
 }
 
+// The service worker has no boot sequence to open the database for it, and can
+// be woken for a clip and a reminder in the same breath. One connection per
+// wake, whoever asks first.
+let opening = null;
+export const openOnce = () => (opening ||= openDB());
+
 export async function getAll(store) {
   const d = await conn();
   return new Promise((resolve, reject) => {

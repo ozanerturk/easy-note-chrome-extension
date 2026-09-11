@@ -5,7 +5,7 @@
 // import note.js or pages.js: those reach for the DOM the moment they load, so
 // the small amount of schema knowledge a clip needs is restated here instead.
 
-import { openDB, getAll, put, NOTES, IMAGES, PAGES, TRAY_ID } from "../db.js";
+import { openOnce, getAll, put, NOTES, IMAGES, PAGES, TRAY_ID } from "../db.js";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 520;
@@ -18,11 +18,6 @@ const CHROME_HEIGHT = 76;
 const BODY_PADDING = 24;
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
-
-// The worker can be woken for several clips before it is shut down again, and
-// openDB() hands back a fresh connection every call. One per wake is enough.
-let connecting = null;
-const connect = () => (connecting ||= openDB());
 
 const newId = () =>
   crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -38,7 +33,7 @@ const escapeHtml = (text) =>
  * region looked on the page rather than to how many pixels the screen used.
  */
 export async function saveClip({ blob, width, height, scale, url, title }) {
-  await connect();
+  await openOnce();
 
   const imgId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await put(IMAGES, { id: imgId, blob });

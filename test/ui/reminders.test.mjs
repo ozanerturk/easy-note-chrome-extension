@@ -50,6 +50,8 @@ export default async function run(page, s) {
     await page.settle(220);
   };
   const stored = async () => (await page.stored()).find((n) => !n.deleted);
+  const choose = (label) =>
+    page.evaluate(`[...document.querySelectorAll('.remind-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`);
 
   await page.click(600, 300, 2);
   await page.type("water the plants");
@@ -57,13 +59,13 @@ export default async function run(page, s) {
 
   await openMenu();
   let items = await menu();
-  check("the menu offers the quick times", items.slice(0, 6).join(" | ") ===
-    "In 15 minutes | In an hour | This evening | Tomorrow | In 3 days | In a week", items.join(" | "));
+  check("the menu offers the quick times", items.slice(0, 7).join(" | ") ===
+    "Now | In 15 minutes | In an hour | This evening | Tomorrow | In 3 days | In a week", items.join(" | "));
   check("and a way to pick one", items.includes("Pick a time…"));
   check("with nothing to clear yet", !items.includes("Clear reminder"));
 
   const before = Date.now();
-  await page.evaluate(`document.querySelectorAll('.remind-item')[0].click()`); // in 15 minutes
+  await choose("In 15 minutes");
   await page.settle(300);
 
   let state = await noteState();
@@ -76,6 +78,15 @@ export default async function run(page, s) {
   check("the time is written on the note", minutes === 15, `${minutes} minutes out`);
   check("setting a reminder is not an edit", record.editedAt < record.updatedAt,
     `edited ${record.editedAt}, updated ${record.updatedAt}`);
+
+  // The service worker keeps one alarm for the next reminder, read from the
+  // database rather than handed over by the tab.
+  const alarm = () =>
+    page.evaluate(`chrome.alarms.get('easynote-reminder').then((a) => (a ? a.scheduledTime : null))`);
+  await page.waitFor(`chrome.alarms.get('easynote-reminder').then((a) => !!a)`);
+  const wakes = await alarm();
+  check("the worker sets an alarm for it", Math.abs(wakes - record.remindAt) < 1000,
+    `${wakes} vs ${record.remindAt}`);
 
   await openMenu();
   check("and now there is something to clear", (await menu()).includes("Clear reminder"));
@@ -114,6 +125,20 @@ export default async function run(page, s) {
   check("it shows the line even with the dates off, so there is a way to stop it",
     state.line === "flex", state.line);
 
+  // Nothing can be seen of the notification itself without the permission,
+  // which no test can click through. What the worker wrote down can. Asking it
+  // to look again answers once it has, so there is nothing to poll for.
+  const announced = () =>
+    page.stored("meta").then((rows) => (rows.find((r) => r.id === "notified") || {}).shown || {});
+  const rescanned = () => page.evaluate(`chrome.runtime.sendMessage({ type: 'easynote:reminders' })`);
+  const dueNote = await stored();
+  const scan = await rescanned();
+  check("the worker looks at it once it is due", scan && scan.ok === true, JSON.stringify(scan));
+  // The test profile never says yes. Marking it announced now would mean the
+  // first reminder set before Chrome's question is answered never notifies.
+  check("but with no permission it is not marked announced", !(dueNote.id in (await announced())),
+    JSON.stringify(await announced()));
+
   const chip = await page.evaluate(`(() => {
     const r = document.querySelector('.note-remind').getBoundingClientRect();
     return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -125,13 +150,26 @@ export default async function run(page, s) {
   check("and takes the reminder off the note", state.hidden === true);
   record = await stored();
   check("the record loses it too", !record.remindAt, String(record.remindAt));
+  await rescanned();
+  check("and the worker has nothing left to wake for", (await alarm()) === null);
+
+  // Now is due the moment it is set, with nothing to wait for. (No hop: the
+  // note whose menu you just used is the one you are in.)
+  await openMenu();
+  await choose("Now");
+  await page.waitFor(`!!document.querySelector('.note.is-due')`, { timeout: 2000 });
+  state = await noteState();
+  check("a reminder for now is due at once", state.due === true && state.chip === "🔔 due", JSON.stringify(state));
+  await page.evaluate(`document.querySelector('.note-remind').click()`);
+  await page.settle(300);
+  check("dismissed the same way", (await noteState()).hidden === true);
 
   /* ------------------------------------------------- pages and time */
 
   // A note that has come due on a page you are not looking at says so through
   // its page instead.
   await openMenu();
-  await page.evaluate(`document.querySelectorAll('.remind-item')[1].click()`);
+  await choose("In an hour");
   await page.settle(200);
   await page.evaluate(`new Promise((resolve) => {
     const open = indexedDB.open('easynote');
@@ -204,4 +242,25 @@ export default async function run(page, s) {
   check("and sets it", Math.abs(record.remindAt - picked) < 1000, `${record.remindAt} vs ${picked}`);
   check("reading it back in plain words", (await noteState()).chip === "🔔 tomorrow",
     (await noteState()).chip);
+
+  /* ------------------------------------------- a notification, clicked */
+
+  // Clicking one opens a tab on newtab.html#note=<id>. Start from the other
+  // page, so arriving on the note means having crossed over to it.
+  const target = (await stored()).id;
+  await page.evaluate(`[...document.querySelectorAll('[data-page-id]')]
+    .find((r) => !r.classList.contains('is-current')).click()`);
+  await page.settle(600);
+  check("starting from a page without the note",
+    (await page.evaluate(`document.querySelectorAll('.note').length`)) === 0);
+
+  await page.evaluate(`location.hash = ${JSON.stringify(`note=${target}`)}`);
+  await page.reload();
+  const landed = await page.evaluate(`(() => {
+    const el = document.querySelector('.note[data-id=${JSON.stringify(target)}]');
+    return { there: !!el, selected: !!el && el.classList.contains('is-selected'), hash: location.hash };
+  })()`);
+  check("the tab opens on the note's page", landed.there, JSON.stringify(landed));
+  check("with the note picked out", landed.selected, JSON.stringify(landed));
+  check("and the address cleaned, so a reload stays put", landed.hash === "", landed.hash);
 }

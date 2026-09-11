@@ -341,7 +341,10 @@ function makePage(cdp, targetId, browser) {
           tx.oncomplete = () => resolve(true);
         };
       })`);
-      await evaluate(`try { localStorage.clear(); } catch (e) {}`);
+      // Setting a reminder asks Chrome, once, whether it may notify — and that
+      // is a real browser prompt waiting on a person. Every suite starts as a
+      // profile that has already been asked.
+      await evaluate(`try { localStorage.clear(); localStorage.setItem('easynote:askedToNotify', '1'); } catch (e) {}`);
       await reload();
     },
 

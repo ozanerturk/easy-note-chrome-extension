@@ -122,13 +122,19 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Drag notes onto a page in the sidebar to move them; the row fills in and says
   how many are coming before you let go
 - Delete a note with its × button; its images are cleaned up too
-- **Reminders** (🔔) — 15 or 40 minutes, 1, 2 or 3 hours, or a time picked by
-  hand. What a note is waiting for reads on the same line as its last-edited
-  time and hides with it. When the time passes the note wiggles, and keeps
-  wiggling across page switches and new tabs until it is dismissed, because
-  being due is worked out from the record rather than held in a timer. A note
-  that has come due on a page you are not looking at makes that page's name
-  wiggle instead. Clicking the reminder dismisses it
+- **Reminders** (🔔) — now, in 15 minutes, in an hour, this evening, tomorrow,
+  in 3 days, in a week, or a time picked by hand. What a note is waiting for
+  reads on the same line as its last-edited time and hides with it. When the
+  time passes the note hops, and stays due across page switches and new tabs
+  until it is dismissed, because being due is worked out from the record
+  rather than held in a timer. A note that has come due on a page you are not
+  looking at puts a count on that page instead. Clicking the reminder
+  dismisses it
+- A due reminder is also a system notification, even with no tab open —
+  Chrome asks for the notifications permission the first time a reminder is
+  set, and without it everything above still works. Clicking the notification
+  opens a tab on the note. With the privacy blur on, it says a note is due
+  without saying what it says
 - Last-edited time per note, toggled globally with 🕘 in the controls bar
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
 
@@ -154,6 +160,9 @@ was more to go wrong than it was worth.
 - `js/vendor/tiptap.js` — the bundled editor library, built from
   `src/vendor/tiptap.entry.js` and committed so a clone loads as-is
 - `js/reminders.js` — when a note is due, and which pages are holding one
+- `js/worker.js` — the service worker; brings up the clipper and notifier
+- `js/notify/` — reminder notifications: `worker.js` keeps an alarm for the
+  next reminder and announces what comes due, `plan.js` decides what to say
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
 - `js/pages.js` — page tree, switching, drag-drop of notes between pages
 - `js/search.js` — cross-page search panel

@@ -45,7 +45,7 @@ already failing for unrelated reasons.
 | `js/list.js`, `js/board.js` | `lists`, `notes` |
 | `js/sync.js`, `js/syncui.js` | `sync` |
 | `js/undo.js`, `js/history.js` | `history` |
-| `js/reminders.js` | `reminders` |
+| `js/reminders.js`, `js/notify/*` | `reminders`, plus `node test/notify.test.mjs` |
 | `js/auth.js`, locking | `lock` |
 | `js/migrate/*`, `js/tips.js` | `npm test` (unit only) |
 

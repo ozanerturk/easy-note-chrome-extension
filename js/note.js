@@ -56,6 +56,7 @@ import {
   isDue,
   remindLabel,
   trackReminder,
+  askToNotify,
   onReminderTick,
   defaultCustomTime,
   loadReminders,
@@ -684,6 +685,7 @@ function closeReminderMenu() {
 }
 
 function setReminder(note, el, at) {
+  if (at) askToNotify(); // first, while the click that set it still counts
   if (at) markUsed("reminder");
   if (at) note.remindAt = at;
   else delete note.remindAt;

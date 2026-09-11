@@ -425,6 +425,16 @@ async function goToNote(noteId, pageId) {
   activateNote(entry);
 }
 
+// A clicked reminder notification opens a tab straight onto its note. The hash
+// is taken off first, so that reloading the tab later does not jump again.
+async function openFromHash() {
+  const match = /^#note=(.+)$/.exec(location.hash);
+  if (!match) return;
+  history.replaceState(null, "", location.pathname);
+  const note = await getOne(NOTES, decodeURIComponent(match[1]));
+  if (note && !note.deleted) await goToNote(note.id, note.pageId);
+}
+
 setSearchPickHandler(goToNote);
 setDuePickHandler(goToNote);
 // Double-clicking a picture opens the page's pictures; "go to note" brings you
@@ -491,6 +501,7 @@ openDB()
     // boot.js already applied the class from localStorage; this only syncs the
     // button, and covers a profile whose pref arrived by sync.
     setBlurNotes(isBlurred() || !!getPref("blurNotes"), false);
+    await openFromHash();
     purgeTombstones().catch(() => {});
 
     // Someone with notes already — imported from v1 or created here — is an
