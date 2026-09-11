@@ -157,18 +157,19 @@ export default async function run(page, s) {
   await page.settle(150);
 
   // colours
+  // In the menu itself, first thing, one click from a colour.
   const palette = await page.evaluate(`(() => {
     document.querySelector('.note .note-btn-more').click();
-    [...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === 'Colour…').click();
-    const dots = [...document.querySelectorAll('.palette-dot')];
+    const menu = document.querySelector('.ctx-menu');
+    const dots = [...menu.querySelectorAll('.ctx-swatches .palette-dot')];
     return { count: dots.length, clear: dots.filter((d) => d.classList.contains('is-clear')).length,
       current: dots.findIndex((d) => d.classList.contains('is-current')) };
   })()`);
-  check("the palette offers the wider set", palette.count === 18, String(palette.count));
+  check("the menu offers every colour straight away", palette.count === 18, String(palette.count));
   check("no fill leads it, and is current", palette.clear === 1 && palette.current === 0, JSON.stringify(palette));
 
   const painted = await page.evaluate(`(() => {
-    [...document.querySelectorAll('.palette-dot')][4].click();
+    [...document.querySelectorAll('.ctx-swatches .palette-dot')][4].click();
     const n = document.querySelector('.note');
     return { note: getComputedStyle(n).backgroundColor,
       clear: n.classList.contains('is-clear'),

@@ -7,6 +7,9 @@ import {
   toggleSelect,
   selectedList,
   selected,
+  selectedLists,
+  selectionSize,
+  isListSelected,
   forgetSelection,
 } from "./selection.js";
 import {
@@ -35,6 +38,8 @@ import {
   gapTarget,
   listCount,
   refreshList,
+  listEntry,
+  placeList,
 } from "./list.js";
 import { appFor, allApps, appForKeyword, mountApp } from "./apps/registry.js";
 // Apps register themselves on import, and the board only knows the ones it has
@@ -621,51 +626,63 @@ function convertIfKeyword(entry) {
   becomeApp(note, el, app, { keepText: false });
 }
 
+/* ---------------------------------------------------------- slash commands */
+
+// What "/" offers, narrowed by what has been typed after it: an app answers to
+// its name, its title, or any of its keywords.
+function appsMatching(query) {
+  const q = String(query || "").toLowerCase();
+  return allApps().filter((app) =>
+    [app.name, app.title, ...(app.keywords || [])].some((word) => String(word).toLowerCase().startsWith(q))
+  );
+}
+
+// A slash command puts its app down on the board, just to the right of the
+// note it was typed in, top edges level. The note keeps its words and its
+// caret — the editor has already taken the "/timer" back out — so writing
+// carries straight on. The new one hops once, so the eye finds it.
+function addAppBeside(note, el, app) {
+  const box = el.getBoundingClientRect();
+  const at = screenToWorld(box.right, box.top);
+  const { x, y } = inBounds(Math.round(at.x + GRID), Math.round(at.y));
+  const made = {
+    id: newId(),
+    x,
+    y,
+    width: app.size ? app.size.width : 200,
+    height: app.size ? app.size.height : 150,
+    html: "",
+    color: NO_FILL,
+    z: nextZ(),
+    locked: false,
+    app: app.name,
+    createdAt: Date.now(),
+    editedAt: Date.now(),
+    updatedAt: Date.now(),
+    pageId: currentPageId,
+  };
+  renderNote(made);
+  saveNote(made);
+  updateHint();
+  record({ ...createStep(made), label: `the new ${app.title.toLowerCase()}` });
+  const entry = notes.get(made.id);
+  if (entry) hopNote(entry);
+}
+
 /* ----------------------------------------------------------------- colours */
 
-let openPalette = null;
-
-function closePalette() {
-  if (!openPalette) return;
-  openPalette.remove();
-  openPalette = null;
+// The colours as the note menu shows them: a row of dots at the top, picked in
+// one click. Colouring was two steps — Colour…, then a popover — for the thing
+// people do to a note most after writing in it.
+function colourSwatches(current) {
+  return COLORS.map((color) => ({
+    value: color,
+    title: color === NO_FILL ? "No fill" : color,
+    background: color === NO_FILL ? "" : color,
+    clear: color === NO_FILL,
+    current: color === (current || NO_FILL),
+  }));
 }
-
-function showPalette(at, note, el) {
-  closePalette();
-  const palette = document.createElement("div");
-  palette.className = "palette";
-  COLORS.forEach((color) => {
-    const dot = document.createElement("button");
-    dot.className = "palette-dot";
-    if (color === NO_FILL) {
-      dot.classList.add("is-clear");
-      dot.title = "No fill";
-    } else {
-      dot.style.background = color;
-      dot.title = color;
-    }
-    if (color === (note.color || NO_FILL)) dot.classList.add("is-current");
-    dot.addEventListener("click", (e) => {
-      e.stopPropagation();
-      note.color = color;
-      applyColor(note, el);
-      saveNote(note);
-      closePalette();
-    });
-    palette.appendChild(dot);
-  });
-
-  // Fixed position: a popover inside .note would be clipped by overflow:hidden.
-  place(palette, at);
-  openPalette = palette;
-}
-
-document.addEventListener("pointerdown", (e) => {
-  if (openPalette && !e.target.closest(".palette") && !e.target.closest(".ctx-menu")) {
-    closePalette();
-  }
-});
 
 /* ------------------------------------------------------------- reminders */
 
@@ -863,10 +880,6 @@ overlay.addEventListener("pointerdown", (e) => {
  * @returns true if something was dismissed.
  */
 export function dismissTopmost() {
-  if (openPalette) {
-    closePalette();
-    return true;
-  }
   if (openMenu) {
     closeReminderMenu();
     return true;
@@ -1071,18 +1084,30 @@ function deleteStep(batch) {
  * @param {Array<{note: object, from: {x: number, y: number}}>} moves
  * @param {string} [label]  what to call it, if "the move" is not the words
  */
-export function recordMove(moves, label) {
-  const real = moves
-    .map(({ note, from }) => ({ note, from, to: { x: note.x, y: note.y } }))
-    .filter(({ from, to }) => from.x !== to.x || from.y !== to.y);
-  if (!real.length) return;
+// `listMoves` are lists that went with the notes, as {list, from}. A group
+// dragged together is one step, whatever it held.
+export function recordMove(moves, label, listMoves = []) {
+  const moved = ({ from, to }) => from.x !== to.x || from.y !== to.y;
+  const real = moves.map(({ note, from }) => ({ note, from, to: { x: note.x, y: note.y } })).filter(moved);
+  const realLists = listMoves.map(({ list, from }) => ({ list, from, to: { x: list.x, y: list.y } })).filter(moved);
+  if (!real.length && !realLists.length) return;
 
+  const count = real.length + realLists.length;
+  const what = realLists.length
+    ? `the move of ${count} things`
+    : `the move of ${real.length} notes`;
   record({
     kind: "move",
-    noteId: real.length === 1 ? real[0].note.id : null,
-    label: label || (real.length === 1 ? "the move" : `the move of ${real.length} notes`),
-    undo: () => real.forEach(({ note, from }) => applyBox(note, from)),
-    redo: () => real.forEach(({ note, to }) => applyBox(note, to)),
+    noteId: real.length === 1 && !realLists.length ? real[0].note.id : null,
+    label: label || (count === 1 ? "the move" : what),
+    undo: () => {
+      real.forEach(({ note, from }) => applyBox(note, from));
+      realLists.forEach(({ list, from }) => placeList(list, from));
+    },
+    redo: () => {
+      real.forEach(({ note, to }) => applyBox(note, to));
+      realLists.forEach(({ list, to }) => placeList(list, to));
+    },
   });
 }
 
@@ -1314,6 +1339,10 @@ export function editorFor(id) {
   const body = el.querySelector(".note-body");
   entry.editor = mountEditor(body, withImageSrc(note.html), {
     onChange: (html) => touch(note, el, html),
+    commands: {
+      items: appsMatching,
+      onPick: (app) => addAppBeside(note, el, app),
+    },
     onImages: async (files) => {
       for (const blob of files) insertImage(entry.editor, await storeImage(blob));
     },
@@ -1598,27 +1627,30 @@ export function renderNote(note) {
     // rule the drag follows, so a menu never quietly acts on one of a group.
     const gang = isSelected(note.id) && selected.size > 1 ? selectedList() : [{ note, el }];
     const many = gang.length > 1 ? `${gang.length} notes` : "note";
+    // Like everything else here, a colour picked for one of a selection is for
+    // all of it.
+    const paint = (color) =>
+      gang.forEach((g) => {
+        g.note.color = color;
+        applyColor(g.note, g.el);
+        saveNote(g.note);
+      });
     showMenu(
       [
+        { swatches: colourSwatches(note.color), pick: paint },
+        null,
         { label: "Paste", run: () => pasteIntoNote(note, el, { formatted: true }) },
         { label: "Paste without formatting", run: () => pasteIntoNote(note, el, { formatted: false }) },
         // Rows and columns are added and removed from the table itself, on
         // hover; this only has to get the first one into the note.
         ...(note.app ? [] : [{ label: "Table", run: () => addTable(note) }]),
         null,
+        // Copy only. ⌘X still cuts; the menu does not need to say so twice.
         { label: `Copy ${many}`, run: () => copyNotes(gang) },
-        { label: `Cut ${many}`, run: () => cutNotes(gang), disabled: gang.every((g) => g.note.locked) },
         null,
-        { label: "Colour…", run: () => showPalette({ left: clientX, top: clientY }, note, el) },
-        { label: note.remindAt ? "Change reminder…" : "Remind me…", run: () => showReminderMenu({ left: clientX, top: clientY }, note, el) },
-        null,
-        ...(note.app
-          ? [{ label: "Turn back into a note", run: () => unbecomeApp(note, el) }]
-          : allApps().map((app) => ({
-              label: `Make it a ${app.title.toLowerCase()}`,
-              run: () => becomeApp(note, el, app),
-            }))),
-        null,
+        // Reminders are set from the note's own footer, and an app is made by
+        // typing its name into a note. Only the way back out lives here.
+        ...(note.app ? [{ label: "Turn back into a note", run: () => unbecomeApp(note, el) }, null] : []),
         { label: note.fullscreen ? "Exit fullscreen" : "Fullscreen", run: () => {
           if (note.fullscreen) exitFullscreen();
           else enterFullscreen(note, el);
@@ -1820,11 +1852,31 @@ function makeDraggable(el, note) {
     const homePageId = currentPageId;
 
     // Dragging any member of a multi-selection moves the whole group — bar
-    // the locked ones, which stay exactly where they were put.
-    const group =
-      isSelected(note.id) && selected.size > 1
-        ? selectedList()
-        : [{ note, el }];
+    // the locked ones, which stay exactly where they were put. Picked-out
+    // lists come too, cards and all; a card whose list is coming stays in it
+    // rather than being lifted out, unless it is the one in your hand.
+    const grouped = isSelected(note.id) && selectionSize() > 1;
+    const group = grouped
+      ? selectedList().filter((entry) => entry.note.id === note.id || !(entry.note.listId && isListSelected(entry.note.listId)))
+      : [{ note, el }];
+    const carriedLists = grouped
+      ? [...selectedLists]
+          .map(listEntry)
+          .filter(Boolean)
+          .map((entry) => ({ ...entry, from: { x: entry.list.x, y: entry.list.y } }))
+      : [];
+    // Where the lists end up is kept only if the notes land on the board they
+    // came from; anything else — another page, into a list, Escape — leaves
+    // the lists where they were.
+    const putListsBack = () =>
+      carriedLists.forEach((c) => {
+        c.list.x = c.from.x;
+        c.list.y = c.from.y;
+        c.el.style.left = `${c.from.x}px`;
+        c.el.style.top = `${c.from.y}px`;
+      });
+    const keepLists = () => carriedLists.forEach((c) => placeList(c.list, { x: c.list.x, y: c.list.y }));
+    const listMoves = () => carriedLists.map((c) => ({ list: c.list, from: c.from }));
     const anchored = group
       .filter((entry) => !entry.note.locked)
       .map((entry) => {
@@ -1859,8 +1911,8 @@ function makeDraggable(el, note) {
     // the origin's edge, and the rest keep their places behind it. The note in
     // hand still follows the pointer — it has to, to reach a page in the
     // sidebar — but where it would land on the board is kept inside.
-    const leftmost = Math.min(...anchored.map((entry) => entry.startLeft));
-    const topmost = Math.min(...anchored.map((entry) => entry.startTop));
+    const leftmost = Math.min(...anchored.map((entry) => entry.startLeft), ...carriedLists.map((c) => c.from.x));
+    const topmost = Math.min(...anchored.map((entry) => entry.startTop), ...carriedLists.map((c) => c.from.y));
 
     const onMove = (moveEvent) => {
       // Screen delta -> world delta.
@@ -1877,6 +1929,12 @@ function makeDraggable(el, note) {
       if (anchored.length) {
         dx = Math.max(dx, EDGE - leftmost);
         dy = Math.max(dy, EDGE - topmost);
+        carriedLists.forEach((c) => {
+          c.list.x = Math.round(c.from.x + dx);
+          c.list.y = Math.round(c.from.y + dy);
+          c.el.style.left = `${c.list.x}px`;
+          c.el.style.top = `${c.list.y}px`;
+        });
       }
 
       anchored.forEach((entry) => {
@@ -1932,6 +1990,7 @@ function makeDraggable(el, note) {
     const revert = async () => {
       hideGap();
       markDropList(null);
+      putListsBack();
       anchored.forEach((entry) => {
         entry.note.x = entry.startLeft;
         entry.note.y = entry.startTop;
@@ -1987,6 +2046,7 @@ function makeDraggable(el, note) {
       // have. Their coordinates are left alone — a row says which page, not
       // where on it, and the sidebar is no place to read a position from.
       if (onRow) {
+        putListsBack();
         await moveNotesToPage(records, onRow);
         if (onRow === currentPageId) returnToWorld(anchored);
         else anchored.forEach(detachNote);
@@ -1999,6 +2059,7 @@ function makeDraggable(el, note) {
       // Dropped into a list. Checked before the board, because a list is on the
       // board — the more specific target has to be asked about first.
       if (intoList && !sprung) {
+        putListsBack();
         anchored.forEach((entry, i) => {
           fileIntoList(entry.note, entry.el, intoList.listId, intoList.index + i);
         });
@@ -2018,6 +2079,7 @@ function makeDraggable(el, note) {
           if (entry.note.listId) freeNote(entry.note, entry.el, entry.note.x, entry.note.y);
         });
         if (sprung) {
+          putListsBack();
           const target = currentPageId;
           await moveNotesToPage(records, target);
           land(anchored);
@@ -2029,11 +2091,14 @@ function makeDraggable(el, note) {
           // onMove computed are kept as they are, so grid snapping survives.
           if (lifted) returnToWorld(anchored);
           anchored.forEach((entry) => saveNote(entry.note));
+          keepLists();
           // Coming out of a list is one thing that happened, not two: the step
           // that restores the membership restores the position with it, so a
           // move step on top would take two ⌘Z to undo one drag.
-          if (wasListed) recordListing(anchored);
-          else recordMove(movesOf(anchored));
+          if (wasListed) {
+            recordListing(anchored);
+            recordMove([], null, listMoves());
+          } else recordMove(movesOf(anchored), null, listMoves());
         }
         return;
       }
@@ -2041,13 +2106,15 @@ function makeDraggable(el, note) {
       // Dropped on nothing — the sidebar's empty space, or off the window.
       if (sprung) {
         // They still belong to their own page, which is no longer on screen.
+        putListsBack();
         anchored.forEach((entry) => saveNote(entry.note));
         anchored.forEach(detachNote);
         updateHint();
       } else {
         if (lifted) returnToWorld(anchored);
         anchored.forEach((entry) => saveNote(entry.note));
-        recordMove(movesOf(anchored));
+        keepLists();
+        recordMove(movesOf(anchored), null, listMoves());
       }
     };
 

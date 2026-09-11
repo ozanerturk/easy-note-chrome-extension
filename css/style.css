@@ -1406,7 +1406,8 @@ body.is-resizing #sidebar {
 }
 
 /* Enough to pick out what is selected, not enough to shout about it. */
-.note.is-selected {
+.note.is-selected,
+.list.is-selected {
   outline: 1px solid rgba(61, 132, 214, 0.55);
   outline-offset: 1px;
 }
@@ -1671,18 +1672,6 @@ body.is-resizing #sidebar {
   border-radius: var(--r);
   font: inherit;
   font-size: 12px;
-}
-
-.palette {
-  position: fixed;
-  z-index: 1000;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 5px;
-  padding: 7px;
-  border-radius: var(--r);
-  background: #fff;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
 }
 
 .palette-dot {
@@ -2153,13 +2142,6 @@ body.is-resizing #sidebar {
   filter: blur(6px);
 }
 
-/* Held long enough to set the page's home view. A moment of accent is the
-   whole confirmation — the action is small and instantly repeatable. */
-#go-home.is-set {
-  background: var(--accent);
-  color: #fff;
-}
-
 /* ------------------------------------------------------------------ lists */
 
 /* A list is a thing on the board, positioned like a note and carrying notes
@@ -2375,6 +2357,35 @@ body.is-resizing #sidebar {
   background: var(--wash-2);
 }
 
+/* The answer to a sum, before it is taken: the same words in the same place,
+   only dimmed, so taking it changes nothing but the colour. Inline, in the
+   line's own font and size — not a chip, not a popup. Dimmed from whatever
+   the text colour is, so it reads on any fill and in the dark. */
+.sum-ghost {
+  display: inline;
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The "/" list in a note. Same box as the menus; the row the arrow keys are on
+   is lit the way a hovered one is, and the command it answers to sits at the
+   right, so the next time it can simply be typed. */
+.slash-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.slash-item.is-active {
+  background: var(--accent-soft);
+}
+
+.slash-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .ctx-item.is-danger {
   color: var(--danger);
 }
@@ -2384,41 +2395,24 @@ body.is-resizing #sidebar {
   cursor: default;
 }
 
+/* The colours, inline at the top of a note's menu: two rows of nine. */
+.ctx-swatches {
+  display: grid;
+  grid-template-columns: repeat(9, 18px);
+  gap: 5px;
+  padding: 5px 7px 6px;
+}
+
+.ctx-swatches .palette-dot {
+  width: 18px;
+  height: 18px;
+}
+
 .ctx-sep {
   display: block;
   height: 1px;
   margin: 4px 6px;
   background: var(--surface-line);
-}
-
-/* ------------------------------------------------------ hold to set home */
-
-/* The ring fills while the button is held. Without it the wait is a button
-   that appears to be doing nothing until it suddenly is. */
-@property --hold {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-
-#go-home {
-  position: relative;
-}
-
-#go-home.is-holding::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: var(--r);
-  background: conic-gradient(var(--accent) var(--hold), transparent 0);
-  opacity: 0.55;
-  pointer-events: none;
-  animation: hold-fill 700ms linear forwards;
-}
-
-@keyframes hold-fill {
-  from { --hold: 0%; }
-  to { --hold: 100%; }
 }
 
 /* ------------------------------------------------------------------ toast */

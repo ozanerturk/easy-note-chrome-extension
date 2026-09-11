@@ -32,7 +32,10 @@ function onKey(e) {
 /**
  * Show a menu at a point.
  *
- * @param items  [{ label, run, danger, disabled }], or null for a separator
+ * @param items  [{ label, run, danger, disabled }], null for a separator, or
+ *               { swatches: [{ value, title, background, clear, current }],
+ *               pick } for a row of colour dots that act the moment one is
+ *               clicked, with no second popover to go through
  * @param x, y   viewport coordinates, usually the pointer's
  * @param opts   `onClose` fires whichever way it goes away
  * @returns the menu element, so a caller can measure or anchor to it
@@ -50,14 +53,33 @@ export function showMenu(items, x, y, { onClose } = {}) {
       menu.appendChild(line);
       return;
     }
+    if (item.swatches) {
+      const row = document.createElement("div");
+      row.className = "ctx-swatches";
+      item.swatches.forEach((swatch) => {
+        const dot = document.createElement("button");
+        dot.className = "palette-dot";
+        dot.classList.toggle("is-clear", !!swatch.clear);
+        dot.classList.toggle("is-current", !!swatch.current);
+        if (swatch.background) dot.style.background = swatch.background;
+        dot.title = swatch.title;
+        dot.addEventListener("click", () => {
+          closeMenu();
+          item.pick(swatch.value);
+        });
+        row.appendChild(dot);
+      });
+      menu.appendChild(row);
+      return;
+    }
     const button = document.createElement("button");
     button.className = "ctx-item";
     if (item.danger) button.classList.add("is-danger");
     button.textContent = item.label;
     button.disabled = !!item.disabled;
     button.addEventListener("click", () => {
-      // The item decides whether the menu should stay: a colour swatch that
-      // opens its own popover wants this one gone first.
+      // Gone first, so an item that opens a popover of its own is not stacked
+      // under this one.
       closeMenu();
       item.run();
     });

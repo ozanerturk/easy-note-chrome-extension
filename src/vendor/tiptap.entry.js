@@ -1,4 +1,4 @@
-// The only third-party code in the extension, bundled because MV3 forbids
+// The third-party code in the extension, bundled because MV3 forbids
 // loading anything from a CDN (`script-src 'self'`) and ProseMirror ships bare
 // ESM imports that a browser cannot resolve on its own.
 //
@@ -32,3 +32,16 @@ export { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 export { Image } from "@tiptap/extension-image";
 
 export { UndoRedo, Placeholder, Gapcursor } from "@tiptap/extensions";
+// What drives the "/" list in a note: it finds the trigger and the query and
+// hands them over; drawing the list is js/editor.js's business.
+export { Suggestion, SuggestionPluginKey } from "@tiptap/suggestion";
+
+// The ghost text after a sum is a plain ProseMirror plugin and a widget
+// decoration, from the same ProseMirror the editor runs on — a second copy
+// would have its own PluginKey registry and never see the editor's state.
+export { Plugin, PluginKey } from "@tiptap/pm/state";
+export { Decoration, DecorationSet } from "@tiptap/pm/view";
+
+// Working out the sum. An interpreter, not eval: MV3's CSP would refuse
+// anything that compiled the expression to a function.
+export { Parser } from "expr-eval";

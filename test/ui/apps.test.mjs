@@ -147,4 +147,69 @@ export default async function run(page, s) {
   stored = await record(page);
   check("with the time it was showing", stored.state && stored.state.ms === 600000,
     JSON.stringify(stored.state));
+
+  /* ------------------------------------------------------- slash commands */
+
+  // "/" in a note lists the apps; picking one puts it down beside the note
+  // and takes only the command back out of it.
+  await page.click(AWAY.x, AWAY.y);
+  await page.settle(200);
+  const had = new Set((await page.stored()).filter((n) => !n.deleted).map((n) => n.id));
+  await page.click(330, 380, 2);
+  await page.typeKeys("buy milk ");
+  const writing = await page.evaluate(`document.querySelector('.note.is-active').dataset.id`);
+  const slash = () => page.evaluate(`(() => {
+    const m = document.querySelector('.slash-menu');
+    return m && !m.hidden ? [...m.querySelectorAll('.slash-item')].map((r) => r.textContent) : null;
+  })()`);
+
+  await page.typeKeys("/");
+  await page.settle(200);
+  let listed = await slash();
+  check("typing / in a note lists the apps", !!listed && listed.some((t) => t.startsWith("Timer")), JSON.stringify(listed));
+
+  await page.typeKeys("zz");
+  await page.settle(150);
+  check("and narrows away to nothing when nothing matches", (await slash()) === null, JSON.stringify(await slash()));
+  await page.key("Backspace", "Backspace");
+  await page.key("Backspace", "Backspace");
+  await page.typeKeys("ti");
+  await page.settle(150);
+  listed = await slash();
+  check("typing after it narrows the list", !!listed && listed.length >= 1 && listed[0].startsWith("Timer"),
+    JSON.stringify(listed));
+
+  await page.key("Escape", "Escape");
+  await page.settle(150);
+  check("Esc closes the list", (await slash()) === null);
+  check("and leaves the note open",
+    await page.evaluate(`document.querySelector('.note.is-active')?.dataset.id === ${JSON.stringify(writing)}`));
+
+  // Once dismissed, that "/" is just text. Take it out and ask again.
+  for (let i = 0; i < 3; i++) await page.key("Backspace", "Backspace");
+  await page.typeKeys("/ti");
+  await page.settle(150);
+  check("a fresh / asks again", !!(await slash()), JSON.stringify(await slash()));
+  await page.key("Enter", "Enter");
+  await page.settle(400);
+
+  const now = (await page.stored()).filter((n) => !n.deleted);
+  const source = now.find((n) => n.id === writing);
+  const fresh = now.filter((n) => !had.has(n.id) && n.id !== writing);
+  const made = fresh.find((n) => n.app === "timer");
+  check("picking one leaves the note's words, and only takes the command out",
+    source && source.html === "<p>buy milk </p>" && !source.app, JSON.stringify(source && source.html));
+  check("and puts a timer down beside it", fresh.length === 1 && !!made, JSON.stringify(fresh.map((n) => n.app)));
+  check("to its right, top edges level",
+    !!made && made.x >= source.x + source.width && made.y === source.y,
+    made ? `${source.x}+${source.width} → ${made.x}, ${source.y} → ${made.y}` : "none");
+  check("with the timer running in it",
+    await page.evaluate(`!!document.querySelector('.note[data-id="${made && made.id}"] .app-timer')`));
+  check("while the note you were in is still the one you are writing in",
+    await page.evaluate(`document.activeElement.closest('.note')?.dataset.id === ${JSON.stringify(writing)}`));
+
+  // A slash inside a word is just a slash.
+  await page.typeKeys("and/or");
+  await page.settle(150);
+  check("a slash inside a word opens nothing", (await slash()) === null);
 }

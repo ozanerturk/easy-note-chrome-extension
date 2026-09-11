@@ -12,8 +12,7 @@ import {
   fitToNotes,
   persistViewNow,
   viewKey,
-  goHome,
-  setHome,
+  goToOrigin,
   setSpaceTapHandler,
 } from "./view.js";
 import {
@@ -308,52 +307,16 @@ async function stepHistory(direction) {
 // of the note you are typing in is the whole job here.
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (dismissTopmost()) return; // a palette, a menu, fullscreen, the open note
+  if (dismissTopmost()) return; // a menu, fullscreen, the open note
   if (selectedList().length) {
     clearSelection();
     return;
   }
-  // Nothing left to dismiss, so Escape means "put the board back where I
-  // like it" rather than doing nothing at all.
-  goHome();
+  // Nothing left to dismiss, so Escape means "back to the start of the page",
+  // at whatever zoom you are looking at it.
+  markUsed("origin");
+  goToOrigin();
 });
-
-/* ----------------------------------------------------------- home view */
-
-// Click to go home, hold to make here home. A press-and-hold rather than a
-// second button: setting a home view is rare and returning to one is not, so
-// the common action gets the plain click.
-// Click to go home, hold to make here home. A press-and-hold rather than a
-// second button: setting a home view is rare and returning to one is not, so
-// the common action gets the plain click. The ring fills while it is held, so
-// the wait is something happening rather than nothing happening.
-const HOLD_MS = 700;
-const homeBtn = document.getElementById("go-home");
-let holdTimer = null;
-let held = false;
-
-homeBtn.addEventListener("pointerdown", (e) => {
-  if (e.button !== 0) return;
-  held = false;
-  homeBtn.classList.add("is-holding"); // starts the ring filling
-  holdTimer = setTimeout(async () => {
-    held = true;
-    homeBtn.classList.remove("is-holding");
-    await setHome();
-    toast("Home view set for this page");
-  }, HOLD_MS);
-});
-
-const endHold = (run) => {
-  clearTimeout(holdTimer);
-  holdTimer = null;
-  homeBtn.classList.remove("is-holding");
-  if (run && !held) goHome();
-  held = false;
-};
-
-homeBtn.addEventListener("pointerup", () => endHold(true));
-homeBtn.addEventListener("pointerleave", () => endHold(false));
 
 document.getElementById("toggle-blur").addEventListener("click", () => {
   markUsed("blur");
@@ -402,12 +365,12 @@ setPageSwitchHandler(async (id, previous) => {
   await restoreViewFor(id);
 });
 
-// Each page remembers where you were. A page seen for the first time gets
-// framed instead, so its notes are never off-screen on arrival.
+// Each page remembers where you were. A page seen for the first time opens at
+// its start, which is where its notes begin.
 async function restoreViewFor(pageId) {
   const saved = await getOne(META, viewKey(pageId));
   if (saved) setView(saved);
-  else await goHome(); // its home view, or a framing of its notes if it has none
+  else goToOrigin();
 }
 
 // Going to one named note, wherever it lives. Search uses it for a hit, and a
@@ -456,7 +419,7 @@ setDuePickHandler(goToNote);
 initGallery(goToNote);
 
 // Clicking the page you are on is a request to be put back where you like it.
-setReselectHandler(() => goHome());
+setReselectHandler(() => goToOrigin());
 
 openDB()
   .then(async () => {

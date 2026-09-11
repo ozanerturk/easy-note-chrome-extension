@@ -122,6 +122,12 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Drag notes onto a page in the sidebar to move them; the row fills in and says
   how many are coming before you let go
 - Delete a note with its × button; its images are cleaned up too
+- **Sums** — type `120*0.15` at the end of a line and ` = 18` waits after it,
+  dimmed; Tab or Enter writes it in, Esc dismisses it. Evaluated with
+  `expr-eval`, and only ever handed digits and `+ - * / ( )`
+- **Slash commands** — type `/` in a note for the apps (a timer, for now). The
+  one you pick is put down beside the note, and only the `/timer` is taken
+  back out of it
 - **Reminders** (🔔) — now, in 15 minutes, in an hour, this evening, tomorrow,
   in 3 days, in a week, or a time picked by hand. What a note is waiting for
   reads on the same line as its last-edited time and hides with it. When the

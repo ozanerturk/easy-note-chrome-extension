@@ -671,9 +671,7 @@ await say(page, "Ask a note to come back later", "a reminder, and the board tell
 await sleep(800);
 await clickOn(page, `[data-id="l3"] .note-body`);
 await sleep(350);
-await clickOn(page, `[data-id="l3"] .note-btn-more`);
-await sleep(500);
-await pickMenu(page, ".ctx-item", "Remind me…");
+await clickOn(page, `[data-id="l3"] .note-remind-add`);
 await sleep(600);
 await pickMenu(page, ".remind-item", "This evening");
 await sleep(500);

@@ -106,4 +106,61 @@ export default async function run(page, s) {
   })()`);
   check("and is drawn where it was put", shown.inWorld && shown.left === "24px" && shown.top === "24px",
     JSON.stringify(shown));
+
+  /* ------------------------------------------------ Esc: back to the start */
+
+  // Wander off: zoomed out, and well away from the corner.
+  const wander = async () => {
+    await page.evaluate(`document.getElementById('zoom-out').click()`);
+    for (let i = 0; i < 6; i++) {
+      await page.cdp.send("Input.dispatchMouseEvent", {
+        type: "mouseWheel", x: mid.x, y: mid.y, deltaX: 300, deltaY: 300, pointerType: "mouse",
+      });
+    }
+    await page.settle(250);
+    return page.view();
+  };
+  let away = await wander();
+  check("wander off", away.x < 0 && away.y < 0 && away.zoom < 1, JSON.stringify(away));
+
+  // Esc peels things off one at a time before it moves the board.
+  const pickIt = await page.evaluate(`(() => {
+    const r = document.querySelector('.note[data-id="near"]').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  })()`);
+  away = await page.view();
+  await page.click(pickIt.x, pickIt.y);
+  await page.settle(250);
+  check("a note is open", (await page.evaluate(`document.querySelectorAll('.note.is-active').length`)) === 1);
+  await page.key("Escape", "Escape");
+  await page.settle(200);
+  check("Esc steps out of the note first",
+    (await page.evaluate(`document.querySelectorAll('.note.is-active').length`)) === 0);
+  check("without moving the board", JSON.stringify(await page.view()) === JSON.stringify(away));
+  await page.key("Escape", "Escape");
+  await page.settle(200);
+  check("a second Esc drops the selection",
+    (await page.evaluate(`document.querySelectorAll('.note.is-selected').length`)) === 0);
+  check("still without moving the board", JSON.stringify(await page.view()) === JSON.stringify(away));
+  await page.key("Escape", "Escape");
+  await page.settle(200);
+  v = await page.view();
+  check("and only then does Esc go back to the start of the page", v.x === 0 && v.y === 0, JSON.stringify(v));
+  check("at the zoom you were on", v.zoom === away.zoom, `${v.zoom} vs ${away.zoom}`);
+
+  // Clicking the page you are on does the same.
+  away = await wander();
+  await page.evaluate(`document.querySelector('.page-row.is-current').click()`);
+  await page.settle(250);
+  v = await page.view();
+  check("so does clicking the page you are on", v.x === 0 && v.y === 0 && v.zoom === away.zoom, JSON.stringify(v));
+
+  check("there is no home button any more", await page.evaluate(`!document.getElementById('go-home')`));
+
+  // A page never opened before opens at its start.
+  await wander();
+  await page.evaluate(`document.getElementById('add-page').click()`);
+  await page.settle(500);
+  v = await page.view();
+  check("a new page opens at its start", v.x === 0 && v.y === 0, JSON.stringify(v));
 }

@@ -114,8 +114,8 @@
       <li><strong>Double-click any empty space</strong> to make a note, then just type.</li>
       <li><strong>Drag a note from anywhere</strong> to move it; drag the bottom-right corner to resize.</li>
       <li><strong>Click a note</strong> to work in it — the caret lands where you clicked. Every other note stays plain, so the board looks clean.</li>
-      <li><strong>Right-click a note</strong>, or use the <strong>⋯</strong> above it, for colour, reminders, lock, fullscreen and delete. Nothing sits on a note waiting to be clicked.</li>
-      <li><strong>Press Esc</strong> to step out of a note when you are done writing. Press it again and it clears the selection; once there is nothing left to close, it takes you back to the page's home view.</li>
+      <li><strong>Right-click a note</strong>, or use the <strong>⋯</strong> above it: the colours are right at the top, one click each, then paste, copy, lock, fullscreen and delete. Reminders are set from <strong>Remind me</strong> under the note.</li>
+      <li><strong>Press Esc</strong> to step out of a note when you are done writing. Press it again and it clears the selection; once there is nothing left to close, it takes you back to the start of the page.</li>
       <li><strong>Leave a note empty</strong> and it clears itself away — no tidying up after a note you decided against.</li>
       <li><strong>Paste onto the canvas</strong> with no note open and whatever is on your clipboard becomes a note where your cursor is. ⌘/Ctrl+P does the same without the paste.</li>
       <li><strong>Hold ⌘/Ctrl while dragging</strong> to move a note in neat steps along the grid.</li>
@@ -129,6 +129,8 @@
       <li><strong>- </strong> starts a bullet list, and <strong>1. </strong> a numbered one.</li>
       <li><strong>[] </strong> makes a checkbox you can tick.</li>
       <li><strong># </strong> makes a heading, <strong>&gt; </strong> a quote.</li>
+      <li><strong>Type a sum</strong> — 120*0.15 — at the end of a line and its answer waits after it, dimmed. <strong>Tab</strong> or <strong>Enter</strong> writes it in; <strong>Esc</strong>, or just carrying on, and it goes.</li>
+      <li><strong>/</strong> lists what you can put on the board from here — a timer, for now. Pick one and it appears right beside the note; the note keeps its words.</li>
       <li><strong>Type an address</strong> — example.com — and it becomes a link as you pass it.</li>
       <li><strong>⌘B, ⌘I, ⌘U</strong> for bold, italic and underline. <strong>⌘K</strong> to link the selection.</li>
       <li><strong>⌘⌥1 / ⌘⌥2 / ⌘⌥0</strong> for large, small and normal text.</li>
@@ -195,12 +197,11 @@
       <li><strong><code>⌘</code> / <code>Ctrl</code> + scroll</strong>, or pinch on a trackpad, to zoom. Zooming follows your cursor.</li>
       <li><strong>Lost a note?</strong> Click <strong>Fit</strong> in the bottom-right — everything on the page comes back into view.</li>
     </ul>
-    <h3 style="font-size:15px;margin:22px 0 6px">Where a page opens</h3>
-    <p>Every page can have a spot it returns to, so wandering off across the board is never a problem.</p>
+    <h3 style="font-size:15px;margin:22px 0 6px">Back to the start</h3>
+    <p>Every page starts at its top-left corner and grows right and down, so wandering off across the board is never a problem.</p>
     <ul>
-      <li><strong>Hold the 🏠 button</strong> to make wherever you are that page's home view. A ring fills while you hold it.</li>
-      <li><strong>Click 🏠</strong>, or <strong>click the page's name again</strong> in the sidebar, to go back there.</li>
-      <li><strong>Esc on an empty board</strong> does the same — once there is nothing left for it to close.</li>
+      <li><strong>Esc on an empty board</strong> takes you back to the start of the page, at the zoom you are using — once there is nothing left for it to close.</li>
+      <li><strong>Click the page's name again</strong> in the sidebar to do the same.</li>
     </ul>
   </section>
 
@@ -210,7 +211,7 @@
       <li><strong>Drag a box</strong> across empty space to select several notes, or hold <code>Shift</code> and click them.</li>
       <li><strong>Drag any selected note</strong> and the whole group moves together.</li>
       <li>The toolbar that appears will <strong>line them up, space them evenly, or snap them into a grid</strong>.</li>
-      <li><strong>Set a reminder</strong> from the note's menu — 15 minutes, an hour, this evening, tomorrow, in 3 days, in a week, or a time you pick. When it comes round the note wiggles to catch your eye, and keeps wiggling until you click the reminder to dismiss it. Close the tab and come back tomorrow and it is still waiting.</li>
+      <li><strong>Set a reminder</strong> with <strong>Remind me</strong> under the note — now, 15 minutes, an hour, this evening, tomorrow, in 3 days, in a week, or a time you pick. When it comes round the note hops to catch your eye, Chrome shows a notification if you have allowed it, and the reminder stays until you click it to dismiss it. Close the tab and come back tomorrow and it is still waiting.</li>
       <li><strong>A reminder on another page</strong> puts a quiet count beside that page's name. Click the count to go to the note; click again to step to the next one. Nothing hops or flashes.</li>
       <li><strong>Lock a note</strong> from its menu and it stays exactly where it is — no dragging it by accident, and no deleting it, even in a bulk delete. You can still resize it and write in it.</li>
     </ul>
@@ -227,7 +228,7 @@
       <li><strong>Esc abandons a drag</strong> at any point and puts everything back, including the page you were looking at when you started.</li>
       <li><strong>Deleting a page with notes in it asks twice.</strong> An empty one does not ask at all.</li>
       <li><strong>Drag the sidebar's edge</strong> to resize it; double-click that edge to reset the width.</li>
-      <li>Each page remembers its own position and zoom, and its own home view.</li>
+      <li>Each page remembers its own position and zoom.</li>
     </ul>
   </section>
 
@@ -253,15 +254,14 @@
           <tr><td class="g">Shift + click a note</td><td>Add to the selection</td></tr>
           <tr><td class="g">⌘A</td><td>Select every note</td></tr>
           <tr><td class="g">Delete</td><td>Delete the selection (locked notes survive)</td></tr>
-          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour · remind · lock · fullscreen · delete</td></tr>
+          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour · copy · lock · fullscreen · delete</td></tr>
           <tr><td class="g">Right-click a page, or its ⋯</td><td>Rename · new sub-page · delete</td></tr>
           <tr><td class="g">⌥⇧S, on any web page</td><td>Clip a region into the tray</td></tr>
           <tr><td class="g">Drag a note onto a page</td><td>File it there</td></tr>
           <tr><td class="g">Hold it over the page</td><td>Open that page and put the note down on it</td></tr>
           <tr><td class="g">Esc, while dragging</td><td>Call the whole drag off</td></tr>
-          <tr><td class="g">Esc</td><td>Close what is open · clear the selection · go to the home view</td></tr>
-          <tr><td class="g">Hold 🏠</td><td>Make here this page's home view</td></tr>
-          <tr><td class="g">Click 🏠, or the page you are on</td><td>Back to the home view</td></tr>
+          <tr><td class="g">Esc</td><td>Close what is open · clear the selection · back to the start of the page</td></tr>
+          <tr><td class="g">Click the page you are on</td><td>Back to the start of the page</td></tr>
           <tr><td class="g">Click a page's count badge</td><td>Step through what has come due there</td></tr>
           <tr><td class="g">Double-click a page name</td><td>Rename it</td></tr>
           <tr><td class="g">Space (tap) · ⌘F</td><td>Search every page</td></tr>

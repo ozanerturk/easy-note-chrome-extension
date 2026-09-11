@@ -649,9 +649,8 @@ function rowFor(page, depth) {
   row.addEventListener("click", () => {
     // A reorder drag ends in a click on this row; it must not also switch page.
     if (Date.now() - dragEndedAt < 250) return;
-    // Clicking the page you are already on has always done nothing. It now
-    // takes you to that page's home view — the same click, the same place,
-    // whether or not you had wandered off across the board.
+    // Clicking the page you are already on takes you back to its start — the
+    // same click, the same place, however far you had wandered.
     if (page.id === currentPageId) onReselect(page.id);
     else switchPage(page.id);
   });

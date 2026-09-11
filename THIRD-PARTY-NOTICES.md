@@ -12,6 +12,9 @@ the exact set of sources that reached the bundle — and is rewritten by every
 
 | Package | Version | Licence |
 | --- | --- | --- |
+| [@floating-ui/core](https://floating-ui.com) | 1.8.0 | MIT |
+| [@floating-ui/dom](https://floating-ui.com) | 1.8.0 | MIT |
+| [@floating-ui/utils](https://floating-ui.com) | 0.2.12 | MIT |
 | [@tiptap/core](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-blockquote](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extension-bold](https://tiptap.dev) | 3.30.3 | MIT |
@@ -31,6 +34,8 @@ the exact set of sources that reached the bundle — and is rewritten by every
 | [@tiptap/extension-underline](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/extensions](https://tiptap.dev) | 3.30.3 | MIT |
 | [@tiptap/pm](https://tiptap.dev) | 3.30.3 | MIT |
+| [@tiptap/suggestion](https://tiptap.dev) | 3.30.3 | MIT |
+| [expr-eval](https://github.com/silentmatt/expr-eval#readme) | 2.0.2 | MIT |
 | [linkifyjs](https://linkify.js.org) | 4.3.3 | MIT |
 | [orderedmap](https://github.com/marijnh/orderedmap#readme) | 2.1.1 | MIT |
 | [prosemirror-commands](https://www.npmjs.com/package/prosemirror-commands) | 1.7.2 | MIT |
@@ -53,7 +58,36 @@ the exact set of sources that reached the bundle — and is rewritten by every
 Entries with no licence section of their own are covered by the text of the
 same licence carried below by the package that ships them.
 
-## 1. MIT — 19 packages
+## 1. MIT — 3 packages
+
+- @floating-ui/core 1.8.0
+- @floating-ui/dom 1.8.0
+- @floating-ui/utils 0.2.12
+
+```
+MIT License
+
+Copyright (c) 2021-present Floating UI contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## 2. MIT — 20 packages
 
 - @tiptap/core 3.30.3
 - @tiptap/extension-blockquote 3.30.3
@@ -74,6 +108,7 @@ same licence carried below by the package that ships them.
 - @tiptap/extension-underline 3.30.3
 - @tiptap/extensions 3.30.3
 - @tiptap/pm 3.30.3
+- @tiptap/suggestion 3.30.3
 
 ```
 MIT License
@@ -99,7 +134,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 2. MIT — linkifyjs
+## 3. MIT — expr-eval
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Matthew Crumley
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 4. MIT — linkifyjs
 
 ```
 Copyright (c) 2024 Nick Frasser
@@ -123,7 +184,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 3. MIT — 2 packages
+## 5. MIT — 2 packages
 
 - orderedmap 2.1.1
 - w3c-keyname 2.2.8
@@ -150,7 +211,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 4. MIT — 10 packages
+## 6. MIT — 10 packages
 
 - prosemirror-commands 1.7.2
 - prosemirror-dropcursor 1.8.3
@@ -185,7 +246,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 5. MIT — prosemirror-tables
+## 7. MIT — prosemirror-tables
 
 ```
 Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
@@ -209,7 +270,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 6. MIT — rope-sequence
+## 8. MIT — rope-sequence
 
 ```
 Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin>
@@ -233,7 +294,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## 7. Apache-2.0 — 2 packages
+## 9. Apache-2.0 — 2 packages
 
 - tesseract.js 7.0.0
 - tesseract.js-core 7.0.0

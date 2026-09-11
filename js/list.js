@@ -25,7 +25,16 @@ import { record } from "./history.js";
 import { offerUndo } from "./undo.js";
 import { registerLayer } from "./board.js";
 import { markUsed } from "./tips.js";
-import { newId, saveNote, updateHint, createNote, editorFor } from "./note.js";
+import { newId, saveNote, updateHint, createNote, editorFor, recordMove } from "./note.js";
+import {
+  isListSelected,
+  selectionSize,
+  selectedLists,
+  selectedList,
+  selectOnlyList,
+  toggleListSelect,
+  forgetListSelection,
+} from "./selection.js";
 
 const DEFAULT_WIDTH = 240;
 const DRAG_THRESHOLD = 3;
@@ -438,23 +447,57 @@ function makeListDraggable(el, list, head) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Shift adds it to what is picked out, or takes it away, as with a note.
+    if (e.shiftKey) {
+      toggleListSelect(list.id);
+      return;
+    }
+    if (!isListSelected(list.id)) selectOnlyList(list.id);
+
     const startX = e.clientX;
     const startY = e.clientY;
     const fromX = list.x;
     const fromY = list.y;
     let moved = false;
 
+    // Picked out with other things, it carries them: the other lists, and the
+    // loose notes, all by the same amount. Cards stay in their lists, and a
+    // locked note stays where it was put, as it does in any group drag.
+    const group = selectionSize() > 1;
+    const carriedLists = (group ? [...selectedLists] : [list.id])
+      .map((id) => lists.get(id))
+      .filter(Boolean)
+      .map((entry) => ({ ...entry, from: { x: entry.list.x, y: entry.list.y } }));
+    const carriedNotes = group
+      ? selectedList()
+          .filter(({ note }) => !note.listId && !note.locked)
+          .map((entry) => ({ ...entry, from: { x: entry.note.x, y: entry.note.y } }))
+      : [];
+    // The group stops at the origin by its top-left corner, keeping its shape.
+    const everything = [...carriedLists, ...carriedNotes];
+    const leftmost = Math.min(...everything.map((c) => c.from.x));
+    const topmost = Math.min(...everything.map((c) => c.from.y));
+
     const onMove = (m) => {
       // Screen delta -> world delta, as everywhere else on the canvas.
-      const dx = (m.clientX - startX) / view.zoom;
-      const dy = (m.clientY - startY) / view.zoom;
+      let dx = (m.clientX - startX) / view.zoom;
+      let dy = (m.clientY - startY) / view.zoom;
       if (!moved && Math.hypot(m.clientX - startX, m.clientY - startY) < DRAG_THRESHOLD) return;
       moved = true;
-      // Stopped at the origin, as a note is.
-      list.x = Math.max(EDGE, Math.round(fromX + dx));
-      list.y = Math.max(EDGE, Math.round(fromY + dy));
-      el.style.left = `${list.x}px`;
-      el.style.top = `${list.y}px`;
+      dx = Math.max(dx, EDGE - leftmost);
+      dy = Math.max(dy, EDGE - topmost);
+      carriedLists.forEach((c) => {
+        c.list.x = Math.round(c.from.x + dx);
+        c.list.y = Math.round(c.from.y + dy);
+        c.el.style.left = `${c.list.x}px`;
+        c.el.style.top = `${c.list.y}px`;
+      });
+      carriedNotes.forEach((c) => {
+        c.note.x = Math.round(c.from.x + dx);
+        c.note.y = Math.round(c.from.y + dy);
+        c.el.style.left = `${c.note.x}px`;
+        c.el.style.top = `${c.note.y}px`;
+      });
     };
 
     const stop = () => {
@@ -466,8 +509,19 @@ function makeListDraggable(el, list, head) {
     const onUp = () => {
       stop();
       if (!moved) return;
-      saveList(list);
-      record(moveStep(list, { x: fromX, y: fromY }, { x: list.x, y: list.y }));
+      if (!group) {
+        saveList(list);
+        record(moveStep(list, { x: fromX, y: fromY }, { x: list.x, y: list.y }));
+        return;
+      }
+      carriedLists.forEach((c) => saveList(c.list));
+      carriedNotes.forEach((c) => saveNote(c.note));
+      // One step for the lot, so one ⌘Z puts all of it back.
+      recordMove(
+        carriedNotes.map((c) => ({ note: c.note, from: c.from })),
+        null,
+        carriedLists.map((c) => ({ list: c.list, from: c.from }))
+      );
     };
 
     // Escape abandons the move, as it does for a note.
@@ -476,7 +530,13 @@ function makeListDraggable(el, list, head) {
       keyEvent.preventDefault();
       keyEvent.stopPropagation();
       stop();
-      placeList(list, { x: fromX, y: fromY });
+      carriedLists.forEach((c) => placeList(c.list, c.from));
+      carriedNotes.forEach((c) => {
+        c.note.x = c.from.x;
+        c.note.y = c.from.y;
+        c.el.style.left = `${c.from.x}px`;
+        c.el.style.top = `${c.from.y}px`;
+      });
     };
 
     window.addEventListener("pointermove", onMove);
@@ -485,7 +545,7 @@ function makeListDraggable(el, list, head) {
   });
 }
 
-function placeList(list, at) {
+export function placeList(list, at) {
   list.x = at.x;
   list.y = at.y;
   const entry = lists.get(list.id);
@@ -547,7 +607,13 @@ export function addNoteTo(list) {
  * A grouping is never worth losing a note over, so this deletes the list and
  * nothing else — the notes spill out rather than going with it.
  */
+/** A list and its element, for the few things outside that move one. */
+export function listEntry(id) {
+  return lists.get(id) || null;
+}
+
 export function deleteList(list) {
+  forgetListSelection(list.id);
   const members = spill(list);
   tombstone(list);
   const what = members.length

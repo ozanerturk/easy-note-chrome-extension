@@ -36,8 +36,9 @@ already failing for unrelated reasons.
 | Change in | Run |
 |---|---|
 | `js/note.js`, drag/resize/create | `notes`, `spring` |
-| `js/view.js`, `js/pages.js`, panning/zoom | `navigate`, `pages`, `home` |
-| `js/editor.js`, `js/richtext.js` | `editor` |
+| `js/view.js`, `js/pages.js`, panning/zoom | `navigate`, `pages`, `origin` |
+| `js/editor.js`, `js/richtext.js` | `editor`, `apps`, `sums` |
+| `js/calc.js` | `node test/calc.test.mjs`, `sums` |
 | `js/clip/*`, paste, images | `clip`, `clipboard` |
 | `js/gallery.js` | `gallery` |
 | `js/ocr.js` | `ocr` |

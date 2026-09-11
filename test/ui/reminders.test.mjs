@@ -36,8 +36,8 @@ export default async function run(page, s) {
     })()`);
   const menu = () =>
     page.evaluate(`[...document.querySelectorAll('.remind-item')].map((b) => b.textContent)`);
-  // Two steps now: the note's own menu, then Remind me… inside it. The label
-  // changes once a reminder is set, so match on either.
+  // Reminders are set from the note's footer: open the note, then its
+  // Remind me button.
   const openMenu = async () => {
     await page.evaluate(`(() => {
       const n = document.querySelector('.note');
@@ -45,11 +45,8 @@ export default async function run(page, s) {
       // mouse move would pick the note up with.
       n.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
       n.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-      n.querySelector('.note-btn-more').click();
+      n.querySelector('.note-remind-add').click();
     })()`);
-    await page.settle(220);
-    await page.evaluate(`[...document.querySelectorAll('.ctx-item')]
-      .find((b) => b.textContent.startsWith('Remind me') || b.textContent.startsWith('Change reminder')).click()`);
     await page.settle(220);
   };
   const stored = async () => (await page.stored()).find((n) => !n.deleted);
@@ -113,11 +110,15 @@ export default async function run(page, s) {
   check("the worker sets an alarm for it", Math.abs(wakes - record.remindAt) < 1000,
     `${wakes} vs ${record.remindAt}`);
 
-  await openMenu();
-  check("and now there is something to clear", (await menu()).includes("Clear reminder"));
+  // The note's own menu leaves all of this to the footer.
+  await page.evaluate(`document.querySelector('.note .note-btn-more').click()`);
+  await page.settle(220);
+  const ctx = await page.evaluate(`[...document.querySelectorAll('.ctx-item')].map((b) => b.textContent)`);
+  check("the note's menu leaves reminders to the footer", !ctx.some((l) => /remind/i.test(l)), ctx.join(" | "));
+  check("and has no timer or cut in it", !ctx.some((l) => /timer|^Cut/i.test(l)), ctx.join(" | "));
   await page.key("Escape", "Escape");
   await page.settle(150);
-  check("Esc closes the menu", (await page.evaluate(`!document.querySelector('.remind-menu')`)) === true);
+  check("Esc closes the menu", (await page.evaluate(`!document.querySelector('.ctx-menu')`)) === true);
 
   /* --------------------------------------------------- coming due */
 
@@ -187,8 +188,10 @@ export default async function run(page, s) {
     return { x: r.x + 20, y: r.y + 10 };
   })()`);
   await page.move(noteAt.x, noteAt.y);
-  await page.settle(120);
-  check("and hovering brings it back", (await footerNow()).line === "flex");
+  const hovered = await page
+    .waitFor(`getComputedStyle(document.querySelector('.note .note-footer')).display === 'flex'`, { timeout: 2000 })
+    .catch(() => false);
+  check("and hovering brings it back", hovered === true, JSON.stringify(await footerNow()));
   await rescanned();
   check("and the worker has nothing left to wake for", (await alarm()) === null);
 
@@ -246,7 +249,8 @@ export default async function run(page, s) {
     const rows = [...document.querySelectorAll('[data-page-id]')];
     rows.find((r) => !r.classList.contains('is-current')).click();
   })()`);
-  await page.settle(1400);
+  // Until the hop has finished, not for a stopwatch's guess at how long it takes.
+  await page.waitFor(`!!document.querySelector('.note.has-hopped')`, { timeout: 4000 }).catch(() => {});
   const back = await noteState();
   check("and coming back sets it hopping again", back.due === true && back.hopped === true,
     JSON.stringify(back));
