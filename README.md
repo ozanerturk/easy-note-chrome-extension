@@ -135,7 +135,10 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
   set, and without it everything above still works. Clicking the notification
   opens a tab on the note. With the privacy blur on, it says a note is due
   without saying what it says
-- Last-edited time per note, toggled globally with 🕘 in the controls bar
+- A line under each note, shown while you hover or work in it: when it was last
+  edited, and a Remind me button. A note with a reminder keeps it showing
+- Tap Space (or ⌘F) for search: every note, by recent, reminders, A–Z or Z–A,
+  narrowed by whatever you type
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
 
 ## The site

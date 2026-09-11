@@ -463,16 +463,19 @@ body.is-resizing #sidebar {
 
 /* ----------------------------------------------------------------- search */
 
+/* Opened with nothing typed it is a view of everything, so it is sized like
+   one — a panel you look over, not a box that drops a few suggestions. */
 #search {
   position: fixed;
-  top: 14px;
+  top: 10vh;
   left: 50%;
   transform: translateX(-50%) translateY(-6px);
-  width: min(520px, 70vw);
+  width: min(640px, calc(100vw - 32px));
   z-index: 950;
-  border-radius: var(--r);
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.26);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--surface-line);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s, transform 0.12s;
@@ -487,17 +490,46 @@ body.is-resizing #sidebar {
 
 #search-input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: none;
-  border-bottom: 1px solid #eae7e1;
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   background: transparent;
+  color: var(--text);
+}
+
+#search-filters {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+#search-filters button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+#search-filters button:hover {
+  background: var(--wash-1);
+}
+
+#search-filters button.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
 #search-results {
-  max-height: 320px;
+  max-height: min(60vh, 520px);
   overflow-y: auto;
+  padding: 4px 0;
 }
 
 .search-row {
@@ -515,7 +547,7 @@ body.is-resizing #sidebar {
 
 .search-row:hover,
 .search-row.is-active {
-  background: rgba(61, 132, 214, 0.12);
+  background: var(--accent-soft);
 }
 
 .search-swatch {
@@ -543,8 +575,13 @@ body.is-resizing #sidebar {
 .search-when {
   flex: 0 0 auto;
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.38);
+  color: var(--muted);
   white-space: nowrap;
+}
+
+.search-when.is-due {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .search-page {
@@ -557,15 +594,6 @@ body.is-resizing #sidebar {
   padding: 14px;
   font-size: 12px;
   color: var(--muted);
-}
-
-.search-label {
-  padding: 9px 14px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #a8a196;
 }
 
 /* Viewport. The dot grid scrolls and scales with the view, which is what
@@ -822,39 +850,68 @@ body.is-resizing #sidebar {
   box-shadow: inset 0 0 0 1px var(--note-edge);
 }
 
-.note-date {
+/* Hung just under the note rather than inside it, so appearing on hover moves
+   none of the note's own words. Still a child of the note, so reaching down
+   for its button keeps the note hovered. */
+.note-footer {
   display: none;
-  flex: 0 0 auto;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   align-items: baseline;
   gap: 8px;
-  padding: 0 12px 6px;
+  padding: 3px 2px 0;
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--muted);
+  white-space: nowrap;
   user-select: none;
 }
 
-/* The line shows on request — and on its own once something has come due,
-   because the reminder chip is also the button that stops the wiggling. */
-body.show-dates .note-date,
-.note.is-due .note-date {
+/* Where your hand is, and wherever a reminder is set — the chip is the button
+   that dismisses it, so it is never hidden while there is one to dismiss. */
+.note:hover > .note-footer,
+.note.is-active > .note-footer,
+.note.has-reminder > .note-footer {
   display: flex;
 }
 
-.note-edited {
+/* In a list, a line hanging below a card would sit on the next one, and one
+   that came and went on hover would make the column jump under the cursor. It
+   takes its own room there, and only while it has something to say. */
+.note.is-listed > .note-footer {
+  position: static;
+  padding: 0 12px 6px;
+}
+
+.note.is-listed:hover:not(.is-active):not(.has-reminder) > .note-footer {
   display: none;
 }
 
-body.show-dates .note-edited {
-  display: inline;
+.note.is-fullscreen > .note-footer {
+  display: none;
 }
 
 .note-remind {
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.note-remind:hover {
-  color: rgba(0, 0, 0, 0.65);
+.note-remind:hover,
+.note-remind-add:hover {
+  color: var(--text);
+}
+
+.note-remind-add {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.note.has-reminder .note-remind-add {
+  display: none;
 }
 
 .note.is-due .note-remind {
@@ -889,6 +946,13 @@ body.show-dates .note-edited {
   animation: none;
 }
 
+/* Found by search: the same hop, once, whether or not it has hopped before. */
+.note.is-found,
+.note.is-found.has-hopped {
+  transform-origin: 50% 100%;
+  animation: note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
 /* A note being carried already has a transform of its own. And once you have
    opened one you have plainly seen it, so it stops hopping while you are in
    it — the reminder is still due until it is dismissed. */
@@ -918,6 +982,8 @@ body.show-dates .note-edited {
 
 @media (prefers-reduced-motion: reduce) {
   .note.is-due,
+  .note.is-found,
+  .note.is-found.has-hopped,
   .page-row.has-due:not(.is-current) .page-name {
     animation: none;
   }
@@ -1043,7 +1109,7 @@ body.show-dates .note-edited {
    — search snippets, the account email — go soft. Page names stay legible so
    the app is still navigable. */
 .blur-notes .note-body,
-.blur-notes .note-date,
+.blur-notes .note-footer,
 .blur-notes .search-text,
 .blur-notes #sync-status {
   filter: blur(6px);
@@ -1054,7 +1120,7 @@ body.show-dates .note-edited {
    rather than just an off switch. Hovering deliberately does not reveal —
    a stray cursor should never uncover anything on a shared screen. */
 .blur-notes .note:has(.note-body:focus) .note-body,
-.blur-notes .note:has(.note-body:focus) .note-date {
+.blur-notes .note:has(.note-body:focus) .note-footer {
   filter: none;
 }
 

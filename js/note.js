@@ -51,6 +51,7 @@ import { mountEditor, insertImage, insertTable, pasteInto, caretAt, linkAtCaret,
 import { readClipboard, hasContent, pasteByCommand } from "./clipboard.js";
 import { encodeNotes, decodeNotes } from "./noteclip.js";
 import { toast } from "./toast.js";
+import { EDGE, inBounds, nudgeInside } from "./origin.js";
 import {
   PRESETS,
   isDue,
@@ -95,7 +96,6 @@ export { notes };
 
 const objectUrls = new Set();
 let zCounter = 1;
-let showDates = false;
 let fullscreenEntry = null;
 
 /* ----------------------------------------------------------------- helpers */
@@ -262,16 +262,6 @@ export function nextZ() {
 
 export function seedZ(value) {
   zCounter = Math.max(zCounter, value);
-}
-
-/* ------------------------------------------------------------------ dates */
-
-export function setShowDates(value, persist = true) {
-  showDates = value;
-  document.body.classList.toggle("show-dates", showDates);
-  document.getElementById("toggle-dates").classList.toggle("is-active", showDates);
-  notes.forEach(({ note, el }) => refreshDate(note, el));
-  if (persist) setPref("showDates", showDates);
 }
 
 /* ---------------------------------------------------------- privacy blur */
@@ -464,6 +454,9 @@ export function pasteNoteRecords(records, worldX, worldY) {
 
   const originX = Math.min(...list.map((r) => Number(r.x) || 0));
   const originY = Math.min(...list.map((r) => Number(r.y) || 0));
+  // The batch lands by its top-left corner, so keeping that inside the origin
+  // keeps all of it inside.
+  ({ x: worldX, y: worldY } = inBounds(worldX, worldY));
 
   const made = list.map((r) => {
     const note = {
@@ -797,6 +790,7 @@ function refreshReminder(note, el) {
   // The hop runs once. Falling due again — a new reminder, a fresh render —
   // is what earns another one.
   if (!due) el.classList.remove("has-hopped");
+  el.classList.toggle("has-reminder", !!note.remindAt);
   chip.hidden = !note.remindAt;
   chip.textContent = note.remindAt ? `🔔 ${remindLabel(note.remindAt)}` : "";
   chip.title = due
@@ -897,6 +891,7 @@ export function newId() {
 }
 
 export function createNote(worldX, worldY) {
+  ({ x: worldX, y: worldY } = inBounds(worldX, worldY));
   const note = {
     // uuid, so ids minted on different devices can never collide.
     id: newId(),
@@ -1287,6 +1282,15 @@ export async function purgeTombstones(maxAgeMs = 30 * 24 * 3600 * 1000) {
 
 // Land on a note the way clicking it would: raised above its neighbours and
 // ready to type into.
+// The hop a note does when it comes due, done once on request — search uses
+// it to say "this one", which is quicker to find than an outline, and works
+// wherever on screen the note has ended up.
+export function hopNote({ el }) {
+  el.classList.remove("is-found");
+  void el.offsetWidth; // let a second find of the same note hop again
+  el.classList.add("is-found");
+}
+
 export function activateNote({ note, el }) {
   bringToFront(note, el);
   setActiveNote(note.id);
@@ -1504,10 +1508,12 @@ export function renderNote(note) {
     hydrateImages(body);
   }
 
-  // One line under the note, carrying two separate things: when it was last
-  // written in, and what it is waiting for.
-  const date = document.createElement("div");
-  date.className = "note-date";
+  // One line under the note, carrying three things: when it was last written
+  // in, what it is waiting for, and a way to give it something to wait for.
+  // It is there when your hand is — hovering or working in the note — and
+  // otherwise only while a reminder is set, which is news worth keeping up.
+  const footer = document.createElement("div");
+  footer.className = "note-footer";
 
   const edited = document.createElement("span");
   edited.className = "note-edited";
@@ -1517,9 +1523,14 @@ export function renderNote(note) {
   remind.className = "note-remind";
   remind.hidden = true;
 
-  date.append(edited, remind);
+  const remindAdd = document.createElement("button");
+  remindAdd.className = "note-remind-add";
+  remindAdd.textContent = "Remind me";
+  remindAdd.title = "Set a reminder on this note";
 
-  el.append(header, body, date, grip);
+  footer.append(edited, remind, remindAdd);
+
+  el.append(header, body, footer, grip);
   world.appendChild(el);
 
   notes.set(note.id, { note, el });
@@ -1574,7 +1585,9 @@ export function renderNote(note) {
   body.addEventListener("pointerdown", () => bringToFront(note, el));
 
   el.addEventListener("animationend", (e) => {
-    if (e.animationName === "note-wiggle") el.classList.add("has-hopped");
+    if (e.animationName !== "note-wiggle") return;
+    el.classList.add("has-hopped");
+    el.classList.remove("is-found");
   });
 
   // Everything a note can have done to it, in one place, opened by the ⋯ or
@@ -1643,13 +1656,21 @@ export function renderNote(note) {
     openNoteMenu(e.clientX, e.clientY);
   });
 
-  // The chip is the dismiss button. A note that has started wiggling shows one
-  // whether or not the dates are on, so there is always something to press to
-  // make it stop.
+  // The chip is the dismiss button. A note with a reminder always shows its
+  // footer, so there is always something to press to make it stop.
   remind.addEventListener("pointerdown", (e) => e.stopPropagation());
   remind.addEventListener("click", (e) => {
     e.stopPropagation();
     setReminder(note, el, null);
+  });
+
+  // The same menu as ⋯ → Remind me…, one click nearer. It opens under the
+  // button, where the eye already is.
+  remindAdd.addEventListener("pointerdown", (e) => e.stopPropagation());
+  remindAdd.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const r = remindAdd.getBoundingClientRect();
+    showReminderMenu({ left: r.left, top: r.bottom + 4 }, note, el);
   });
 
   header.addEventListener("dblclick", (e) => {
@@ -1834,6 +1855,13 @@ function makeDraggable(el, note) {
     // actually move if that one is pinned.
     const lead = anchored.find((entry) => entry.note.id === note.id) || anchored[0];
 
+    // The furthest a group can go up and left: its top-left corner stops at
+    // the origin's edge, and the rest keep their places behind it. The note in
+    // hand still follows the pointer — it has to, to reach a page in the
+    // sidebar — but where it would land on the board is kept inside.
+    const leftmost = Math.min(...anchored.map((entry) => entry.startLeft));
+    const topmost = Math.min(...anchored.map((entry) => entry.startTop));
+
     const onMove = (moveEvent) => {
       // Screen delta -> world delta.
       let dx = (moveEvent.clientX - startX) / view.zoom;
@@ -1845,6 +1873,10 @@ function makeDraggable(el, note) {
       if (lead && (moveEvent.metaKey || moveEvent.ctrlKey)) {
         dx = Math.round((lead.startLeft + dx) / GRID) * GRID - lead.startLeft;
         dy = Math.round((lead.startTop + dy) / GRID) * GRID - lead.startTop;
+      }
+      if (anchored.length) {
+        dx = Math.max(dx, EDGE - leftmost);
+        dy = Math.max(dy, EDGE - topmost);
       }
 
       anchored.forEach((entry) => {
@@ -2027,6 +2059,7 @@ function makeDraggable(el, note) {
         entry.note.x = at.x;
         entry.note.y = at.y;
       });
+      nudgeInside(entries.map((entry) => entry.note));
       returnToWorld(entries);
       entries.forEach((entry) => saveNote(entry.note));
     }

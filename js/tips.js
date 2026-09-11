@@ -43,7 +43,7 @@ const TIPS = [
   { key: "filing", text: "Tip: drag a note onto a page in the sidebar to file it there." },
   { key: "spring", text: "Tip: hold a note over a page and that page opens, so you can put it down where you want." },
   { key: "paste", text: "Tip: copy anything, press ⌘V on empty board, and it becomes a note." },
-  { key: "search", text: "Tip: ⌘F searches every note on every page." },
+  { key: "search", text: "Tip: tap Space, or ⌘F, to see and search every note on every page." },
   { key: "homeview", text: "Tip: hold 🏠 to set where this page opens, then click it to come back." },
   { key: "reminder", text: "Tip: right-click a note to have it nudge you later." },
   { key: "theme", text: "Tip: the 🌗 button switches between light, dark and whatever your system is set to." },

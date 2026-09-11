@@ -8,6 +8,8 @@
 // A layer says how to clear itself and how to load a page, and registers here.
 // main.js no longer knows what is on the board, only that there is one.
 
+import { settleOrigin } from "./origin.js";
+
 const layers = [];
 
 /**
@@ -33,6 +35,8 @@ export function registerLayer(layer) {
  * elements that are about to be thrown away.
  */
 export async function drawBoard(pageId) {
+  // First, so every layer reads the page already inside its origin.
+  await settleOrigin(pageId).catch(() => {});
   layers.forEach((layer) => layer.clear());
   for (const layer of layers) await layer.load(pageId);
 }

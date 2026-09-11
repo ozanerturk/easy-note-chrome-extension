@@ -22,6 +22,12 @@
 
     <div id="search">
       <input id="search-input" type="text" placeholder="Search all notes…" autocomplete="off" />
+      <div id="search-filters" role="tablist" aria-label="Show notes by">
+        <button role="tab" data-sort="recent">Recent</button>
+        <button role="tab" data-sort="reminders">Reminders</button>
+        <button role="tab" data-sort="az">A–Z</button>
+        <button role="tab" data-sort="za">Z–A</button>
+      </div>
       <div id="search-results"></div>
     </div>
 
@@ -126,8 +132,7 @@
       <button id="toggle-theme" title="Theme">🌗</button>
       <button id="toggle-blur" title="Blur notes for screen sharing (Alt+B)">🙈</button>
       <button id="open-sync" title="Google Drive sync">☁</button>
-      <button id="open-search" title="Search notes (⌘F)">🔍</button>
-      <button id="toggle-dates" title="Show last edited time">🕘</button>
+      <button id="open-search" title="Search notes (Space or ⌘F)">🔍</button>
       <span class="sep"></span>
       <button id="zoom-out" title="Zoom out">−</button>
       <button id="zoom-level" title="Reset to 100%">100%</button>

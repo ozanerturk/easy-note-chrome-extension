@@ -1,16 +1,34 @@
 import { NOTES, TRAY_ID, getAll } from "./db.js";
 import { whenLabel, plainText } from "./note.js";
-import { pages, currentPageId } from "./pages.js";
+import { pages } from "./pages.js";
 import { markUsed } from "./tips.js";
+import { remindLabel } from "./reminders.js";
+
+// Search is also the way to look over everything: open it with nothing typed
+// and it lists every note, in whichever order the tabs under the box say.
+// Typing narrows that list and keeps its order, so "reminders containing
+// dentist" is a tab and a word, not a feature of its own.
 
 const panel = document.getElementById("search");
 const input = document.getElementById("search-input");
 const results = document.getElementById("search-results");
+const filters = document.getElementById("search-filters");
 
 let onPick = () => {};
 let matches = [];
 let cursor = 0;
 let debounce;
+
+const SORTS = ["recent", "reminders", "az", "za"];
+// Recent, every time it opens. What you did last time is not a setting.
+let sort = "recent";
+
+const EMPTY = {
+  recent: "No notes yet",
+  reminders: "No reminders set",
+  az: "No notes yet",
+  za: "No notes yet",
+};
 
 export function setSearchPickHandler(fn) {
   onPick = fn;
@@ -43,19 +61,18 @@ function highlight(text, query) {
 
 function paint(query) {
   results.textContent = "";
+  filters.querySelectorAll("[data-sort]").forEach((tab) => {
+    const on = tab.dataset.sort === sort;
+    tab.classList.toggle("is-on", on);
+    tab.setAttribute("aria-selected", String(on));
+  });
+
   if (!matches.length) {
     const empty = document.createElement("div");
     empty.className = "search-empty";
-    empty.textContent = query ? "No matching notes" : "No notes yet";
+    empty.textContent = query ? "No matching notes" : EMPTY[sort];
     results.appendChild(empty);
     return;
-  }
-
-  if (!query) {
-    const label = document.createElement("div");
-    label.className = "search-label";
-    label.textContent = "Recently edited";
-    results.appendChild(label);
   }
 
   matches.forEach((m, i) => {
@@ -83,11 +100,19 @@ function paint(query) {
     // thing wherever it is read.
     const when = document.createElement("span");
     when.className = "search-when";
-    when.textContent = m.when;
+    if (sort === "reminders") {
+      // Here the time that matters is the one it is waiting for.
+      when.textContent = `🔔 ${remindLabel(m.remindAt)}`;
+      when.classList.toggle("is-due", m.remindAt <= Date.now());
+    } else {
+      when.textContent = m.when;
+    }
 
     row.append(swatch, text, page, when);
     row.addEventListener("click", () => choose(i));
     results.appendChild(row);
+    // The list is long now; the arrow keys must not walk off the bottom of it.
+    if (i === cursor) row.scrollIntoView({ block: "nearest" });
   });
 }
 
@@ -98,7 +123,19 @@ function choose(index) {
   onPick(match.id, match.pageId);
 }
 
-const RECENT_COUNT = 5;
+// Enough to look over a board at a glance, not so many that painting the list
+// is the slow part of opening it.
+const LIMIT = 200;
+
+const byText = (a, b) => a.text.localeCompare(b.text, undefined, { sensitivity: "base", numeric: true });
+
+const ORDER = {
+  recent: (a, b) => b.at - a.at,
+  // Soonest first, which puts whatever is already due at the top.
+  reminders: (a, b) => a.remindAt - b.remindAt,
+  az: byText,
+  za: (a, b) => byText(b, a),
+};
 
 async function run(query) {
   const records = await getAll(NOTES);
@@ -115,25 +152,29 @@ async function run(query) {
       text: plainText(r.html),
       at: r.editedAt || r.updatedAt || 0,
       when: whenLabel(r),
+      remindAt: r.remindAt || 0,
     }))
     .filter((r) => r.text);
 
-  matches = !q
-    ? // An empty box offers the notes you touched last, so opening search is
-      // useful before typing anything.
-      live.sort((a, b) => b.at - a.at).slice(0, RECENT_COUNT)
-    : live
-        .filter((r) => r.text.toLowerCase().includes(q))
-        // notes on the page you are looking at come first
-        .sort((a, b) => (a.pageId === currentPageId ? -1 : 0) - (b.pageId === currentPageId ? -1 : 0))
-        .slice(0, 40);
+  matches = live
+    .filter((r) => sort !== "reminders" || r.remindAt)
+    .filter((r) => !q || r.text.toLowerCase().includes(q))
+    .sort(ORDER[sort])
+    .slice(0, LIMIT);
   cursor = 0;
   paint(query);
+}
+
+function setSort(next) {
+  if (!SORTS.includes(next) || next === sort) return;
+  sort = next;
+  run(input.value);
 }
 
 export function open() {
   markUsed("search");
   panel.classList.add("is-open");
+  sort = "recent";
   input.value = "";
   matches = [];
   paint("");
@@ -152,6 +193,13 @@ export function isOpen() {
 
 export function initSearch() {
   document.getElementById("open-search").addEventListener("click", open);
+
+  filters.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-sort]");
+    if (!tab) return;
+    setSort(tab.dataset.sort);
+    input.focus(); // so typing carries straight on
+  });
 
   input.addEventListener("input", () => {
     clearTimeout(debounce);
@@ -172,6 +220,11 @@ export function initSearch() {
       e.preventDefault();
       cursor = Math.max(cursor - 1, 0);
       paint(input.value);
+    } else if (e.key === "Tab") {
+      // The tabs, from the keyboard, without leaving the box.
+      e.preventDefault();
+      const step = e.shiftKey ? -1 : 1;
+      setSort(SORTS[(SORTS.indexOf(sort) + step + SORTS.length) % SORTS.length]);
     } else if (e.key === "Enter") {
       e.preventDefault();
       choose(cursor);

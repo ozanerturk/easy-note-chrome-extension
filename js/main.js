@@ -14,13 +14,14 @@ import {
   viewKey,
   goHome,
   setHome,
+  setSpaceTapHandler,
 } from "./view.js";
 import {
   createNote,
-  setShowDates,
   isFullscreen,
   deleteNote,
   activateNote,
+  hopNote,
   setBlurNotes,
   isBlurred,
   clearActiveNote,
@@ -52,7 +53,7 @@ import {
   setDuePickHandler,
   setReselectHandler,
 } from "./pages.js";
-import { initSearch, setSearchPickHandler } from "./search.js";
+import { initSearch, setSearchPickHandler, open as openSearch } from "./search.js";
 import { initGallery } from "./gallery.js";
 import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
@@ -354,10 +355,6 @@ const endHold = (run) => {
 homeBtn.addEventListener("pointerup", () => endHold(true));
 homeBtn.addEventListener("pointerleave", () => endHold(false));
 
-document.getElementById("toggle-dates").addEventListener("click", () => {
-  setShowDates(!document.body.classList.contains("show-dates"));
-});
-
 document.getElementById("toggle-blur").addEventListener("click", () => {
   markUsed("blur");
   setBlurNotes(!isBlurred());
@@ -425,6 +422,22 @@ async function goToNote(noteId, pageId) {
   activateNote(entry);
 }
 
+// Search only finds. It takes you to the note and picks it out, and leaves
+// opening it to you: what you were looking for is often something to look
+// at, and a note that opens for typing the moment it is found invites a stray
+// keystroke into it.
+async function locateNote(noteId, pageId) {
+  if (pageId !== currentPageId) await switchPage(pageId);
+  const entry = notes.get(noteId);
+  if (!entry) return;
+  clearActiveNote();
+  selectOnly(noteId);
+  // Centred where it can be. One near the origin cannot be without showing
+  // past it, so the hop is what says which note it is.
+  focusNote(entry.el); // pans only — the zoom the user set is left alone
+  hopNote(entry);
+}
+
 // A clicked reminder notification opens a tab straight onto its note. The hash
 // is taken off first, so that reloading the tab later does not jump again.
 async function openFromHash() {
@@ -435,7 +448,8 @@ async function openFromHash() {
   if (note && !note.deleted) await goToNote(note.id, note.pageId);
 }
 
-setSearchPickHandler(goToNote);
+setSearchPickHandler(locateNote);
+setSpaceTapHandler(openSearch);
 setDuePickHandler(goToNote);
 // Double-clicking a picture opens the page's pictures; "go to note" brings you
 // back to the one it belongs to, by the same door search uses.
@@ -497,7 +511,6 @@ openDB()
     await refreshTray();
     if (!startView) fitToNotes();
     initTheme(); // after loadPrefs, so a synced choice is known
-    setShowDates(!!getPref("showDates"), false);
     // boot.js already applied the class from localStorage; this only syncs the
     // button, and covers a profile whose pref arrived by sync.
     setBlurNotes(isBlurred() || !!getPref("blurNotes"), false);

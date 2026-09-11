@@ -16,6 +16,7 @@
 // reminders and the ⋯ menu keep working with no second implementation.
 
 import { LISTS, NOTES, put, getAll } from "./db.js";
+import { EDGE } from "./origin.js";
 import { world, view } from "./view.js";
 import { notes } from "./store.js";
 import { currentPageId } from "./pages.js";
@@ -172,8 +173,8 @@ export function freeNote(note, el, x, y) {
   const from = note.listId;
   delete note.listId;
   delete note.listOrder;
-  if (x !== undefined) note.x = Math.round(x);
-  if (y !== undefined) note.y = Math.round(y);
+  if (x !== undefined) note.x = Math.max(EDGE, Math.round(x));
+  if (y !== undefined) note.y = Math.max(EDGE, Math.round(y));
   saveNote(note);
   unmountCard(note, el);
   if (from) refreshCount(from);
@@ -449,8 +450,9 @@ function makeListDraggable(el, list, head) {
       const dy = (m.clientY - startY) / view.zoom;
       if (!moved && Math.hypot(m.clientX - startX, m.clientY - startY) < DRAG_THRESHOLD) return;
       moved = true;
-      list.x = Math.round(fromX + dx);
-      list.y = Math.round(fromY + dy);
+      // Stopped at the origin, as a note is.
+      list.x = Math.max(EDGE, Math.round(fromX + dx));
+      list.y = Math.max(EDGE, Math.round(fromY + dy));
       el.style.left = `${list.x}px`;
       el.style.top = `${list.y}px`;
     };
@@ -502,8 +504,8 @@ export function createList(worldX, worldY) {
     id: newId(),
     pageId: currentPageId,
     name: "New list",
-    x: Math.round(worldX),
-    y: Math.round(worldY),
+    x: Math.max(EDGE, Math.round(worldX)),
+    y: Math.max(EDGE, Math.round(worldY)),
     width: DEFAULT_WIDTH,
     createdAt: Date.now(),
     updatedAt: Date.now(),

@@ -73,6 +73,11 @@ export function persistViewNow(pageId) {
 }
 
 export function applyView() {
+  // The origin is the board's top-left corner and the view never passes it —
+  // see origin.js. Every pan, zoom, fit and jump comes through here, so this
+  // is the one place it has to be said.
+  view.x = Math.min(0, view.x);
+  view.y = Math.min(0, view.y);
   world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
   const gap = GRID * view.zoom;
   canvas.style.backgroundSize = `${gap}px ${gap}px`;
@@ -173,6 +178,19 @@ let panning = null;
 let lastPanEndAt = 0;
 let spaceHeld = false;
 
+// Space does two jobs. Held while dragging, it pans; tapped on its own, it
+// opens search. A tap is a quick press with nothing done while it was down —
+// a press held long enough to have been meant for a drag is not one, even if
+// the drag never came.
+const SPACE_TAP_MS = 350;
+let spaceDownAt = 0;
+let spaceUsed = false;
+let onSpaceTap = () => {};
+
+export function setSpaceTapHandler(fn) {
+  onSpaceTap = fn;
+}
+
 export function didJustPan() {
   return Date.now() - lastPanEndAt < PAN_CLICK_GRACE;
 }
@@ -182,6 +200,7 @@ export function isPanGesture(e) {
 }
 
 export function beginPan(e) {
+  if (spaceHeld) spaceUsed = true;
   panning = {
     id: e.pointerId,
     startX: e.clientX,
@@ -248,16 +267,25 @@ export function initPanZoom() {
 
   window.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || e.repeat) return;
-    if (e.target.isContentEditable || e.target.tagName === "INPUT") return;
+    if (e.target.isContentEditable || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     spaceHeld = true;
+    spaceDownAt = Date.now();
+    spaceUsed = e.metaKey || e.ctrlKey || e.altKey || e.shiftKey;
     canvas.classList.add("space-held");
     e.preventDefault();
   });
   window.addEventListener("keyup", (e) => {
     if (e.code !== "Space") return;
+    const tapped = spaceHeld && !spaceUsed && Date.now() - spaceDownAt < SPACE_TAP_MS;
     spaceHeld = false;
     canvas.classList.remove("space-held");
+    if (tapped) onSpaceTap();
   });
+  // A click while it is down — even one that never became a pan — was the
+  // start of something else.
+  window.addEventListener("pointerdown", () => {
+    if (spaceHeld) spaceUsed = true;
+  }, true);
   window.addEventListener("blur", () => {
     spaceHeld = false;
     canvas.classList.remove("space-held");

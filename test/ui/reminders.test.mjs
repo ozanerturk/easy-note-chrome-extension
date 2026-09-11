@@ -32,7 +32,7 @@ export default async function run(page, s) {
         due: n.classList.contains('is-due'),
         wiggling: getComputedStyle(n).animationName,
         hopped: n.classList.contains('has-hopped'),
-        line: getComputedStyle(n.querySelector('.note-date')).display };
+        line: getComputedStyle(n.querySelector('.note-footer')).display };
     })()`);
   const menu = () =>
     page.evaluate(`[...document.querySelectorAll('.remind-item')].map((b) => b.textContent)`);
@@ -41,7 +41,10 @@ export default async function run(page, s) {
   const openMenu = async () => {
     await page.evaluate(`(() => {
       const n = document.querySelector('.note');
+      // Down and up: a press left hanging arms a drag that the next real
+      // mouse move would pick the note up with.
       n.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      n.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
       n.querySelector('.note-btn-more').click();
     })()`);
     await page.settle(220);
@@ -57,6 +60,26 @@ export default async function run(page, s) {
   await page.type("water the plants");
   await page.settle();
 
+  // The footer's own button: the quick way in, without the ⋯ menu.
+  const footerNow = () => page.evaluate(`(() => {
+    const n = document.querySelector('.note');
+    const add = n.querySelector('.note-remind-add');
+    return { line: getComputedStyle(n.querySelector('.note-footer')).display,
+      add: add ? getComputedStyle(add).display : null };
+  })()`);
+  let footer = await footerNow();
+  check("the note you are in shows its footer", footer.line === "flex", JSON.stringify(footer));
+  check("with a button to set a reminder", footer.add !== "none" && footer.add !== null, JSON.stringify(footer));
+  const addAt = await page.evaluate(`(() => {
+    const r = document.querySelector('.note-remind-add').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  })()`);
+  await page.click(addAt.x, addAt.y);
+  await page.settle(220);
+  check("which opens the reminder menu", (await menu()).includes("In 15 minutes"), (await menu()).join(" | "));
+  await page.key("Escape", "Escape");
+  await page.settle(150);
+
   await openMenu();
   let items = await menu();
   check("the menu offers the quick times", items.slice(0, 7).join(" | ") ===
@@ -71,7 +94,9 @@ export default async function run(page, s) {
   let state = await noteState();
   check("setting one shows what it is waiting for", state.chip === "🔔 in 15m", state.chip);
   check("and it is not due yet", state.due === false && state.wiggling === "none");
-  check("the line stays off until the dates are on", state.line === "none", state.line);
+  check("a note with a reminder keeps its footer showing", state.line === "flex", state.line);
+  footer = await footerNow();
+  check("and swaps the button for the chip", footer.add === "none", JSON.stringify(footer));
 
   let record = await stored();
   const minutes = Math.round((record.remindAt - before) / 60000);
@@ -122,8 +147,7 @@ export default async function run(page, s) {
     state.due === true && state.hopped === true, JSON.stringify(state));
   check("and then holds still", state.wiggling === "none", state.wiggling);
   check("and says so", state.chip === "🔔 due", state.chip);
-  check("it shows the line even with the dates off, so there is a way to stop it",
-    state.line === "flex", state.line);
+  check("it shows the footer, so there is a way to stop it", state.line === "flex", state.line);
 
   // Nothing can be seen of the notification itself without the permission,
   // which no test can click through. What the worker wrote down can. Asking it
@@ -150,6 +174,21 @@ export default async function run(page, s) {
   check("and takes the reminder off the note", state.hidden === true);
   record = await stored();
   check("the record loses it too", !record.remindAt, String(record.remindAt));
+
+  // With nothing to wait for, the footer is back to being there only when you
+  // are: away from the note, and out of it, it goes.
+  await page.move(1000, 150);
+  await page.click(1000, 150);
+  await page.settle(250);
+  footer = await footerNow();
+  check("an idle note without a reminder hides its footer", footer.line === "none", JSON.stringify(footer));
+  const noteAt = await page.evaluate(`(() => {
+    const r = document.querySelector('.note .note-body').getBoundingClientRect();
+    return { x: r.x + 20, y: r.y + 10 };
+  })()`);
+  await page.move(noteAt.x, noteAt.y);
+  await page.settle(120);
+  check("and hovering brings it back", (await footerNow()).line === "flex");
   await rescanned();
   check("and the worker has nothing left to wake for", (await alarm()) === null);
 

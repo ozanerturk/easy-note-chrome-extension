@@ -9,6 +9,7 @@
 // recent, but the tray only ever loses something because somebody said so.
 
 import { NOTES, TRAY_ID, getAll, put } from "./db.js";
+import { inBounds } from "./origin.js";
 import { imageIdsIn, imageUrlFor, loadNote, updateHint } from "./note.js";
 import { currentPageId, dropTargetAt, moveNotesToPage, setDraggedNotes } from "./pages.js";
 import { offerUndo } from "./undo.js";
@@ -230,8 +231,11 @@ function beginDrag(e, note, item) {
     if (!inside) return; // dropped nowhere; it stays in the tray
 
     const at = screenToWorld(up.clientX, up.clientY);
-    note.x = Math.round(at.x - (note.width || 200) / 2);
-    note.y = Math.round(at.y - (note.height || 150) / 2);
+    // Centred on the pointer, but never past the board's origin.
+    ({ x: note.x, y: note.y } = inBounds(
+      Math.round(at.x - (note.width || 200) / 2),
+      Math.round(at.y - (note.height || 150) / 2)
+    ));
     await place(note, currentPageId);
   };
 
