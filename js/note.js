@@ -22,6 +22,7 @@ import {
 import { registerLayer } from "./board.js";
 import {
   bodyFor,
+  createList,
   listIsOnBoard,
   mountCard,
   unmountCard,
@@ -33,7 +34,13 @@ import {
   hideGap,
   gapTarget,
   listCount,
+  refreshList,
 } from "./list.js";
+import { appFor, allApps, appForKeyword, mountApp } from "./apps/registry.js";
+// Apps register themselves on import, and the board only knows the ones it has
+// imported. Nothing else reaches into js/apps/, so this line is the whole
+// install step for a new one.
+import "./apps/timer.js";
 import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
 import { record, forget } from "./history.js";
@@ -42,6 +49,7 @@ import { showMenu, closeMenu } from "./menu.js";
 import { markUsed } from "./tips.js";
 import { mountEditor, insertImage, insertTable, pasteInto, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
 import { readClipboard, hasContent, pasteByCommand } from "./clipboard.js";
+import { encodeNotes, decodeNotes } from "./noteclip.js";
 import { toast } from "./toast.js";
 import {
   PRESETS,
@@ -354,11 +362,269 @@ function textToHtml(text) {
     .join("");
 }
 
+/* --------------------------------------------------- copying whole notes */
+
+// What a copy of a note carries. Not the id, which the paste mints fresh, and
+// not the page or the list it sat in — a pasted note lands on the board you are
+// looking at. Position rides along so that copying four notes and pasting them
+// gives you the same arrangement, not a stack.
+//
+// Pictures travel as the ids they are stored under. Pasted back into Easy Note
+// they resolve against the same image store and the picture is simply there;
+// pasted into anything else, the words survive and the pictures do not.
+function noteRecord(note) {
+  const copy = {
+    x: note.x,
+    y: note.y,
+    width: note.width,
+    height: note.height,
+    html: note.html || "",
+    color: note.color,
+  };
+  if (note.app) {
+    copy.app = note.app;
+    // A copy of the state, not the state: a running timer keeps writing to its
+    // own, and a clipboard holding the same object would paste whatever it says
+    // at the moment of pasting rather than at the moment of copying.
+    copy.state = note.state ? JSON.parse(JSON.stringify(note.state)) : null;
+  }
+  return copy;
+}
+
+/**
+ * Put notes on the clipboard, whole.
+ *
+ * @returns how many made it — 0 if the clipboard refused to be written to,
+ *          which is the caller's cue to say so rather than to delete anything.
+ */
+export async function copyNotes(entries) {
+  const list = (entries || []).filter(Boolean);
+  if (!list.length) return 0;
+  const records = list.map(({ note }) => noteRecord(note));
+  const text = records.map((r) => plainText(r.html)).filter(Boolean).join("\n\n");
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([encodeNotes(records)], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+  } catch (err) {
+    return 0;
+  }
+  return list.length;
+}
+
+/**
+ * Gather notes into a new list, in the order they were lying in.
+ *
+ * The list arrives where the topmost-leftmost of them was, so the board keeps
+ * its shape: the notes leave the canvas and the thing holding them stands where
+ * they stood. Cards already in a list stay where they are.
+ */
+function listFromNotes(entries) {
+  const loose = entries.filter(({ note }) => !note.listId && !note.locked);
+  if (!loose.length) return null;
+  const list = createList(
+    Math.min(...loose.map(({ note }) => note.x)),
+    Math.min(...loose.map(({ note }) => note.y))
+  );
+  loose
+    .slice()
+    .sort((a, b) => a.note.y - b.note.y || a.note.x - b.note.x)
+    .forEach(({ note, el }, i) => fileIntoList(note, el, list.id, i));
+  return list;
+}
+
+/** Copy, then delete what was copied. Locked notes are copied but stay put. */
+export async function cutNotes(entries) {
+  const copied = await copyNotes(entries);
+  if (!copied) {
+    toast("Could not copy to the clipboard");
+    return 0;
+  }
+  entries.forEach(({ note, el }) => deleteNote(note, el));
+  return copied;
+}
+
+/**
+ * Put copied notes back on the board, with their top-left corner at the point.
+ *
+ * The whole group is offset together, so however many notes were copied they
+ * arrive laid out the way they were left. Nothing is opened for typing: a paste
+ * of six notes has no one note to put the caret in, and one of one is easier to
+ * click into than to click out of.
+ *
+ * @returns the entries made, so the caller can select them
+ */
+export function pasteNoteRecords(records, worldX, worldY) {
+  const list = (records || []).filter((r) => r && typeof r === "object");
+  if (!list.length) return [];
+
+  const originX = Math.min(...list.map((r) => Number(r.x) || 0));
+  const originY = Math.min(...list.map((r) => Number(r.y) || 0));
+
+  const made = list.map((r) => {
+    const note = {
+      id: newId(),
+      x: worldX + ((Number(r.x) || 0) - originX),
+      y: worldY + ((Number(r.y) || 0) - originY),
+      width: Number(r.width) || 200,
+      height: Number(r.height) || 150,
+      html: typeof r.html === "string" ? r.html : "",
+      color: r.color || NO_FILL,
+      z: nextZ(),
+      // A copy is not locked, whatever the original was. It is a new note on a
+      // board you are arranging; pinning it is a decision to take again.
+      locked: false,
+      createdAt: Date.now(),
+      editedAt: Date.now(),
+      updatedAt: Date.now(),
+      pageId: currentPageId,
+    };
+    if (r.app) {
+      note.app = r.app;
+      if (r.state) note.state = r.state;
+    }
+    renderNote(note);
+    saveNote(note);
+    return note;
+  });
+
+  updateHint();
+  record(pasteStep(made));
+  return made.map((note) => notes.get(note.id)).filter(Boolean);
+}
+
+function pasteStep(batch) {
+  return {
+    kind: "create",
+    noteId: batch.length === 1 ? batch[0].id : null,
+    label: batch.length === 1 ? "the pasted note" : `the ${batch.length} pasted notes`,
+    undo: () =>
+      batch.forEach((note) => {
+        const entry = notes.get(note.id);
+        if (entry) deleteNote(note, entry.el, { silent: true });
+      }),
+    redo: () => restoreNotes(batch),
+  };
+}
+
+/** The note records on the clipboard, or null if it is holding something else. */
+export function notesOnClipboard(content) {
+  return content ? decodeNotes(content.html) : null;
+}
+
 function touch(note, el, html) {
   note.html = html;
   note.editedAt = Date.now();
   saveNote(note);
   refreshDate(note, el);
+}
+
+/* -------------------------------------------------------------------- apps */
+
+// A note whose `app` field names a renderer hands its body over to that
+// renderer. Everything else about it — where it is, what colour, which list,
+// whether it is locked — is unchanged, because an app is a way of drawing a
+// note and not a second kind of thing on the board.
+
+function mountAppOn(entry) {
+  const { note, el } = entry;
+  if (!appFor(note.app)) return;
+  const body = el.querySelector(".note-body");
+  body.innerHTML = "";
+  body.classList.add("is-app");
+  entry.app = mountApp(body, note, { save: saveNote });
+}
+
+function unmountApp(entry) {
+  if (!entry || !entry.app) return;
+  entry.app.unmount();
+  entry.app = null;
+}
+
+/** Everything that turning a note into an app changes, in one object. */
+function appShapeOf(note) {
+  return {
+    app: note.app || null,
+    // A copy: the live state keeps being written to, and a step holding the
+    // same object would undo to whatever the timer says now.
+    state: note.state ? JSON.parse(JSON.stringify(note.state)) : null,
+    html: note.html || "",
+    width: note.width,
+    height: note.height,
+  };
+}
+
+function applyAppShape(note, shape) {
+  const entry = reviveNote(note);
+  if (!entry) return;
+  unmountEditor(entry);
+  unmountApp(entry);
+
+  if (shape.app) {
+    note.app = shape.app;
+    if (shape.state) note.state = shape.state;
+    else delete note.state;
+  } else {
+    delete note.app;
+    delete note.state;
+  }
+  note.html = shape.html || "";
+  applyBox(note, { width: shape.width, height: shape.height });
+
+  const body = entry.el.querySelector(".note-body");
+  body.innerHTML = "";
+  body.classList.toggle("is-app", !!note.app);
+  if (note.app) mountAppOn(entry);
+  else {
+    body.innerHTML = note.html;
+    hydrateImages(body);
+  }
+  saveNote(note);
+}
+
+function appStep(note, before, after) {
+  return {
+    kind: "app",
+    noteId: note.id,
+    label: after.app ? `the ${after.app}` : "the note",
+    undo: () => applyAppShape(note, before),
+    redo: () => applyAppShape(note, after),
+  };
+}
+
+// Becoming an app takes the app's preferred size, once. After that the note is
+// resized like any other and nothing reaches in to correct it.
+function becomeApp(note, el, app, { keepText = true } = {}) {
+  const before = appShapeOf(note);
+  applyAppShape(note, {
+    app: app.name,
+    state: null, // seeded from the app's own init on mount
+    html: keepText ? note.html || "" : "",
+    width: app.size ? app.size.width : note.width,
+    height: app.size ? app.size.height : note.height,
+  });
+  record(appStep(note, before, appShapeOf(note)));
+}
+
+function unbecomeApp(note, el) {
+  const before = appShapeOf(note);
+  applyAppShape(note, { ...before, app: null, state: null });
+  record(appStep(note, before, appShapeOf(note)));
+}
+
+// Typing [timer] into a note and leaving it is the shortcut to the menu item.
+// It is read on the way out rather than as it is typed: mid-word the note says
+// "[time", and a note is not something that should change shape under the
+// caret. The words go with it — the keyword was the instruction, not content.
+function convertIfKeyword(entry) {
+  const { note, el } = entry;
+  if (note.app || note.locked) return;
+  const app = appForKeyword(plainText(note.html));
+  if (!app) return;
+  becomeApp(note, el, app, { keepText: false });
 }
 
 /* ----------------------------------------------------------------- colours */
@@ -663,6 +929,7 @@ export function deleteNote(note, el, { silent = false } = {}) {
   if (fullscreenEntry && fullscreenEntry.note === note) exitFullscreen();
 
   destroyEditor(notes.get(note.id));
+  unmountApp(notes.get(note.id));
   if (el.__observer) el.__observer.disconnect();
   el.remove();
   notes.delete(note.id);
@@ -676,6 +943,8 @@ export function deleteNote(note, el, { silent = false } = {}) {
   trackReminder(note);
 
   updateHint();
+  // A card that left its list still counted towards it until the next render.
+  refreshList(note.listId);
   if (!silent) rememberForUndo(note);
   return true;
 }
@@ -686,6 +955,9 @@ export function deleteNote(note, el, { silent = false } = {}) {
 // offered: there is nothing in it to bring back.
 function discardIfEmpty({ note, el }) {
   if (note.locked || note.fullscreen) return;
+  // An app note says nothing and is not thereby blank — a timer with no words
+  // in it is exactly what a timer looks like.
+  if (note.app) return;
   const body = el.querySelector(".note-body");
   if (!body) return;
   if (body.textContent.trim() || body.querySelector("img")) return;
@@ -1028,6 +1300,9 @@ export function editorFor(id) {
   const entry = notes.get(id);
   if (!entry) return null;
   if (entry.editor) return entry.editor;
+  // An app owns its body. There is no text to put a caret in, and mounting the
+  // editor over it would tear the app's own DOM out.
+  if (entry.note.app) return null;
 
   const { note, el } = entry;
   const body = el.querySelector(".note-body");
@@ -1140,6 +1415,7 @@ export function setActiveNote(id) {
     const sel = window.getSelection();
     if (sel && sel.rangeCount && previous.el.contains(sel.anchorNode)) sel.removeAllRanges();
     unmountEditor(previous);
+    convertIfKeyword(previous);
     discardIfEmpty(previous);
   }
   activeId = id || null;
@@ -1221,8 +1497,10 @@ export function renderNote(note) {
   // then and hands it back on the way out.
   const body = document.createElement("div");
   body.className = "note-body";
-  body.innerHTML = note.html || "";
-  hydrateImages(body);
+  if (!appFor(note.app)) {
+    body.innerHTML = note.html || "";
+    hydrateImages(body);
+  }
 
   // One line under the note, carrying two separate things: when it was last
   // written in, and what it is waiting for.
@@ -1249,6 +1527,12 @@ export function renderNote(note) {
   // on the canvas — the coupling is deliberately loose, so a half-synced board
   // shows everything it has rather than hiding what it cannot place.
   if (listIsOnBoard(note.listId)) mountCard(note, el);
+
+  // After the entry exists: an app is handed the note it stores itself in. A
+  // note naming an app this build has never heard of — synced from a newer
+  // version — is drawn as the ordinary note it also is, and its state rides
+  // along untouched rather than being dropped on the next write.
+  mountAppOn(notes.get(note.id));
 
   /* behaviour */
 
@@ -1295,6 +1579,10 @@ export function renderNote(note) {
   // by right-clicking the note itself.
   function openNoteMenu(clientX, clientY) {
     setActiveNote(note.id);
+    // Right-clicking one of several selected notes means all of them — the same
+    // rule the drag follows, so a menu never quietly acts on one of a group.
+    const gang = isSelected(note.id) && selected.size > 1 ? selectedList() : [{ note, el }];
+    const many = gang.length > 1 ? `${gang.length} notes` : "note";
     showMenu(
       [
         { label: "Paste", run: () => pasteIntoNote(note, el, { formatted: true }) },
@@ -1303,8 +1591,18 @@ export function renderNote(note) {
         // hover; this only has to get the first one into the note.
         ...(note.app ? [] : [{ label: "Table", run: () => addTable(note) }]),
         null,
+        { label: `Copy ${many}`, run: () => copyNotes(gang) },
+        { label: `Cut ${many}`, run: () => cutNotes(gang), disabled: gang.every((g) => g.note.locked) },
+        null,
         { label: "Colour…", run: () => showPalette({ left: clientX, top: clientY }, note, el) },
         { label: note.remindAt ? "Change reminder…" : "Remind me…", run: () => showReminderMenu({ left: clientX, top: clientY }, note, el) },
+        null,
+        ...(note.app
+          ? [{ label: "Turn back into a note", run: () => unbecomeApp(note, el) }]
+          : allApps().map((app) => ({
+              label: `Make it a ${app.title.toLowerCase()}`,
+              run: () => becomeApp(note, el, app),
+            }))),
         null,
         { label: note.fullscreen ? "Exit fullscreen" : "Fullscreen", run: () => {
           if (note.fullscreen) exitFullscreen();
@@ -1316,6 +1614,12 @@ export function renderNote(note) {
           saveNote(note);
         } },
         null,
+        // A list is something you make out of notes you already have, so it is
+        // offered where that is what you are holding: several notes, picked and
+        // right-clicked. There is no menu item for an empty one.
+        ...(gang.length > 1 && gang.some((g) => !g.note.listId)
+          ? [{ label: `Put these ${gang.length} notes in a list`, run: () => listFromNotes(gang) }]
+          : []),
         { label: "Delete note", run: () => deleteNote(note, el), danger: true, disabled: !!note.locked },
       ],
       clientX,
@@ -1468,8 +1772,9 @@ function makeDraggable(el, note) {
     if (note.fullscreen) return;
 
     // A tick box answers to the click itself; cancelling the pointerdown to
-    // start a drag would swallow it.
+    // start a drag would swallow it. An app's own controls are the same case.
     if (e.target.closest('input[type="checkbox"], label')) return;
+    if (e.target.closest(".note-body.is-app button, .note-body.is-app input")) return;
 
     const inBody = !!e.target.closest(".note-body");
     // A note you are writing in has given its body to the caret: dragging
@@ -1809,6 +2114,7 @@ function observeResize(el, note) {
 // to another page, and when switching pages.
 export function detachNote(entry) {
   destroyEditor(entry);
+  unmountApp(entry);
   if (entry.el.__observer) entry.el.__observer.disconnect();
   entry.el.remove();
   notes.delete(entry.note.id);
@@ -1862,6 +2168,9 @@ window.addEventListener("pagehide", () => {
   // Closing the tab is leaving too. The write may not outlive the page, in
   // which case the blank note is simply still there next time.
   clearActiveNote();
+  // Unmounting an app flushes whatever it had not written down yet. A timer
+  // adjusted a moment before the tab closed should still say so next time.
+  [...notes.values()].forEach(unmountApp);
   objectUrls.forEach((url) => URL.revokeObjectURL(url));
   objectUrls.clear();
 });

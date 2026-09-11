@@ -24,7 +24,7 @@ import { record } from "./history.js";
 import { offerUndo } from "./undo.js";
 import { registerLayer } from "./board.js";
 import { markUsed } from "./tips.js";
-import { newId, saveNote, updateHint } from "./note.js";
+import { newId, saveNote, updateHint, createNote, editorFor } from "./note.js";
 
 const DEFAULT_WIDTH = 240;
 const DRAG_THRESHOLD = 3;
@@ -129,6 +129,17 @@ export function unmountCard(note, el) {
   el.style.zIndex = note.z;
   world.appendChild(el);
   if (from) refreshCount(from);
+}
+
+/**
+ * Redraw the count on a list, and with it the empty state.
+ *
+ * Exported because a card can leave a list without going through here — a note
+ * deleted while it is in one — and a list that says "3" over two cards is
+ * lying about the only thing it claims to know.
+ */
+export function refreshList(listId) {
+  if (listId) refreshCount(listId);
 }
 
 function refreshCount(listId) {
@@ -289,12 +300,17 @@ export function renderList(list) {
   count.className = "list-count";
   count.textContent = "0";
 
+  const add = document.createElement("button");
+  add.className = "list-btn-add";
+  add.textContent = "+";
+  add.title = "New note in this list";
+
   const more = document.createElement("button");
   more.className = "list-btn-more";
   more.textContent = "⋯";
   more.title = "List actions";
 
-  head.append(name, count, more);
+  head.append(name, count, add, more);
 
   const body = document.createElement("div");
   body.className = "list-body";
@@ -308,6 +324,12 @@ export function renderList(list) {
   name.addEventListener("dblclick", (e) => {
     e.stopPropagation(); // the canvas would otherwise make a note behind it
     renameList(list);
+  });
+
+  add.addEventListener("pointerdown", (e) => e.stopPropagation());
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    addNoteTo(list);
   });
 
   more.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -410,7 +432,7 @@ export function renameList(list) {
 function makeListDraggable(el, list, head) {
   head.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    if (e.target.closest(".list-btn-more")) return;
+    if (e.target.closest("button")) return;
     if (e.target.classList.contains("is-editing")) return;
     e.preventDefault();
     e.stopPropagation();
@@ -492,6 +514,29 @@ export function createList(worldX, worldY) {
   record(createStep(list));
   renameList(list); // it arrives asking to be named
   return list;
+}
+
+/**
+ * A new note, already in the list, open to type into.
+ *
+ * Making a note for a list by making it on the canvas and dragging it in is a
+ * gesture too many for the commonest thing you do with a list — most of what
+ * ends up in one was written to go in it. It lands at the bottom, which is
+ * where a list you are filling grows.
+ *
+ * The note is given the list's own spot as its canvas position, so that a card
+ * later dragged out, or spilled by a delete, comes down somewhere it was seen
+ * rather than at the origin.
+ */
+export function addNoteTo(list) {
+  markUsed("lists");
+  const { note, el } = createNote(list.x, list.y);
+  fileIntoList(note, el, list.id, cardsIn(list.id).length);
+  // createNote takes the caret, and mounting the card moves the element — which
+  // drops it. Asking for it again after the move is what leaves you typing.
+  const editor = editorFor(note.id);
+  if (editor) editor.commands.focus("end");
+  return { note, el };
 }
 
 /**

@@ -35,6 +35,14 @@ export function selectOnly(id) {
   syncUI();
 }
 
+// A paste, or anything else that hands you back a batch: the notes it made are
+// the ones now selected, so the next thing you do lands on them.
+export function selectNotes(ids) {
+  selected.clear();
+  ids.forEach((id) => selected.add(id));
+  syncUI();
+}
+
 export function toggleSelect(id) {
   if (selected.has(id)) selected.delete(id);
   else selected.add(id);

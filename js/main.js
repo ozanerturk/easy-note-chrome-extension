@@ -27,6 +27,9 @@ import {
   createNoteWithContent,
   createNoteAndPasteByCommand,
   dismissTopmost,
+  copyNotes,
+  cutNotes,
+  pasteNoteRecords,
 } from "./note.js";
 import {
   initSelection,
@@ -36,6 +39,7 @@ import {
   selectAll,
   selectedList,
   selectOnly,
+  selectNotes,
 } from "./selection.js";
 import {
   initPages,
@@ -61,6 +65,7 @@ import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
 import { loadPrefs, getPref } from "./prefs.js";
 import { readClipboard, hasContent } from "./clipboard.js";
+import { decodeNotes } from "./noteclip.js";
 import { showMenu } from "./menu.js";
 import { hideUndo } from "./undo.js";
 import { undo, redo, clearHistory } from "./history.js";
@@ -68,7 +73,6 @@ import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
 import { PAGES, LISTS } from "./db.js";
 import { drawBoard } from "./board.js";
-import { createList } from "./list.js";
 import { registerSyncedStore } from "./sync.js";
 
 // Lists ride the same document as notes and pages. Registered here rather than
@@ -151,8 +155,20 @@ document.addEventListener("paste", (e) => {
   e.preventDefault();
   markUsed("paste");
   const { x, y } = pasteOrigin();
+  // Notes copied from a board come back as notes — same colour, same size, same
+  // arrangement — rather than as one note holding all their words.
+  if (dropNotes(decodeNotes(html), x, y)) return;
   createNoteWithContent(x, y, { html, text, blobs });
 });
+
+// Put copied notes back on the board and leave them selected, so a paste of
+// several can be dragged somewhere else in one go.
+function dropNotes(records, x, y) {
+  const made = records ? pasteNoteRecords(records, x, y) : [];
+  if (!made.length) return false;
+  selectNotes(made.map(({ note }) => note.id));
+  return true;
+}
 
 // Ctrl+P does the same without the paste gesture, by asking for the clipboard
 // directly — the `clipboardRead` permission is what makes that answer. If it
@@ -163,7 +179,9 @@ window.addEventListener("keydown", async (e) => {
   e.preventDefault(); // and no print dialog
   const { x, y } = pasteOrigin();
   const content = await readClipboard();
-  if (hasContent(content)) {
+  if (content && dropNotes(decodeNotes(content.html), x, y)) {
+    markUsed("paste");
+  } else if (hasContent(content)) {
     markUsed("paste");
     createNoteWithContent(x, y, content);
   } else if (createNoteAndPasteByCommand(x, y)) {
@@ -181,7 +199,6 @@ canvas.addEventListener("contextmenu", (e) => {
   showMenu(
     [
       { label: "New note", run: () => createNote(x, y) },
-      { label: "New list", run: () => createList(x, y) },
       null,
       { label: "Paste", run: () => pasteOntoCanvas(x, y, { formatted: true }) },
       { label: "Paste without formatting", run: () => pasteOntoCanvas(x, y, { formatted: false }) },
@@ -196,6 +213,12 @@ canvas.addEventListener("contextmenu", (e) => {
 // without a prompt.
 async function pasteOntoCanvas(x, y, { formatted }) {
   const content = await readClipboard();
+  // Whole notes only come back whole when the formatting is being kept; asked
+  // for as plain text, a copied note is the words in it and nothing else.
+  if (formatted && content && dropNotes(decodeNotes(content.html), x, y)) {
+    markUsed("paste");
+    return;
+  }
   if (hasContent(content)) {
     markUsed("paste");
     createNoteWithContent(x, y, content, { formatted });
@@ -217,6 +240,27 @@ window.addEventListener("keydown", (e) => {
   if ((e.key === "Delete" || e.key === "Backspace") && selectedList().length) {
     e.preventDefault();
     selectedList().forEach(({ note, el }) => deleteNote(note, el)); // locked notes survive
+    return;
+  }
+  // ⌘C / ⌘X out here are about the notes themselves, not the words in them —
+  // inside a note the caret owns them, and this handler has already stood down.
+  if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "x")) {
+    const picked = selectedList();
+    if (!picked.length) return;
+    e.preventDefault();
+    const cutting = e.key.toLowerCase() === "x";
+    // A cut that could not reach the clipboard says so itself, and deletes
+    // nothing — losing notes to a failed copy is the one outcome to avoid.
+    (cutting ? cutNotes(picked) : copyNotes(picked)).then((count) => {
+      if (cutting) return;
+      toast(
+        !count
+          ? "Could not copy to the clipboard"
+          : count === 1
+            ? "Note copied"
+            : `${count} notes copied`
+      );
+    });
     return;
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {

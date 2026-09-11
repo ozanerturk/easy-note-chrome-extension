@@ -965,6 +965,80 @@ body.show-dates .note-edited {
   margin-top: 4px;
 }
 
+/* ---------------------------------------------------------------- mini-apps */
+
+/* A note running an app has given its body away: no caret, no scrolling, no
+   text flow — the app lays itself out in whatever room the note has. Resizing
+   the note is still how you resize the app. */
+.note-body.is-app {
+  padding: 8px;
+  overflow: hidden;
+  white-space: normal;
+  cursor: inherit;
+  display: flex;
+}
+
+.app-timer {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.timer-face {
+  font-size: 26px;
+  line-height: 1;
+  /* Fixed-width digits, or the whole face shuffles sideways every second. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.timer-row {
+  display: flex;
+  gap: 4px;
+}
+
+.timer-btn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 7px;
+  color: inherit;
+  /* The note's own fill shows through: a control drawn on top of a colour it
+     cannot know about should borrow it rather than guess. */
+  background: transparent;
+  border: 1px solid var(--note-edge);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+
+.timer-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.timer-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.app-timer.is-running .timer-go {
+  font-weight: 600;
+}
+
+/* Out of time. The note keeps saying so until it is reset — the same stance as
+   a reminder, which wiggles until dismissed rather than firing once into an
+   empty room. */
+.app-timer.is-done .timer-face {
+  animation: timer-out 1.1s ease-in-out infinite;
+}
+
+@keyframes timer-out {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* Privacy blur, for screen sharing. Note content and anything that echoes it
    — search snippets, the account email — go soft. Page names stay legible so
    the app is still navigable. */
@@ -2086,6 +2160,7 @@ body.show-dates .note-edited {
   text-align: center;
 }
 
+.list-btn-add,
 .list-btn-more {
   flex: 0 0 auto;
   width: 17px;
@@ -2101,12 +2176,20 @@ body.show-dates .note-edited {
   transition: opacity 0.12s, background 0.12s;
 }
 
+.list:hover .list-btn-add,
 .list:hover .list-btn-more {
   opacity: 1;
 }
 
+.list-btn-add:hover,
 .list-btn-more:hover {
   background: var(--wash-2);
+}
+
+/* The + is drawn a size up: a glyph one stroke wide reads as faint next to the
+   ⋯ beside it, and this is the button of the two you actually reach for. */
+.list-btn-add {
+  font-size: 15px;
 }
 
 /* The stack, and the drop target. It keeps a floor of empty height so that a

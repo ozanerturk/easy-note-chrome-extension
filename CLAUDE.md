@@ -78,6 +78,12 @@ npm run screenshots  # store screenshots
 
 - Match the surrounding style: short files, lowercase prose comments that explain
   *why*, no JSDoc blocks, no TypeScript.
+- Nothing is on screen that the user has not asked to be there. An action lives
+  where the thing it acts on is already in your hands, not in a list of
+  everything the app can do: "Put these 3 notes in a list" is on a multi-note
+  selection, not on the bare canvas, and there is no menu item for an empty
+  list. The rule is that a feature should be findable exactly where you would
+  reach for it — and invisible everywhere else.
 - Commit messages in this repo are a short declarative phrase about the user-visible
   change ("The gallery says where and when"), not `feat:`/`fix:` prefixes.
 - Bump `version` in both `package.json` and `manifest.json` together for a release.

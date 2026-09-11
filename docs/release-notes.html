@@ -140,10 +140,9 @@
     border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
     color: var(--ink); background: var(--paper);
   }
-  .linkish { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
   #stage {
-    position: relative; height: clamp(320px, 52vh, 520px);
-    border: 0; width: 100%; display: block; background: var(--paper);
+    width: 100%; display: block; aspect-ratio: 16 / 10;
+    background: var(--paper); border: 0;
   }
   .demo-note { padding: 10px 14px; border-top: 1px solid var(--rule); font-size: .82rem; color: var(--graphite); }
 
@@ -258,22 +257,23 @@
 
     <div class="cta">
       <a class="primary" href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">Add to your browser</a>
-      <a class="secondary" href="demo/" target="_blank" rel="noopener">Quick try — no install</a>
+      <a class="secondary" href="#tour">Watch the tour</a>
       <span class="aside">Free. Your notes stay on your computer.</span>
     </div>
 
-    <div class="demo">
+    <div class="demo" id="tour">
       <div class="demo-bar">
-        <span><span class="kbd">Double-click</span> the board below to try it — this is the extension itself, running in the page</span>
-        <a class="linkish" href="demo/" target="_blank" rel="noopener">Open full screen</a>
+        <span>A short tour, recorded from the extension itself</span>
       </div>
-      <!-- The real app, built into docs/demo/ by scripts/demo.mjs. Loading it
-           lazily keeps a page opened for the release notes from paying for a
-           board nobody scrolled to. -->
-      <iframe id="stage" src="demo/" title="Easy Note, running here" loading="lazy"></iframe>
+      <!-- Shot from the real thing by scripts/video.mjs, so it cannot drift
+           into showing a product that no longer exists. preload="none" keeps a
+           page opened for the release notes from paying for four megabytes
+           nobody scrolled to; the poster is a real screenshot. -->
+      <video id="stage" src="demo.mp4" poster="demo-poster.png" title="Easy Note, a short tour"
+             controls playsinline preload="none"></video>
       <p class="demo-note">
-        Everything you write here is stored in this browser, on this page's own
-        board — not in your extension, and nowhere else.
+        Recorded from the shipping extension: real clicks, real drags, no
+        mock-ups.
       </p>
     </div>
   </div>

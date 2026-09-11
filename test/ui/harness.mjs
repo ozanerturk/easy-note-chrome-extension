@@ -91,7 +91,7 @@ async function freePort(from) {
 }
 
 /** Launch Chrome with the extension loaded and nothing of the user's in it. */
-export async function launch({ port: wanted = 9333, profile } = {}) {
+export async function launch({ port: wanted = 9333, profile, flags = [] } = {}) {
   const port = await freePort(wanted);
   const bin = findChrome();
   if (!bin) {
@@ -114,6 +114,7 @@ export async function launch({ port: wanted = 9333, profile } = {}) {
       "--disable-sync",
       "--window-size=1200,800",
       "--window-position=0,0",
+      ...flags,
       "about:blank",
     ],
     { stdio: "ignore" }

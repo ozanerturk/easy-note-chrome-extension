@@ -136,13 +136,10 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 
 `docs/` is served at
 [ozanerturk.github.io/easy-note-chrome-extension](https://ozanerturk.github.io/easy-note-chrome-extension/).
-`docs/demo/` under it is the extension itself — `newtab.html`, `js/`, `css/`
-copied verbatim by `scripts/demo.mjs`, with `demo.js` standing in for the few
-`chrome.*` calls a plain web page does not have. The release notes embed it, so
-"quick try" is the real board rather than a picture of one. The OCR models are
-left out of the copy: seven megabytes to serve for a feature that needs a
-picture on the board first, and `textIn()` already treats an engine it cannot
-start as a picture with nothing written on it.
+The release notes page shows `docs/demo.mp4`, the tour `npm run video` shoots
+from the real extension. The site used to serve a running copy of the app
+instead; a second deployment of the product, kept alive only to be looked at,
+was more to go wrong than it was worth.
 
 ## Structure
 
@@ -231,9 +228,9 @@ Before a rollout:
       that shipping it was allowed.
 - [ ] `manifest.json` version bumped, and `docs/release-notes.html` says what
       changed — the What's new pill opens the hosted copy of that page.
-- [ ] `docs/demo/` rebuilt and committed. It is the app itself, copied under
-      `docs/` because GitHub Pages serves nothing above it, so a release that
-      does not commit it leaves the site demonstrating the previous version.
+- [ ] If the release changes anything the tour shows, `npm run video` re-shot
+      and `store/demo.mp4` copied to `docs/demo.mp4` — GitHub Pages serves
+      nothing above `docs/`, so the site keeps playing the old one otherwise.
 - [ ] Load `dist/easy-note-<version>.zip` unpacked once and open a new tab
       before uploading.
 

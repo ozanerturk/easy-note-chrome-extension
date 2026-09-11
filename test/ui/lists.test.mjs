@@ -32,16 +32,27 @@ const rightClick = async (page, x, y) => {
 };
 
 const pick = async (page, label) => {
-  await page.evaluate(
-    `[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`
-  );
+  const found = await page.evaluate(`(() => {
+    const items = [...document.querySelectorAll('.ctx-item')];
+    const item = items.find((b) => b.textContent === ${JSON.stringify(label)});
+    if (!item) return items.map((b) => b.textContent).join(",");
+    item.click();
+    return true;
+  })()`);
+  if (found !== true) throw new Error(`no menu item "${label}" — saw: ${found}`);
   await page.settle(300);
 };
 
-// A list is made from the canvas menu, and arrives asking to be named.
+// A list is made out of notes: pick several, right-click them, and the box
+// arrives where the topmost-leftmost of them stood, asking to be named. There
+// is no menu item for an empty one, so a suite that wants an empty list makes
+// it out of two scratch notes and then throws the cards away.
 const makeList = async (page, x, y, name) => {
-  await rightClick(page, x, y);
-  await pick(page, "New list");
+  await seedNote(page, x, y, "seedone");
+  await seedNote(page, x + 260, y, "seedtwo");
+  await page.drag(x - 20, y - 20, 520, 200); // a marquee across both
+  await rightClick(page, x + 100, y + 40);
+  await pick(page, "Put these 2 notes in a list");
   // The name opens for editing on arrival. type() is execCommand('insertText'),
   // which goes to whatever has focus — so wait for focus itself, not for the
   // element to merely exist, or the letters land nowhere.
@@ -49,6 +60,34 @@ const makeList = async (page, x, y, name) => {
   await page.type(name);
   await page.key("Enter", "Enter");
   await page.settle(350);
+  await emptyList(page, name);
+};
+
+// A note left behind by Escape rather than by clicking away, so making one
+// never depends on there being somewhere harmless to click.
+const seedNote = async (page, x, y, text) => {
+  await page.click(x, y, 2);
+  await page.waitFor(`document.activeElement && document.activeElement.isContentEditable`);
+  await page.type(text);
+  await page.key("Escape", "Escape");
+  await page.settle(250);
+};
+
+// Clear the seed notes back out of a freshly made list, one menu at a time.
+const emptyList = async (page, name) => {
+  for (;;) {
+    const card = await page.evaluate(`(() => {
+      const list = ${named(name)};
+      const card = list && list.querySelector('.list-body > .note');
+      if (!card) return null;
+      const r = card.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 10) };
+    })()`);
+    if (!card) return;
+    await rightClick(page, card.x, card.y);
+    await pick(page, "Delete note");
+    await page.settle(300);
+  }
 };
 
 const makeNote = async (page, x, y, text) => {
@@ -108,7 +147,7 @@ export default async function run(page, s) {
   /* ------------------------------------------------------------ making one */
 
   await makeList(page, 280, 110, "To do");
-  check("a list can be made from the canvas menu", (await page.evaluate(count(".list"))) === 1);
+  check("a list can be made out of notes", (await page.evaluate(count(".list"))) === 1);
   check("it takes the name it was given",
     (await page.evaluate(`document.querySelector('.list-name').textContent`)) === "To do");
 
@@ -313,4 +352,54 @@ export default async function run(page, s) {
   await page.settle(700);
   check("undo brings the list back", (await page.evaluate(count(".list"))) === 2);
   check("and puts back what was in it", (await page.evaluate(count(".list-body > .note"))) === 1);
+
+  /* --------------------------------------------------- a note made in place */
+
+  // The + on the head. Most of what goes in a list was written to go in it, so
+  // the note has to arrive in the list and already open — a note made on the
+  // canvas and dragged in is the gesture this exists to avoid.
+  const empty = named("Doing");
+  // Not AWAY: by this point in the suite a note has been dragged out to sit
+  // there, and clicking a note is not the same as leaving one.
+  const BARE = { x: 700, y: 560 };
+  const addTo = async (text) => {
+    await page.evaluate(`${empty}.querySelector('.list-btn-add').click()`);
+    await page.waitFor(`document.activeElement && document.activeElement.isContentEditable`);
+    await page.type(text);
+    await page.click(BARE.x, BARE.y);
+    await page.settle(450);
+  };
+
+  await addTo("made in place");
+  check("+ makes a note in the list it was pressed on",
+    (await page.evaluate(`${empty}.querySelectorAll('.list-body > .note').length`)) === 1);
+  check("and the caret is in it, so what you type lands there",
+    (await page.evaluate(
+      `${empty}.querySelector('.list-body > .note .note-body').textContent`)).includes("made in place"));
+  check("nothing of it is left loose on the board",
+    (await page.evaluate(count("#world > .note"))) === 1);
+  check("the count says so",
+    (await page.evaluate(`${empty}.querySelector('.list-count').textContent`)) === "1");
+
+  const made = (await liveNotes(page)).find((n) => words(n).includes("made in place"));
+  check("the record knows which list it belongs to",
+    !!made && !!made.listId, JSON.stringify(made && made.listId));
+
+  await addTo("and another");
+  check("a second one lands below the first, not on top of it",
+    (await page.evaluate(
+      `[...${empty}.querySelectorAll('.list-body > .note .note-body')]
+        .map((b) => b.textContent.trim().split(' ')[0]).join(',')`)) === "made,and");
+
+  // A note made and then walked away from is discarded, as it is on the canvas.
+  // The list has to notice: one that says 3 over two cards is lying about the
+  // only thing it claims to know.
+  await page.evaluate(`${empty}.querySelector('.list-btn-add').click()`);
+  await page.waitFor(`document.activeElement && document.activeElement.isContentEditable`);
+  await page.click(BARE.x, BARE.y);
+  await page.settle(450);
+  check("a blank one left behind is dropped, and the count comes back down",
+    (await page.evaluate(`${empty}.querySelector('.list-count').textContent`)) === "2" &&
+      (await page.evaluate(`${empty}.querySelectorAll('.list-body > .note').length`)) === 2,
+    await page.evaluate(`${empty}.querySelector('.list-count').textContent`));
 }
