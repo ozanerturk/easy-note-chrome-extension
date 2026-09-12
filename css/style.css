@@ -612,7 +612,10 @@ body.is-resizing #sidebar {
 .note {
   position: absolute;
   min-width: 160px;
-  min-height: 120px;
+  /* One line of body text plus the body's own padding. A note holding a
+     single line should be allowed to be a single line; anything taller is
+     empty space the board has to carry. */
+  min-height: 40px;
   display: flex;
   flex-direction: column;
   /* No border. A line around every note turns a board of thoughts into a
@@ -989,16 +992,6 @@ body.show-dates .note-edited {
   background: rgba(198, 40, 40, 0.14);
 }
 
-/* The editor marks the empty node it is sitting in; the placeholder floats
-   over it without taking a line of its own. */
-.note-body .is-empty::before {
-  content: attr(data-placeholder);
-  color: rgba(0, 0, 0, 0.35);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
 /* A filled note is a light surface whatever the theme is, so the native
    controls inside it — checkboxes, scrollbars — have to be light too. In dark
    mode the root's colour-scheme would otherwise render a tick box as a dark
@@ -1041,9 +1034,9 @@ body.show-dates .note-edited {
 /* The size ladder: small, body, h3, h2, h1, each step clearly bigger than the
    last so a stepper button reads as one. h4 is off the ladder — only the v1
    import produces them. */
-.note-body h1 { font-size: 1.5em; }
-.note-body h2 { font-size: 1.3em; }
-.note-body h3 { font-size: 1.15em; }
+.note-body h1 { font-size: 2em; }
+.note-body h2 { font-size: 1.6em; }
+.note-body h3 { font-size: 1.25em; }
 .note-body h4 { font-size: 1.05em; }
 
 /* Checklists: the box and its line share a row rather than stacking. */
@@ -1113,7 +1106,7 @@ body.show-dates .note-edited {
 /* Three named sizes rather than a font menu: enough for hierarchy, without
    every note ending up in a different typeface. */
 .note-body .t-title {
-  font-size: 1.3em;
+  font-size: 1.6em;
   font-weight: 600;
   line-height: 1.25;
   margin: 2px 0 4px;
@@ -1271,7 +1264,7 @@ body.show-dates .note-edited {
 
 .note.is-fullscreen {
   position: absolute;
-  inset: 4vh 6vw;
+  inset: 2vh 3vw;
   width: auto !important;
   height: auto !important;
   min-width: 0;
@@ -1293,13 +1286,13 @@ body.show-dates .note-edited {
 }
 
 .note.is-fullscreen .note-body {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   /* Room at the top for the ⋯, and a column that stops at a readable measure
      instead of running the full width of the screen. Done with padding rather
      than a max-width on the children, so it holds whatever shape the editor
      wraps the content in. */
-  padding: 40px max(26px, calc((100% - 70ch) / 2)) 32px;
+  padding: 28px max(20px, calc((100% - 96ch) / 2)) 28px;
 }
 
 .note.is-fullscreen .note-header {
@@ -1901,6 +1894,175 @@ body.show-dates .note-edited {
   color: #fff;
 }
 
+/* ------------------------------------------------------------------ lists */
+
+/* A list is a thing on the board, positioned like a note and carrying notes
+   inside it. It draws a quiet surface rather than a card: what should stand
+   out on the canvas is the notes, not the box they are stacked in. */
+.list {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: var(--panel);
+  /* Behind every note. A list is furniture; the notes are the content, and one
+     dragged over a list has to read as being above it. */
+  z-index: 0;
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 8px;
+  /* The whole head is the handle, the way a note's header is. */
+  cursor: grab;
+  user-select: none;
+}
+
+.list-head:active {
+  cursor: grabbing;
+}
+
+/* Names are short by design — a column header, not a sentence. One that runs
+   long is cut rather than allowed to set the width of the list. */
+.list-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-name.is-editing {
+  /* Same as a page row: the caret needs selectable text, and the outline says
+     the name is open rather than merely hovered. */
+  user-select: text;
+  cursor: text;
+  overflow: visible;
+  outline: 1px solid var(--accent);
+  border-radius: 2px;
+}
+
+.list-count {
+  flex: 0 0 auto;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--r);
+  background: var(--chip);
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.list-btn-more {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border: none;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.list:hover .list-btn-more {
+  opacity: 1;
+}
+
+.list-btn-more:hover {
+  background: var(--wash-2);
+}
+
+/* The stack, and the drop target. It keeps a floor of empty height so that a
+   list with nothing in it is still something you can aim a note at. */
+.list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 6px 6px;
+  border-radius: 0 0 var(--r) var(--r);
+  transition: background 0.12s;
+}
+
+/* Carrying a note over a list fills it in, the same answer a page row gives. */
+.list-body.is-drop {
+  background: var(--accent-soft);
+}
+
+/* The space held open for the card in hand. Drawn as an outline rather than a
+   solid, so it reads as somewhere to put something rather than as another
+   card already there. */
+.list-gap {
+  flex: 0 0 auto;
+  border: 1px dashed var(--accent);
+  border-radius: var(--r);
+  background: var(--wash-1);
+  pointer-events: none;
+}
+
+.list.is-empty .list-body::after {
+  content: "Drop notes here";
+  padding: 12px 2px;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* A note in a list. The column owns the width and the words own the height, so
+   the absolute geometry it carries on the canvas is dropped — but it stays
+   positioned, or its header popover would anchor to the list instead of to the
+   note it belongs to. */
+.note.is-listed {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.note.is-listed > .note-grip {
+  display: none;
+}
+
+/* On the board an unfilled note is ink straight on the canvas, with no edge at
+   all — deliberately, so a board of thoughts is not a board of boxes. Stacked
+   in a list that reading collapses: six of them run together into one block of
+   text with no telling where one stops. In a list a card is a card. It gets a
+   surface and an edge whether or not it has been given a colour, and a filled
+   one keeps its colour, which is set inline and wins over this. */
+.note.is-listed,
+.note.is-listed.is-clear,
+.note.is-listed.is-clear:hover,
+.note.is-listed.is-clear.is-active {
+  background: var(--surface);
+  box-shadow: 0 1px 2px var(--note-edge);
+}
+
+/* Reaching for one lifts it, the way the tray answers a hover. */
+.note.is-listed:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* The ink has to suit the card, not the board behind it: an unfilled note goes
+   light in dark mode because the canvas is dark, but a listed one is sitting on
+   a light-ish surface of its own in either theme. */
+.note.is-listed.is-clear {
+  color: var(--text);
+}
+
 /* ----------------------------------------------------------- context menu */
 
 /* One menu for pages and for notes. Small type and generous rounding: it is
@@ -1914,7 +2076,7 @@ body.show-dates .note-edited {
   background: var(--float-solid);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24), inset 0 0 0 1px var(--surface-line);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ctx-item {
@@ -1924,7 +2086,10 @@ body.show-dates .note-edited {
   border: none;
   border-radius: var(--r);
   background: transparent;
-  color: var(--text-2);
+  /* Full-strength ink. The secondary tone reads fine on paper white, but on
+     the dark panel it sank into the surface and the items were hard to pick
+     out at a glance. */
+  color: var(--text);
   font: inherit;
   text-align: left;
   white-space: nowrap;
@@ -2023,4 +2188,257 @@ body.show-dates .note-edited {
   font-size: 10px;
   line-height: 1;
   opacity: 0.75;
+}
+
+/* -------------------------------------------------------------- gallery */
+
+/* A picture in a note is a thumbnail of itself. Double-clicking one puts it
+   up here at its own size, over everything — including a fullscreen note,
+   which is where a picture is most likely to be double-clicked. */
+#gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Dark enough that a photograph is judged against something neutral, but
+     not a closed door: the board stays faintly visible behind it, so the
+     gallery reads as something laid over your notes rather than as another
+     screen you have gone away to. */
+  background: rgba(12, 11, 10, 0.72);
+  backdrop-filter: blur(2px);
+  user-select: none;
+}
+
+/* The attribute is the state; without this the flex above would win. */
+#gallery[hidden] {
+  display: none;
+}
+
+/* The picture's own box, and nothing more: a flex item that shrinks to what
+   it holds, so a layer pinned to its edges is pinned to the picture's edges
+   at any window size, with no measuring and nothing to keep in step. */
+#gallery-stage {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+#gallery-img {
+  max-width: min(92vw, 100vw - 140px);
+  /* Clear of the bar along the bottom: a caption sitting on the corner of the
+     picture is both harder to read and in the way of what it describes. */
+  max-height: calc(100vh - 150px);
+  object-fit: contain;
+  border-radius: var(--r);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  /* No white plate behind a transparent PNG, and no jump while the blob URL
+     is still being read. */
+  background: transparent;
+  transition: opacity 0.12s;
+  color: var(--faint); /* the alt text, on the rare occasion it shows */
+  font-size: 12px;
+}
+
+#gallery-img.is-loading {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------- text in a picture */
+
+/* The words Tesseract found, laid over the picture so they can be selected
+   and copied. Transparent: the picture already shows them, and a second copy
+   drawn on top in a different typeface is a smudge. What shows is the
+   selection — which is the whole point of the layer being here. */
+#gallery-text {
+  position: absolute;
+  inset: 0;
+  /* So a word can size itself against the picture rather than against the
+     root font, and stay right through a window resize. */
+  container-type: size;
+  user-select: text;
+  cursor: text;
+}
+
+.gallery-word {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  /* The line box is the word's box, which is what a selection draws. */
+  line-height: 1;
+  transform-origin: 0 0;
+}
+
+/* Bright enough to read a selection against a photograph of anything. */
+#gallery-text ::selection {
+  background: rgba(77, 143, 224, 0.5);
+}
+
+/* The one notice this feature gets: a sweep across the picture the moment its
+   words are ready, the way a phone flashes a photo it has found text in.
+   Once, on arrival — a picture that keeps twinkling is a picture nobody can
+   look at. */
+@keyframes gallery-scan {
+  0% { opacity: 0; transform: translateY(-100%); }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+#gallery-stage.is-found::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--r);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.06) 58%,
+    transparent 100%
+  );
+  animation: gallery-scan 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
+  animation-fill-mode: forwards;
+  opacity: 0;
+}
+
+/* The words themselves glow for the length of the sweep, so the flash says
+   "there is text here" rather than only "something happened". */
+#gallery-stage.is-found .gallery-word {
+  animation: gallery-word-lit 0.9s ease-out 1;
+}
+
+@keyframes gallery-word-lit {
+  0%, 100% { box-shadow: none; background: transparent; }
+  40% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gallery-stage.is-found::after,
+  #gallery-stage.is-found .gallery-word {
+    animation: none;
+  }
+
+  /* Still say it, just without the sweep. */
+  #gallery-stage.is-found .gallery-word {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  }
+}
+
+/* Big targets at the edges of the screen, dim until reached for — the picture
+   is the thing on screen, not the buttons around it. */
+#gallery-prev,
+#gallery-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 76px;
+  border: none;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+#gallery-prev:hover,
+#gallery-next:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+#gallery-prev { left: 14px; }
+#gallery-next { right: 14px; }
+
+/* One strip along the bottom: where you are, the way back to the words, and
+   the way out. */
+#gallery-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(820px, 94vw);
+  padding: 6px 8px 6px 14px;
+  border-radius: var(--r);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+#gallery-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Where the picture lives and when its note was last written in. Two facts
+   that place a picture, which is the whole job of a caption in a reel that
+   crosses every page there is. */
+#gallery-caption {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0; /* or the flex item refuses to shrink and the bar overflows */
+}
+
+/* The page path is the answer, so it is the size of one — the old caption put
+   it in the small print beside a line of the note's text, where it was the
+   easiest thing on the bar to miss. */
+#gallery-where {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+#gallery-when {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+/* The same wording as the line under a note, so "3h ago" means the same thing
+   wherever it is read. */
+#gallery-where:not(:empty) + #gallery-when::before {
+  content: "·";
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+#gallery-bar button {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  white-space: nowrap;
+  border: none;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#gallery-bar button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+#gallery-close {
+  font-size: 13px;
 }

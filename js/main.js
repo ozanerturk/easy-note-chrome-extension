@@ -17,9 +17,6 @@ import {
 } from "./view.js";
 import {
   createNote,
-  loadNote,
-  clearBoard,
-  updateHint,
   setShowDates,
   isFullscreen,
   deleteNote,
@@ -28,6 +25,7 @@ import {
   isBlurred,
   clearActiveNote,
   createNoteWithContent,
+  createNoteAndPasteByCommand,
   dismissTopmost,
 } from "./note.js";
 import {
@@ -42,8 +40,6 @@ import {
 import {
   initPages,
   ensureDefaultPage,
-  adoptOrphans,
-  notesOnCurrentPage,
   renderTree,
   setPageSwitchHandler,
   switchPage,
@@ -53,33 +49,40 @@ import {
   setReselectHandler,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler } from "./search.js";
+import { initGallery } from "./gallery.js";
 import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
 import { toast } from "./toast.js";
 import { initTips, markUsed } from "./tips.js";
-import { initReminders, loadReminders } from "./reminders.js";
+import { initReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
 import { loadPrefs, getPref } from "./prefs.js";
-import { runUndo, hasPendingUndo, hideUndo } from "./undo.js";
+import { readClipboard, hasContent } from "./clipboard.js";
+import { showMenu } from "./menu.js";
+import { hideUndo } from "./undo.js";
+import { undo, redo, clearHistory } from "./history.js";
 import { purgeTombstones } from "./note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
-import { PAGES } from "./db.js";
+import { PAGES, LISTS } from "./db.js";
+import { drawBoard } from "./board.js";
+import { createList } from "./list.js";
+import { registerSyncedStore } from "./sync.js";
+
+// Lists ride the same document as notes and pages. Registered here rather than
+// in list.js so that everything that crosses the wire is declared in one place.
+registerSyncedStore(LISTS);
 
 const isEditing = () =>
   document.activeElement &&
   (document.activeElement.isContentEditable || document.activeElement.tagName === "INPUT");
 
-async function showCurrentPage() {
-  clearBoard();
-  const records = adoptOrphans(await getAll(NOTES));
-  notesOnCurrentPage(records).forEach(loadNote);
-  updateHint();
-  // Whatever came due while this page was not on screen starts wiggling now.
-  await loadReminders();
-}
+// Opening a page is the board's business now, not this file's. Each kind of
+// thing that draws on it registers a layer and says how to clear and load
+// itself; adding another does not come back through here.
+const showCurrentPage = () => drawBoard(currentPageId);
 
 /* --------------------------------------------------------------- canvas */
 
@@ -152,37 +155,61 @@ document.addEventListener("paste", (e) => {
 });
 
 // Ctrl+P does the same without the paste gesture, by asking for the clipboard
-// directly. Chrome puts its own one-time prompt in front of that; if it is
-// refused, an empty note still opens at the cursor to paste into by hand.
-async function readClipboard() {
-  if (!navigator.clipboard || !navigator.clipboard.read) return null;
-  try {
-    const items = await navigator.clipboard.read();
-    const out = { html: "", text: "", blobs: [] };
-    for (const item of items) {
-      const image = item.types.find((t) => t.startsWith("image/"));
-      if (image) out.blobs.push(await item.getType(image));
-      if (item.types.includes("text/html")) out.html = await (await item.getType("text/html")).text();
-      if (item.types.includes("text/plain")) out.text = await (await item.getType("text/plain")).text();
-    }
-    return out;
-  } catch (err) {
-    return null; // no permission, or nothing readable on the clipboard
-  }
-}
-
+// directly — the `clipboardRead` permission is what makes that answer. If it
+// comes back with nothing there is still the command paste, and failing that an
+// empty note stands open at the cursor to paste into by hand.
 window.addEventListener("keydown", async (e) => {
   if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "p") return;
   e.preventDefault(); // and no print dialog
   const { x, y } = pasteOrigin();
   const content = await readClipboard();
-  if (content && (content.html || content.text || content.blobs.length)) {
+  if (hasContent(content)) {
     markUsed("paste");
     createNoteWithContent(x, y, content);
-  } else {
-    createNote(x, y);
+  } else if (createNoteAndPasteByCommand(x, y)) {
+    markUsed("paste");
   }
 });
+
+// The bare canvas has a menu of its own, so a right-click out here is worth
+// something instead of handing over to Chrome's. Notes stop the event before it
+// reaches us — theirs has more to say than this one.
+canvas.addEventListener("contextmenu", (e) => {
+  if (e.target.closest(".note") || isFullscreen()) return;
+  e.preventDefault();
+  const { x, y } = screenToWorld(e.clientX, e.clientY);
+  showMenu(
+    [
+      { label: "New note", run: () => createNote(x, y) },
+      { label: "New list", run: () => createList(x, y) },
+      null,
+      { label: "Paste", run: () => pasteOntoCanvas(x, y, { formatted: true }) },
+      { label: "Paste without formatting", run: () => pasteOntoCanvas(x, y, { formatted: false }) },
+    ],
+    e.clientX,
+    e.clientY
+  );
+});
+
+// A menu paste has no paste event to ride on, so the clipboard has to be asked
+// for. The extension holds `clipboardRead`, which is what makes that answer
+// without a prompt.
+async function pasteOntoCanvas(x, y, { formatted }) {
+  const content = await readClipboard();
+  if (hasContent(content)) {
+    markUsed("paste");
+    createNoteWithContent(x, y, content, { formatted });
+    return;
+  }
+  // Nothing came back. A command paste is the way in when the clipboard will
+  // not be read, but it brings whatever is on it, formatting and all — so the
+  // plain paste is the one with nothing left to try.
+  if (!formatted) {
+    toast("Nothing on the clipboard to paste");
+    return;
+  }
+  if (createNoteAndPasteByCommand(x, y)) markUsed("paste");
+}
 
 window.addEventListener("keydown", (e) => {
   if (isEditing()) return;
@@ -197,9 +224,19 @@ window.addEventListener("keydown", (e) => {
     selectAll();
     return;
   }
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && hasPendingUndo()) {
+  // ⌘Z / ⌘⇧Z belong to the board here. Inside a note the editor answers them
+  // instead — this handler steps aside while you are typing, so the two
+  // histories never argue over a keypress.
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === "z") {
     e.preventDefault();
-    runUndo();
+    stepHistory(e.shiftKey ? "redo" : "undo");
+    return;
+  }
+  // ⌘Y is the same as ⌘⇧Z, for anyone arriving from Windows.
+  if (mod && e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    stepHistory("redo");
     return;
   }
 
@@ -210,6 +247,16 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 });
+
+// Undo and redo say what they did. A move that happened off screen, or an edit
+// to a note now behind the sidebar, is otherwise a keypress that appears to do
+// nothing at all.
+async function stepHistory(direction) {
+  hideUndo(); // the bar was offering one particular step; the stack has moved
+  const step = direction === "undo" ? await undo() : await redo();
+  if (step) toast(`${direction === "undo" ? "Undid" : "Redid"} ${step.label}`);
+  else toast(`Nothing to ${direction}`);
+}
 
 // Escape, in one place, innermost first. It is deliberately outside the
 // handler above: that one steps aside while you are typing, and stepping out
@@ -295,6 +342,9 @@ initTray();
 
 // A sync that pulled anything has changed pages and notes underneath us.
 setSyncAppliedHandler(async () => {
+  // The records the history holds are about to be replaced by the ones that
+  // came down the wire; steps built on the old ones would resurrect them.
+  clearHistory();
   adoptPages(await getAll(PAGES));
   renderPageTree();
   await showCurrentPage();
@@ -304,6 +354,7 @@ setSyncAppliedHandler(async () => {
 setPageSwitchHandler(async (id, previous) => {
   clearActiveNote(); // leaving the page counts as leaving the note
   hideUndo(); // the offer refers to notes on the page being left
+  clearHistory(); // and so does every step behind it
   await persistViewNow(previous); // also cancels the pending debounced save
   clearSelection();
   await showCurrentPage();
@@ -332,6 +383,9 @@ async function goToNote(noteId, pageId) {
 
 setSearchPickHandler(goToNote);
 setDuePickHandler(goToNote);
+// Double-clicking a picture opens the page's pictures; "go to note" brings you
+// back to the one it belongs to, by the same door search uses.
+initGallery(goToNote);
 
 // Clicking the page you are on is a request to be put back where you like it.
 setReselectHandler(() => goHome());
@@ -407,5 +461,11 @@ openDB()
     // Last, and quietly: one tip, only if this profile has gone a while
     // without one and has notes to work with.
     initTips(stored.filter((n) => !n.deleted).length);
+
+    // The board is up and everything that reads the database has read it.
+    // Nothing in the app looks at this; the UI suite does, so it can start a
+    // test the moment the page is actually ready instead of guessing at a
+    // sleep long enough to cover the slowest machine.
+    document.documentElement.dataset.ready = "1";
   })
   .catch((err) => console.error("Easy Note failed to start:", err));

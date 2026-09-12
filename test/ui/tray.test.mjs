@@ -204,8 +204,7 @@ export default async function run(page, s) {
       tx.oncomplete = () => resolve(true);
     };
   })`);
-  await page.cdp.send("Page.reload");
-  await page.settle(1600);
+  await page.reload(); // back when the app has booted, not when a timer says so
 
   const pagesNow = await page.stored("pages");
   s.check(

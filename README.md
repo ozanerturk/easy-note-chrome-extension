@@ -132,6 +132,18 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Last-edited time per note, toggled globally with 🕘 in the controls bar
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
 
+## The site
+
+`docs/` is served at
+[ozanerturk.github.io/easy-note-chrome-extension](https://ozanerturk.github.io/easy-note-chrome-extension/).
+`docs/demo/` under it is the extension itself — `newtab.html`, `js/`, `css/`
+copied verbatim by `scripts/demo.mjs`, with `demo.js` standing in for the few
+`chrome.*` calls a plain web page does not have. The release notes embed it, so
+"quick try" is the real board rather than a picture of one. The OCR models are
+left out of the copy: seven megabytes to serve for a feature that needs a
+picture on the board first, and `textIn()` already treats an engine it cannot
+start as a picture with nothing written on it.
+
 ## Structure
 
 - `manifest.json` — MV3 config, overrides the new tab page
@@ -197,6 +209,41 @@ The UI suite drives the extension over CDP with trusted input events, because
 synthetic ones lie: `el.click()` skips the compatibility-event path that once
 hid a delete button that never fired. It needs Chrome for Testing, the same
 build `npm run dev` uses.
+
+## Releasing
+
+`npm run package` builds the zip for the Chrome Web Store. It runs the bundle
+first, which regenerates `THIRD-PARTY-NOTICES.md` from the build's own metafile,
+so the notices in the package always describe what is actually in it.
+
+Before a rollout:
+
+- [ ] `npm test` and `npm run test:ui` both pass.
+- [ ] `npm run build`, then `npm run notices` — it should say the notices are up
+      to date. A failure means a dependency changed and the shipped attribution
+      has not caught up. **Never ship without this.** The bundle is minified with
+      `--legal-comments=none`, so the licence headers that would normally ride
+      along with the code are gone; `THIRD-PARTY-NOTICES.md` is where MIT's and
+      Apache-2.0's attribution requirements are actually met.
+- [ ] A new dependency is a licence decision, not just a size one. Anything
+      copyleft (GPL, AGPL, SSPL) does not go in an extension shipped this way;
+      `scripts/notices.mjs` will list whatever it finds, but it cannot tell you
+      that shipping it was allowed.
+- [ ] `manifest.json` version bumped, and `docs/release-notes.html` says what
+      changed — the What's new pill opens the hosted copy of that page.
+- [ ] `docs/demo/` rebuilt and committed. It is the app itself, copied under
+      `docs/` because GitHub Pages serves nothing above it, so a release that
+      does not commit it leaves the site demonstrating the previous version.
+- [ ] Load `dist/easy-note-<version>.zip` unpacked once and open a new tab
+      before uploading.
+
+### Third-party code
+
+The editor is Tiptap and ProseMirror; the picture reader is tesseract.js with
+its wasm core and trained models. All of it ships inside the package — Manifest
+V3 forbids remote code — and all of it is listed, with its licence text, in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), which is generated rather than
+maintained by hand.
 
 ### Coordinates
 

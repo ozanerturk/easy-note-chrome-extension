@@ -1,6 +1,7 @@
 import { notes } from "./store.js";
 import { NOTES, put } from "./db.js";
 import { canvas } from "./view.js";
+import { recordMove } from "./note.js";
 
 export const selected = new Set();
 
@@ -116,24 +117,36 @@ function endMarquee(e) {
 /* --------------------------------------------------------------- arranging */
 
 function boxes() {
-  return selectedList().map(({ note, el }) => ({
-    note,
-    el,
-    w: el.offsetWidth,
-    h: el.offsetHeight,
-  }));
+  // A note in a list is not on the canvas in any sense an arrange can use: it
+  // has no position of its own, and writing one would scatter the board behind
+  // the list without anything visibly happening. A marquee dragged across a
+  // list still selects its cards — that is fine, and useful — they simply do
+  // not take part in lining things up.
+  return selectedList()
+    .filter(({ note }) => !note.listId)
+    .map(({ note, el }) => ({
+      note,
+      el,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+      // Where it stood before any of this. Tidying a board is exactly the kind
+      // of thing you want to be able to take back in one go, so every arrange
+      // carries what it would take to put things back.
+      from: { x: note.x, y: note.y },
+    }));
 }
 
 // A locked note keeps its place. It still counts towards working out where
 // the others go — lining things up against something pinned is half the point
 // of pinning it — but nothing in here moves it.
-function commit(list) {
+function commit(list, label) {
   list.forEach(({ note, el }) => {
     if (note.locked) return;
     el.style.left = `${note.x}px`;
     el.style.top = `${note.y}px`;
     put(NOTES, note).catch(() => {});
   });
+  recordMove(list, label);
 }
 
 export function align(mode) {
@@ -161,7 +174,7 @@ export function align(mode) {
       else b.note.y = mid - b.h / 2;
     });
   }
-  commit(list);
+  commit(list, "the alignment");
 }
 
 const MIN_GAP = 16;
@@ -188,7 +201,7 @@ export function distribute(axis) {
     if (!b.note.locked) b.note[pos] = cursor;
     cursor += b[size] + gap;
   });
-  commit(list);
+  commit(list, "the spacing");
 }
 
 export function arrangeGrid() {
@@ -210,7 +223,7 @@ export function arrangeGrid() {
     b.note.x = originX + (i % cols) * colW;
     b.note.y = originY + Math.floor(i / cols) * rowH;
   });
-  commit(list);
+  commit(list, "the grid");
 }
 
 /* ------------------------------------------------------------------- init */

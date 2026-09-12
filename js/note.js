@@ -16,13 +16,33 @@ import {
   moveNotesToPage,
   notesInHand,
   switchPage,
+  adoptOrphans,
+  notesOnCurrentPage,
 } from "./pages.js";
+import { registerLayer } from "./board.js";
+import {
+  bodyFor,
+  listIsOnBoard,
+  mountCard,
+  unmountCard,
+  fileIntoList,
+  freeNote,
+  dropAt,
+  markDropList,
+  updateGap,
+  hideGap,
+  gapTarget,
+  listCount,
+} from "./list.js";
 import { setPref } from "./prefs.js";
 import { offerUndo, hideUndo } from "./undo.js";
+import { record, forget } from "./history.js";
 import { linkifyText, promptForLink } from "./richtext.js";
 import { showMenu, closeMenu } from "./menu.js";
 import { markUsed } from "./tips.js";
-import { mountEditor, insertImage, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
+import { mountEditor, insertImage, pasteInto, caretAt, linkAtCaret, applyLink, cleanHtml } from "./editor.js";
+import { readClipboard, hasContent, pasteByCommand } from "./clipboard.js";
+import { toast } from "./toast.js";
 import {
   PRESETS,
   isDue,
@@ -166,7 +186,7 @@ async function storeImage(blob) {
 let sawFormatting = false;
 const FORMATTED = /<(ul|ol|h[1-6]|blockquote|pre)\b|taskList/i;
 
-function saveNote(note) {
+export function saveNote(note) {
   if (note.deleted) return;
   if (!sawFormatting && FORMATTED.test(note.html || "")) {
     sawFormatting = true;
@@ -174,6 +194,26 @@ function saveNote(note) {
   }
   note.updatedAt = Date.now();
   put(NOTES, note).catch(() => {});
+}
+
+/**
+ * A note's markup as one line of readable text.
+ *
+ * Shared by search and the gallery, which both have to say which note they
+ * are pointing at in the width of a row.
+ */
+export function plainText(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html || "";
+  div.querySelectorAll("img").forEach((img) => img.replaceWith("🖼 "));
+  // Taking the tags out runs the blocks together — a heading above a list came
+  // back as "Reading listContext switching studyFlameshot's…", which is
+  // unreadable in a snippet and matches across a word boundary that was never
+  // there. Each block gets a space to sit behind.
+  div
+    .querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, div, blockquote, pre, br, tr")
+    .forEach((el) => el.after(" "));
+  return div.textContent.replace(/\s+/g, " ").trim();
 }
 
 /** The same wording the line under a note uses. */
@@ -194,7 +234,7 @@ function formatDate(ts) {
 
 // Older notes predate editedAt; fall back to updatedAt, then to the timestamp
 // embedded in ids minted before uuids.
-function timestampOf(note) {
+export function timestampOf(note) {
   if (note.editedAt) return note.editedAt;
   if (note.updatedAt) return note.updatedAt;
   const parsed = parseInt(String(note.id).split("-")[0], 10);
@@ -202,7 +242,9 @@ function timestampOf(note) {
 }
 
 export function updateHint() {
-  hint.style.display = notes.size ? "none" : "block";
+  // A board holding an empty list is not an empty board — it is one somebody
+  // has already started arranging, and telling them how to begin is noise.
+  hint.style.display = notes.size || listCount() ? "none" : "block";
 }
 
 export function nextZ() {
@@ -257,7 +299,16 @@ export function refreshAllDates() {
 // Drop clipboard content onto the canvas as a note of its own. Used by the
 // canvas paste and by Ctrl+P; a note that arrives already full never sees the
 // empty state, so it is filled before the first save.
-export async function createNoteWithContent(worldX, worldY, { html, text, blobs = [] } = {}) {
+//
+// Unformatted, the markup and the pictures are both left behind — asked for as
+// plain text, a clipboard is text and nothing else, the same as it is inside a
+// note.
+export async function createNoteWithContent(
+  worldX,
+  worldY,
+  { html, text, blobs = [] } = {},
+  { formatted = true } = {}
+) {
   const { note, el } = createNote(worldX, worldY);
   // createNote activates the note, so the editor is already on it. Going in
   // through the editor means the clipboard is read by the same parser that
@@ -266,13 +317,27 @@ export async function createNoteWithContent(worldX, worldY, { html, text, blobs 
   const editor = editorFor(note.id);
   if (!editor) return { note, el };
 
-  if (html) editor.commands.setContent(html);
+  if (formatted && html) editor.commands.setContent(html);
   else if (text) editor.commands.setContent(textToHtml(text));
 
-  for (const blob of blobs) insertImage(editor, await storeImage(blob));
+  if (formatted) for (const blob of blobs) insertImage(editor, await storeImage(blob));
 
   touch(note, el, cleanHtml(editor.getHTML()));
   return { note, el };
+}
+
+// When the clipboard will not be read, this is what is left: open a note at the
+// point and ask the document to paste into it, which puts the clipboard through
+// the editor's own ⌘V handling. The note stays either way — an empty one open
+// at the cursor is still somewhere to paste into by hand.
+export function createNoteAndPasteByCommand(worldX, worldY) {
+  const { note, el } = createNote(worldX, worldY);
+  const editor = editorFor(note.id);
+  if (!editor) return false;
+  editor.commands.focus();
+  if (!pasteByCommand()) return false;
+  touch(note, el, cleanHtml(editor.getHTML()));
+  return true;
 }
 
 // Plain text arrives as lines, not as markup. Each becomes a paragraph, with
@@ -512,7 +577,10 @@ export function exitFullscreen() {
   el.style.top = style.top;
   el.style.width = style.width;
   el.style.height = style.height;
-  world.appendChild(el);
+  // Back where it came from. A note opened full-screen out of a list has to
+  // return to that list — dropping it on the canvas instead would take it out
+  // of the list by way of a gesture that was only ever about reading it.
+  if (!mountCard(note, el)) world.appendChild(el);
   overlay.classList.remove("is-active");
   note.fullscreen = false;
   fullscreenEntry = null;
@@ -582,6 +650,7 @@ export function createNote(worldX, worldY) {
   updateHint();
   setActiveNote(note.id);
   focusEditor(note.id);
+  record(createStep(note));
   return { note, el };
 }
 
@@ -620,6 +689,11 @@ function discardIfEmpty({ note, el }) {
   const body = el.querySelector(".note-body");
   if (!body) return;
   if (body.textContent.trim() || body.querySelector("img")) return;
+  // Thrown away for never having held anything, so the history of making it and
+  // pushing it around goes with it — ⌘Z should reach past a note that left no
+  // mark on the board. An edit that emptied it survives: that step holds the
+  // words, and undoing it brings the note back to say them.
+  forget((step) => step.noteId === note.id && step.kind !== "content");
   deleteNote(note, el, { silent: true });
 }
 
@@ -627,7 +701,8 @@ function discardIfEmpty({ note, el }) {
 
 // A bulk delete calls deleteNote once per note. Collecting them on a timeout
 // of 0 lets the whole batch land before the toast is offered, so the user sees
-// one "3 notes deleted" rather than three toasts racing each other.
+// one "3 notes deleted" rather than three toasts racing each other — and gets
+// one step to walk back rather than three.
 let undoBatch = [];
 let undoBatchTimer = null;
 
@@ -639,8 +714,260 @@ function rememberForUndo(note) {
     undoBatch = [];
     if (!batch.length) return;
     const what = batch.length === 1 ? "Note deleted" : `${batch.length} notes deleted`;
-    offerUndo(what, () => restoreNotes(batch));
+    offerUndo(what, record(deleteStep(batch)));
   }, 0);
+}
+
+// Bring a record back onto the board if it has left it. Undo runs backwards
+// through steps that each assume their note is still there, and the cheapest
+// way to keep that true is to make it true: undoing a move to a note you have
+// since deleted should hand the note back, not fail quietly.
+function reviveNote(note) {
+  const existing = notes.get(note.id);
+  if (existing) return existing;
+  if (note.pageId !== currentPageId) return null; // it belongs to a board we are not on
+  delete note.deleted;
+  delete note.deletedAt;
+  note.updatedAt = Date.now();
+  put(NOTES, note).catch(() => {});
+  renderNote(note);
+  updateHint();
+  return notes.get(note.id) || null;
+}
+
+// Put a note back in a place, or at a size, the history remembers. Only the
+// sides named are touched, so one shape of step covers both a move and a
+// resize without either having to carry the other's numbers.
+function applyBox(note, box) {
+  const entry = reviveNote(note);
+  if (!entry) return;
+  const { el } = entry;
+  if (box.x !== undefined) {
+    note.x = box.x;
+    el.style.left = `${box.x}px`;
+  }
+  if (box.y !== undefined) {
+    note.y = box.y;
+    el.style.top = `${box.y}px`;
+  }
+  if (box.width !== undefined) {
+    note.width = box.width;
+    el.style.width = `${box.width}px`;
+  }
+  if (box.height !== undefined) {
+    note.height = box.height;
+    el.style.height = `${box.height}px`;
+  }
+  saveNote(note);
+}
+
+// Making a note is a step too: a stray double-click on the canvas should be
+// answered by ⌘Z rather than by hunting for the delete in the note's menu.
+function createStep(note) {
+  return {
+    kind: "create",
+    noteId: note.id,
+    label: "the new note",
+    undo: () => {
+      const entry = notes.get(note.id);
+      if (entry) deleteNote(note, entry.el, { silent: true });
+    },
+    redo: () => reviveNote(note),
+  };
+}
+
+function deleteStep(batch) {
+  return {
+    kind: "delete",
+    noteId: batch.length === 1 ? batch[0].id : null,
+    label: batch.length === 1 ? "the delete" : `the delete of ${batch.length} notes`,
+    undo: () => restoreNotes(batch),
+    redo: () =>
+      batch.forEach((note) => {
+        const entry = notes.get(note.id);
+        if (entry) deleteNote(note, entry.el, { silent: true });
+      }),
+  };
+}
+
+/**
+ * Record notes having been moved, given where each of them started.
+ *
+ * One step however many notes travelled — a drag of six, or a grid arrange of
+ * twenty, is one thing that happened and takes one ⌘Z. Notes that did not
+ * actually end up somewhere else are left out: a click that grazed into a
+ * one-pixel move, or a locked note an arrange stepped around, should not cost
+ * anything to walk back.
+ *
+ * @param {Array<{note: object, from: {x: number, y: number}}>} moves
+ * @param {string} [label]  what to call it, if "the move" is not the words
+ */
+export function recordMove(moves, label) {
+  const real = moves
+    .map(({ note, from }) => ({ note, from, to: { x: note.x, y: note.y } }))
+    .filter(({ from, to }) => from.x !== to.x || from.y !== to.y);
+  if (!real.length) return;
+
+  record({
+    kind: "move",
+    noteId: real.length === 1 ? real[0].note.id : null,
+    label: label || (real.length === 1 ? "the move" : `the move of ${real.length} notes`),
+    undo: () => real.forEach(({ note, from }) => applyBox(note, from)),
+    redo: () => real.forEach(({ note, to }) => applyBox(note, to)),
+  });
+}
+
+/**
+ * Record notes having joined, left, or moved within a list.
+ *
+ * Separate from recordMove because taking one back means restoring membership
+ * and rank, not only a position — and because a note coming out of a list has
+ * both to restore, from one step. Notes whose list and rank both came out
+ * unchanged are left out: a drag that ended where it started costs nothing.
+ */
+function recordListing(anchored) {
+  const changes = anchored
+    .map((entry) => ({
+      note: entry.note,
+      from: {
+        listId: entry.startListId,
+        listOrder: entry.startListOrder,
+        x: entry.startLeft,
+        y: entry.startTop,
+      },
+      to: {
+        listId: entry.note.listId,
+        listOrder: entry.note.listOrder,
+        x: entry.note.x,
+        y: entry.note.y,
+      },
+    }))
+    .filter(({ from, to }) => from.listId !== to.listId || from.listOrder !== to.listOrder);
+  if (!changes.length) return;
+
+  record({
+    kind: "listing",
+    noteId: changes.length === 1 ? changes[0].note.id : null,
+    label: changes.length === 1 ? "the move" : `the move of ${changes.length} notes`,
+    undo: () => changes.forEach(({ note, from }) => applyListing(note, from)),
+    redo: () => changes.forEach(({ note, to }) => applyListing(note, to)),
+  });
+}
+
+// Put a note back in, or out of, a list. A list that is no longer on the board
+// leaves the note on the canvas, which is the same rule the renderer follows.
+function applyListing(note, at) {
+  const entry = reviveNote(note);
+  if (!entry) return;
+  if (at.listId && listIsOnBoard(at.listId)) {
+    note.listId = at.listId;
+    note.listOrder = at.listOrder;
+    saveNote(note);
+    mountCard(note, entry.el);
+  } else {
+    freeNote(note, entry.el, at.x, at.y);
+  }
+}
+
+// A note whose page has changed is on the wrong board until this is called:
+// either it belongs to the one on screen and is not drawn, or it is drawn and
+// no longer belongs there.
+function showOnRightBoard(note) {
+  const entry = notes.get(note.id);
+  if (note.pageId === currentPageId) {
+    if (entry) applyBox(note, { x: note.x, y: note.y });
+    else renderNote(note);
+  } else if (entry) {
+    detachNote(entry);
+  }
+  updateHint();
+}
+
+/**
+ * Record notes having been filed into another page.
+ *
+ * A move that crosses a board, so taking it back means restoring the page as
+ * well as the position — a note sprung onto another page was also put down
+ * somewhere on it, and undoing only half of that leaves it in the wrong place
+ * on the right page.
+ */
+function recordFiling(entries, fromPageId, toPageId) {
+  const moves = entries.map(({ note, startLeft, startTop }) => ({
+    note,
+    from: { pageId: fromPageId, x: startLeft, y: startTop },
+    to: { pageId: toPageId, x: note.x, y: note.y },
+  }));
+  if (!moves.length) return;
+
+  const apply = async (side) => {
+    for (const move of moves) {
+      const at = move[side];
+      move.note.x = at.x;
+      move.note.y = at.y;
+      await moveNotesToPage([move.note], at.pageId);
+      showOnRightBoard(move.note);
+    }
+    loadReminders(); // whatever is due may have changed pages with them
+  };
+
+  record({
+    kind: "file",
+    noteId: moves.length === 1 ? moves[0].note.id : null,
+    label: moves.length === 1 ? "the filing" : `the filing of ${moves.length} notes`,
+    undo: () => apply("from"),
+    redo: () => apply("to"),
+  });
+}
+
+function resizeStep(note, from, to) {
+  return {
+    kind: "resize",
+    noteId: note.id,
+    label: "the resize",
+    undo: () => applyBox(note, from),
+    redo: () => applyBox(note, to),
+  };
+}
+
+// One visit to a note is one step. The keystrokes inside it are Tiptap's own
+// history to walk; what the board remembers is that you went in, and what the
+// note said when you came back out.
+function recordEdit(entry) {
+  const before = entry.htmlAtMount || "";
+  const after = entry.note.html || "";
+  if (before === after) return;
+  // An editor that arrived on an empty note arrived on a note that had just
+  // been made, and the creation step already carries whatever was typed into
+  // it. Recording both would charge two ⌘Z for one act.
+  if (!before) return;
+  record(editStep(entry.note, before, after));
+}
+
+function editStep(note, before, after) {
+  const apply = (html) => {
+    const entry = reviveNote(note);
+    if (!entry) return;
+    if (entry.editor) {
+      // Still open: going in through the editor keeps its document and the
+      // stored markup in step, and moves the baseline with it so leaving the
+      // note afterwards does not record the undo as a fresh edit.
+      entry.editor.commands.setContent(withImageSrc(html));
+      entry.htmlAtMount = html;
+    } else {
+      const body = entry.el.querySelector(".note-body");
+      body.innerHTML = html;
+      hydrateImages(body);
+    }
+    touch(note, entry.el, html);
+  };
+
+  return {
+    kind: "content",
+    noteId: note.id,
+    label: "the edit",
+    undo: () => apply(before),
+    redo: () => apply(after),
+  };
 }
 
 // The record was never removed, only flagged, so undo is just clearing the
@@ -710,8 +1037,53 @@ export function editorFor(id) {
       for (const blob of files) insertImage(entry.editor, await storeImage(blob));
     },
   });
+  // What the note said when the editor arrived, so leaving it can tell
+  // whether this visit changed anything.
+  entry.htmlAtMount = note.html || "";
   el.classList.add("is-editing");
   return entry.editor;
+}
+
+/**
+ * Paste into the note the menu was opened from.
+ *
+ * ⌘V on an open note is ProseMirror's business and needs nothing from us. This
+ * is the same thing asked for from the menu, where there is no paste event to
+ * carry the clipboard — so it has to be read instead. The extension holds
+ * `clipboardRead`, which is what lets that answer without a prompt; when it
+ * comes back with nothing anyway there is still the command paste to try, and
+ * failing that it says so rather than appearing to do nothing.
+ */
+async function pasteIntoNote(note, el, { formatted }) {
+  const editor = editorFor(note.id); // the menu has already made this the active note
+  if (!editor) return;
+
+  const content = await readClipboard();
+  if (!hasContent(content)) {
+    // The clipboard came back empty, which also means "would not be read".
+    // Asking the document to paste is the other door to it, and the editor
+    // takes what comes through as if it had been ⌘V'd. Only the formatted
+    // paste can go that way — a command paste brings the markup with it.
+    if (formatted) {
+      editor.commands.focus();
+      if (pasteByCommand()) {
+        markUsed("paste");
+        touch(note, el, cleanHtml(editor.getHTML()));
+        return;
+      }
+    }
+    toast("Nothing on the clipboard to paste");
+    return;
+  }
+
+  markUsed("paste");
+  // Images are files, not markup, and are pasted only when the formatting is
+  // wanted — asked for as plain text, a picture is not text at all.
+  if (formatted) {
+    for (const blob of content.blobs) insertImage(editor, await storeImage(blob));
+  }
+  pasteInto(editor, content, { formatted });
+  touch(note, el, cleanHtml(editor.getHTML()));
 }
 
 function focusEditor(id) {
@@ -731,6 +1103,7 @@ function destroyEditor(entry) {
 // looked at keeps exactly the markup it arrived with.
 function unmountEditor(entry) {
   if (!entry || !entry.editor) return;
+  recordEdit(entry);
   destroyEditor(entry);
   const body = entry.el.querySelector(".note-body");
   body.innerHTML = entry.note.html || "";
@@ -865,6 +1238,12 @@ export function renderNote(note) {
 
   notes.set(note.id, { note, el });
 
+  // A note that belongs to a list on this board is moved into it. One that
+  // names a list which is missing, deleted, or on another page is simply a note
+  // on the canvas — the coupling is deliberately loose, so a half-synced board
+  // shows everything it has rather than hiding what it cannot place.
+  if (listIsOnBoard(note.listId)) mountCard(note, el);
+
   /* behaviour */
 
   // A checkbox is worth ticking without opening the note first — reading a
@@ -883,7 +1262,11 @@ export function renderNote(note) {
     if (box.checked) box.setAttribute("checked", "checked");
     else box.removeAttribute("checked");
 
+    // Crossing something off without opening the note is still an edit to it,
+    // and a box ticked by mistake is exactly the kind of thing ⌘Z is for.
+    const before = note.html || "";
     touch(note, el, cleanHtml(body.innerHTML));
+    record(editStep(note, before, note.html || ""));
   });
 
   // ⌘K is ours: the editor knows how to make a link, but not what to ask.
@@ -908,6 +1291,9 @@ export function renderNote(note) {
     setActiveNote(note.id);
     showMenu(
       [
+        { label: "Paste", run: () => pasteIntoNote(note, el, { formatted: true }) },
+        { label: "Paste without formatting", run: () => pasteIntoNote(note, el, { formatted: false }) },
+        null,
         { label: "Colour…", run: () => showPalette({ left: clientX, top: clientY }, note, el) },
         { label: note.remindAt ? "Change reminder…" : "Remind me…", run: () => showReminderMenu({ left: clientX, top: clientY }, note, el) },
         null,
@@ -995,6 +1381,14 @@ function liftToDragLayer(entries, pointer) {
   const rect = canvas.getBoundingClientRect();
   entries.forEach((entry) => {
     const { note, el } = entry;
+    // A card being lifted out of a list becomes a note again on the way up: the
+    // drag layer positions absolutely, which a listed card is not, and the size
+    // it is about to have on the board is the honest thing to drag.
+    if (el.classList.contains("is-listed")) {
+      el.classList.remove("is-listed");
+      el.style.width = `${note.width}px`;
+      el.style.height = `${note.height}px`;
+    }
     const left = rect.left + view.x + note.x * view.zoom;
     const top = rect.top + view.y + note.y * view.zoom;
     el.style.transform = `scale(${view.zoom})`;
@@ -1034,7 +1428,11 @@ function returnToWorld(entries) {
     el.style.transform = "";
     el.style.left = `${note.x}px`;
     el.style.top = `${note.y}px`;
-    if (el.isConnected) world.appendChild(el);
+    if (!el.isConnected) return;
+    // A note picked up out of a list belongs back in it, not on the canvas
+    // underneath — this is the path Escape takes, and abandoning a drag should
+    // put things back exactly as they were found.
+    if (!mountCard(note, el)) world.appendChild(el);
   });
 }
 
@@ -1045,6 +1443,10 @@ function placeCaret(id, x, y) {
   const editor = editorFor(id);
   if (editor) caretAt(editor, x, y);
 }
+
+// Where each note in a drag was picked up from, in the shape the history wants.
+const movesOf = (entries) =>
+  entries.map(({ note, startLeft, startTop }) => ({ note, from: { x: startLeft, y: startTop } }));
 
 function makeDraggable(el, note) {
   el.addEventListener("pointerdown", (e) => {
@@ -1088,11 +1490,26 @@ function makeDraggable(el, note) {
         : [{ note, el }];
     const anchored = group
       .filter((entry) => !entry.note.locked)
-      .map((entry) => ({
-        ...entry,
-        startLeft: entry.note.x,
-        startTop: entry.note.y,
-      }));
+      .map((entry) => {
+        // A note in a list has no meaningful place on the canvas: its stored
+        // x/y is wherever it sat before it was filed, which may be far off
+        // screen. Starting from where it visibly is means lifting one out of a
+        // list does not teleport it, and dropping it on the board leaves it
+        // where it was let go.
+        const box = entry.note.listId ? entry.el.getBoundingClientRect() : null;
+        const at = box ? screenToWorld(box.left, box.top) : { x: entry.note.x, y: entry.note.y };
+        return {
+          ...entry,
+          startLeft: Math.round(at.x),
+          startTop: Math.round(at.y),
+          startListId: entry.note.listId,
+          startListOrder: entry.note.listOrder,
+          // How much room to hold open for it. Measured now, while it is still
+          // standing where it started, because a moment later it is in the drag
+          // layer at the world's scale and no longer the size a list sees.
+          cardHeight: Math.round(entry.el.getBoundingClientRect().height / view.zoom),
+        };
+      });
 
     let lifted = false;
     let moved = false;
@@ -1130,8 +1547,23 @@ function makeDraggable(el, note) {
 
       if (lifted) {
         positionInDragLayer(anchored, { x: moveEvent.clientX, y: moveEvent.clientY });
+        // The list under the cursor fills in and opens a gap where the card
+        // would land, the way a page row lights up. Without it, dropping into a
+        // list is aiming at something that never answers.
+        const over = updateGap(
+          moveEvent.clientX,
+          moveEvent.clientY,
+          lead ? lead.cardHeight : 40
+        );
+        markDropList(over && over.listId);
       } else {
         anchored.forEach((entry) => {
+          // A card in a list is placed by the list, not by coordinates. Writing
+          // left/top on one shoves it across the board by its own world
+          // position — it is `position: relative` in there, so these are an
+          // offset from where it is standing rather than where it is. Nothing
+          // needs moving before the lift anyway: the gap does that work.
+          if (entry.note.listId) return;
           entry.el.style.left = `${entry.note.x}px`;
           entry.el.style.top = `${entry.note.y}px`;
         });
@@ -1150,6 +1582,8 @@ function makeDraggable(el, note) {
     // they already are" means nothing, and stranding them under the sidebar
     // is not what was meant by it.
     const revert = async () => {
+      hideGap();
+      markDropList(null);
       anchored.forEach((entry) => {
         entry.note.x = entry.startLeft;
         entry.note.y = entry.startTop;
@@ -1179,8 +1613,14 @@ function makeDraggable(el, note) {
         return;
       }
 
+      markDropList(null);
       const records = anchored.map((entry) => entry.note);
       const onRow = dropTargetAt(upEvent.clientX, upEvent.clientY);
+      // The gap is the promise the drag made about where this lands, so it is
+      // what the drop reads. Falling back to the pointer covers a drop that
+      // never moved far enough to open one.
+      const intoList = gapTarget() || dropAt(upEvent.clientX, upEvent.clientY);
+      hideGap();
       // Whether a page was sprung open mid-drag, leaving these notes hovering
       // over a board that is not their own.
       const sprung = currentPageId !== homePageId;
@@ -1204,6 +1644,18 @@ function makeDraggable(el, note) {
         else anchored.forEach(detachNote);
         updateHint();
         loadReminders(); // they may be another page's business now
+        recordFiling(anchored, homePageId, onRow);
+        return;
+      }
+
+      // Dropped into a list. Checked before the board, because a list is on the
+      // board — the more specific target has to be asked about first.
+      if (intoList && !sprung) {
+        anchored.forEach((entry, i) => {
+          fileIntoList(entry.note, entry.el, intoList.listId, intoList.index + i);
+        });
+        recordListing(anchored);
+        updateHint();
         return;
       }
 
@@ -1211,16 +1663,29 @@ function makeDraggable(el, note) {
       // point of having opened it: they join that page exactly where they were
       // put, rather than arriving somewhere on it unseen.
       if (overCanvas(upEvent)) {
+        // Out of a list and onto the canvas: the note stops being in the list,
+        // and the position it was let go at becomes its own again.
+        const wasListed = anchored.some((entry) => entry.startListId);
+        anchored.forEach((entry) => {
+          if (entry.note.listId) freeNote(entry.note, entry.el, entry.note.x, entry.note.y);
+        });
         if (sprung) {
-          await moveNotesToPage(records, currentPageId);
+          const target = currentPageId;
+          await moveNotesToPage(records, target);
           land(anchored);
           updateHint();
           loadReminders();
+          recordFiling(anchored, homePageId, target);
         } else {
           // An ordinary move on the board they came from. The coordinates
           // onMove computed are kept as they are, so grid snapping survives.
           if (lifted) returnToWorld(anchored);
           anchored.forEach((entry) => saveNote(entry.note));
+          // Coming out of a list is one thing that happened, not two: the step
+          // that restores the membership restores the position with it, so a
+          // move step on top would take two ⌘Z to undo one drag.
+          if (wasListed) recordListing(anchored);
+          else recordMove(movesOf(anchored));
         }
         return;
       }
@@ -1234,6 +1699,7 @@ function makeDraggable(el, note) {
       } else {
         if (lifted) returnToWorld(anchored);
         anchored.forEach((entry) => saveNote(entry.note));
+        recordMove(movesOf(anchored));
       }
     };
 
@@ -1263,30 +1729,48 @@ function makeDraggable(el, note) {
 function makeResizable(el, note, grip) {
   grip.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || note.fullscreen) return;
+    // In a list the column owns the width and the words own the height. The
+    // grip is hidden there; this is the guard behind the styling.
+    if (note.listId) return;
     e.preventDefault();
     e.stopPropagation(); // not a drag of the note itself
 
     const startX = e.clientX;
     const startY = e.clientY;
-    // Where these notes live. Spring-loading can change the board under the
-    // drag, so "the page they came from" has to be remembered, not read back
-    // off currentPageId at the end.
-    const homePageId = currentPageId;
     const startW = el.offsetWidth;
     const startH = el.offsetHeight;
+
+    const stopListening = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("keydown", onKey, true);
+    };
 
     const onMove = (m) => {
       // Screen delta -> world delta, as everywhere else on the canvas.
       el.style.width = `${startW + (m.clientX - startX) / view.zoom}px`;
       el.style.height = `${startH + (m.clientY - startY) / view.zoom}px`;
     };
+
     const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+      stopListening();
       note.width = el.offsetWidth;
       note.height = el.offsetHeight;
+      if (note.width === startW && note.height === startH) return; // a grab, not a resize
       saveNote(note);
+      record(resizeStep(note, { width: startW, height: startH }, { width: note.width, height: note.height }));
     };
+
+    // Escape abandons a resize the way it abandons a drag, and for the same
+    // reason: the gesture is reversible right up until it is let go.
+    const onKey = (keyEvent) => {
+      if (keyEvent.key !== "Escape") return;
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
+      stopListening();
+      applyBox(note, { width: startW, height: startH });
+    };
+
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("keydown", onKey, true);
@@ -1298,6 +1782,10 @@ function observeResize(el, note) {
     // Removal fires this with a 0x0 box; fullscreen fires it with the viewport
     // size. Neither is a real resize of the note.
     if (note.deleted || note.fullscreen || !el.isConnected) return;
+    // Nor is being in a list: there the column sets the width and the content
+    // sets the height, and writing those back would overwrite the size the note
+    // has on the board — and sync the overwrite — the moment it was filed.
+    if (note.listId) return;
     note.width = el.offsetWidth;
     note.height = el.offsetHeight;
     saveNote(note);
@@ -1330,6 +1818,13 @@ export function clearBoard() {
 }
 
 export function loadNote(record) {
+  // A note in hand is already on screen, in the drag layer: clearBoard leaves
+  // it there on purpose so a page switch mid-drag does not destroy the thing
+  // under the cursor. Rendering it again here gave it a second element, which
+  // is how dropping a note back on its own page produced two of it.
+  const inHand = notesInHand();
+  if (inHand && inHand.has(record.id)) return;
+
   // v1 stored plain text under `text`; carry it over as escaped markup.
   if (record.html === undefined) record.html = escapeHtml(record.text || "");
   delete record.deleted;
@@ -1337,6 +1832,22 @@ export function loadNote(record) {
   seedZ(record.z || 1);
   renderNote(record);
 }
+
+// Notes draw after lists, so that a note belonging to one has a list body to be
+// rendered into. Everything a page needs to show its notes is in here; opening
+// a page is board.js's business, and no longer main.js's.
+registerLayer({
+  name: "notes",
+  order: 20,
+  clear: clearBoard,
+  load: async () => {
+    const records = adoptOrphans(await getAll(NOTES));
+    notesOnCurrentPage(records).forEach(loadNote);
+    updateHint();
+    // Whatever came due while this page was not on screen starts wiggling now.
+    await loadReminders();
+  },
+});
 
 window.addEventListener("pagehide", () => {
   // Closing the tab is leaving too. The write may not outlive the page, in

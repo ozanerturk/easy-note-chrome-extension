@@ -1,5 +1,6 @@
 import * as auth from "./auth.js";
 import { runSync, getSyncMeta } from "./sync.js";
+import { NOTES } from "./db.js";
 import { markUsed } from "./tips.js";
 
 const AUTO_INTERVAL = 2 * 60 * 1000;
@@ -60,12 +61,15 @@ export async function sync({ silent = false } = {}) {
   if (!silent) show("busy", "Syncing…", "");
   try {
     const res = await runSync();
-    const moved = res.pulledNotes + res.pulledPages + res.imagesDown;
-    if (moved) await afterSync();
+    // Every synced store reports itself, so a new kind of record starts being
+    // counted here without this line being touched again. Notes stay named in
+    // the detail: they are what the number means to anyone reading it.
+    const records = Object.values(res.pulled).reduce((sum, n) => sum + n, 0);
+    if (records + res.imagesDown) await afterSync();
     show(
       "on",
       "Synced",
-      `${res.pulledNotes} notes in, ${res.imagesDown} images in${res.pushed ? ", pushed" : ""}`
+      `${res.pulled[NOTES] || 0} notes in, ${res.imagesDown} images in${res.pushed ? ", pushed" : ""}`
     );
     setTimeout(paint, 2500);
   } catch (e) {

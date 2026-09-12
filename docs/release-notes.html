@@ -141,20 +141,22 @@
     color: var(--ink); background: var(--paper);
   }
   .linkish { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
-  #stage { position: relative; height: clamp(250px, 40vh, 360px); cursor: crosshair; touch-action: none; overflow: hidden; }
-
-  .snote {
-    position: absolute; width: 190px; border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.16); font-size: 14px; overflow: hidden;
-    animation: pop .18s ease-out;
+  #stage {
+    position: relative; height: clamp(320px, 52vh, 520px);
+    border: 0; width: 100%; display: block; background: var(--paper);
   }
-  @keyframes pop { from { transform: scale(.94); opacity: 0 } to { transform: scale(1); opacity: 1 } }
-  @media (prefers-reduced-motion: reduce) { .snote { animation: none } }
-  .snote-head { height: 20px; background: rgba(0,0,0,.07); cursor: grab; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
-  .snote-head:active { cursor: grabbing; }
-  .snote-x { border: 0; background: transparent; cursor: pointer; font-size: 12px; line-height: 1; color: rgba(0,0,0,.45); padding: 2px 3px; }
-  .snote-body { padding: 9px 11px; min-height: 60px; outline: none; color: #24221e; }
-  .snote-body:empty::before { content: attr(data-ph); color: rgba(0,0,0,.35); }
+  .demo-note { padding: 10px 14px; border-top: 1px solid var(--rule); font-size: .82rem; color: var(--graphite); }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; align-items: center; }
+  .cta a {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 18px; border-radius: 999px; text-decoration: none; font-weight: 600;
+  }
+  .cta .primary { background: var(--ink); color: var(--paper); }
+  .cta .primary:hover { background: var(--accent); }
+  .cta .secondary { border: 1px solid var(--rule); color: var(--ink); background: var(--surface); }
+  .cta .secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .cta .aside { color: var(--graphite); font-size: .84rem; }
 
   /* ------------------------------------------------------------------- nav */
 
@@ -242,7 +244,7 @@
   <div class="wrap">
     <div class="hero-head col">
       <div class="badges">
-        <span class="tag now">Version 3.1</span>
+        <span class="tag now">Version 3.3</span>
         <span class="tag">Free</span>
         <span class="tag">Chrome</span>
       </div>
@@ -254,18 +256,32 @@
       </p>
     </div>
 
+    <div class="cta">
+      <a class="primary" href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">Add to your browser</a>
+      <a class="secondary" href="demo/" target="_blank" rel="noopener">Quick try — no install</a>
+      <span class="aside">Free. Your notes stay on your computer.</span>
+    </div>
+
     <div class="demo">
       <div class="demo-bar">
-        <span><span class="kbd">Double-click</span> the board below to try it — drag a note from anywhere on it</span>
-        <button id="reset" class="linkish" type="button">Reset</button>
+        <span><span class="kbd">Double-click</span> the board below to try it — this is the extension itself, running in the page</span>
+        <a class="linkish" href="demo/" target="_blank" rel="noopener">Open full screen</a>
       </div>
-      <div id="stage" class="grid-bg"></div>
+      <!-- The real app, built into docs/demo/ by scripts/demo.mjs. Loading it
+           lazily keeps a page opened for the release notes from paying for a
+           board nobody scrolled to. -->
+      <iframe id="stage" src="demo/" title="Easy Note, running here" loading="lazy"></iframe>
+      <p class="demo-note">
+        Everything you write here is stored in this browser, on this page's own
+        board — not in your extension, and nowhere else.
+      </p>
     </div>
   </div>
 </header>
 
 <nav class="jump">
   <div class="wrap jump-inner">
+    <a href="#new33">New in 3.3</a>
     <a href="#new32">New in 3.2</a>
     <a href="#new31">New in 3.1</a>
     <a href="#new">What's new in 3</a>
@@ -279,6 +295,54 @@
     <a href="#cheatsheet">Cheat sheet</a>
   </div>
 </nav>
+
+<section id="new33">
+  <div class="wrap stack">
+    <div class="col stack">
+      <span class="eyebrow">New in 3.3</span>
+      <h2>Every picture on the board, and the words inside them</h2>
+    </div>
+    <div class="highlights" style="margin-top:8px">
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">🖼️</span>
+        <h3>Double-click a picture to open it</h3>
+        <p>
+          It fills the screen, and every other picture in every note is behind
+          it — newest first, wherever it lives. Arrow keys to look through them,
+          <span class="kbd">Esc</span> to come back out.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-yellow)">🔤</span>
+        <h3>Copy the text out of a photograph</h3>
+        <p>
+          A screenshot of an error, a photo of a whiteboard, a receipt — the
+          words on them are read on your own machine, and then you can select
+          them straight off the picture, or take the lot with one button.
+          Nothing is uploaded anywhere.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">📍</span>
+        <h3>Always a way back to the note</h3>
+        <p>
+          Each picture says which page it lives on and when that note was last
+          written in. <span class="kbd">⏎</span> takes you to it, opening the
+          page if it is not the one you are on.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-pink)">📝</span>
+        <h3>A quieter note</h3>
+        <p>
+          A note can now be as short as the one line it holds, the "type here"
+          prompt is gone from every empty note, and the heading sizes go
+          properly big. A maximised note has room to breathe.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section id="new32">
   <div class="wrap stack">
@@ -640,85 +704,5 @@
   </div>
 </footer>
 
-<script>
-  const stage = document.getElementById("stage");
-  const COLORS = ["#fff6a3", "#d6e8ff", "#ffd6d6", "#d6f5d6", "#e6d6ff", "#ffe0bd"];
-  const SEED = [
-    { x: 40,  y: 32,  c: 0, t: "Double-click the board to add another one." },
-    { x: 262, y: 92,  c: 1, t: "Drag me by the bar at the top." },
-    { x: 494, y: 38,  c: 3, t: "A sketch of the real thing." }
-  ];
-  let z = 10;
-  let count = 0;
-
-  function makeNote(x, y, colorIndex, text) {
-    const el = document.createElement("div");
-    el.className = "snote";
-    el.style.left = x + "px";
-    el.style.top = y + "px";
-    el.style.background = COLORS[colorIndex % COLORS.length];
-    el.style.zIndex = ++z;
-
-    const head = document.createElement("div");
-    head.className = "snote-head";
-    const close = document.createElement("button");
-    close.className = "snote-x";
-    close.type = "button";
-    close.textContent = "×";
-    close.setAttribute("aria-label", "Remove note");
-    close.addEventListener("click", () => el.remove());
-    head.appendChild(close);
-
-    const body = document.createElement("div");
-    body.className = "snote-body";
-    body.contentEditable = "true";
-    body.spellcheck = false;
-    body.dataset.ph = "Type here…";
-    body.textContent = text || "";
-
-    el.append(head, body);
-    stage.appendChild(el);
-
-    head.addEventListener("pointerdown", (e) => {
-      if (e.target.closest(".snote-x")) return;
-      e.preventDefault();
-      el.style.zIndex = ++z;
-      const sx = e.clientX, sy = e.clientY;
-      const ox = parseFloat(el.style.left), oy = parseFloat(el.style.top);
-      const move = (m) => {
-        el.style.left = Math.max(0, Math.min(stage.clientWidth - el.offsetWidth, ox + m.clientX - sx)) + "px";
-        el.style.top = Math.max(0, Math.min(stage.clientHeight - el.offsetHeight, oy + m.clientY - sy)) + "px";
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-    });
-
-    return el;
-  }
-
-  stage.addEventListener("dblclick", (e) => {
-    if (e.target.closest(".snote")) return;
-    const r = stage.getBoundingClientRect();
-    const el = makeNote(
-      Math.max(0, Math.min(e.clientX - r.left - 20, stage.clientWidth - 200)),
-      Math.max(0, Math.min(e.clientY - r.top - 10, stage.clientHeight - 90)),
-      2 + count++,
-      ""
-    );
-    el.querySelector(".snote-body").focus();
-  });
-
-  function reset() {
-    stage.textContent = "";
-    count = 0;
-    SEED.forEach((n) => makeNote(n.x, n.y, n.c, n.t));
-  }
-  document.getElementById("reset").addEventListener("click", reset);
-  reset();
-</script>
 </body>
 </html>

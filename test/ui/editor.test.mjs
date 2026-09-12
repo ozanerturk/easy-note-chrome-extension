@@ -145,8 +145,7 @@ export default async function run(page, s) {
   check("a checklist is saved as one", !!savedTasks && savedTasks.html.includes('data-type="taskItem"'),
     savedTasks && savedTasks.html.slice(0, 120));
 
-  await page.cdp.send("Page.reload");
-  await page.settle(1500);
+  await page.reload(); // back when the app has booted, not when a timer says so
   const reopened = await page.evaluate(`(() => {
     const n = [...document.querySelectorAll('.note')].find((el) => el.innerHTML.includes('taskList'));
     if (!n) return null;

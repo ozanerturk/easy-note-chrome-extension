@@ -7,9 +7,14 @@
 // never drift from what the app actually looks like — the last set went stale
 // across two releases before anyone noticed.
 //
+// They are numbered in the order they are uploaded, and the order is the
+// argument for installing: the board first, because that is what the extension
+// is, then the newest reason to want it.
+//
 // The clipper shot needs a real web page to clip from, so one is served on
-// localhost for the length of the run. It is deliberately fictional: a store
-// screenshot must not put words in a real publication's mouth.
+// localhost for the length of the run. Both it and the picture in the gallery
+// shot are deliberately fictional: a store screenshot must not put words in a
+// real publication's mouth, or show anybody's actual screen.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -175,7 +180,7 @@ await shoot(page, "screenshot-1-canvas.png");
 await page.evaluate(`import('./js/theme.js').then(m => m.applyTheme('dark'))`);
 await page.evaluate(VIEW);
 await sleep(500);
-await shoot(page, "screenshot-4-dark.png");
+await shoot(page, "screenshot-5-dark.png");
 await page.evaluate(`import('./js/theme.js').then(m => m.applyTheme('light'))`);
 await sleep(400);
 
@@ -202,7 +207,7 @@ for (let i = 1; i <= 10; i++) {
   await sleep(30);
 }
 await sleep(250);
-await shoot(web, "screenshot-2-clip.png"); // mid-drag, with the live size readout
+await shoot(web, "screenshot-3-clip.png"); // mid-drag, with the live size readout
 await web.close();
 
 /* --------------------------------------------------------------- the tray */
@@ -248,20 +253,97 @@ await page.seed("notes", [...board, ...clips.map(({ __colour, ...c }) => c)]);
 await frame(page);
 await page.evaluate(VIEW);
 await sleep(900);
-await shoot(page, "screenshot-3-tray.png");
+await shoot(page, "screenshot-4-tray.png");
 
-/* -------------------------------------------------------------- search */
+/* ------------------------------------------- the gallery, reading a picture */
 
-await page.evaluate(`import('./js/search.js').then(m => m.open())`);
-await sleep(400);
-await page.evaluate(`(() => {
-  const input = document.getElementById('search-input');
-  input.value = 'context';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
+// Three pictures, so the reel reads as a reel, and one of them with words on
+// it worth copying out — which is the whole of what this shot is for. All
+// three are drawn here: a store screenshot must not show anybody's real screen.
+await page.evaluate(`(async () => {
+  const put = (store, value) => new Promise((res) => {
+    const open = indexedDB.open('easynote');
+    open.onsuccess = () => {
+      const tx = open.result.transaction(store, 'readwrite');
+      tx.objectStore(store).put(value);
+      tx.oncomplete = () => res(true);
+    };
+  });
+
+  // A terminal, screenshotted the moment a build fell over — the kind of
+  // picture whose text is the only reason it was kept.
+  const term = new OffscreenCanvas(1120, 700);
+  const t = term.getContext('2d');
+  t.fillStyle = '#1c1b19'; t.fillRect(0, 0, 1120, 700);
+  t.font = '30px Menlo, monospace';
+  const lines = [
+    ['#8fd9a8', '$ npm run deploy'],
+    ['#e8a184', 'x build failed in 4.2s'],
+    ['#efece6', ''],
+    ['#efece6', 'Error: Cannot find module ./theme'],
+    ['#b5aea4', '    at loadConfig (build.js:42:11)'],
+    ['#b5aea4', '    at deploy (deploy.js:11:3)'],
+    ['#efece6', ''],
+    ['#8fb4e8', 'Run with --verbose for the full trace'],
+  ];
+  lines.forEach(([colour, text], i) => {
+    t.fillStyle = colour;
+    t.fillText(text, 56, 92 + i * 58);
+  });
+  await put('images', { id: 'img-shot', blob: await term.convertToBlob({ type: 'image/png' }) });
+
+  // Two more, so the counter says there is a board behind this one.
+  const plate = async (id, a, b) => {
+    const c = new OffscreenCanvas(900, 620);
+    const g = c.getContext('2d');
+    const grd = g.createLinearGradient(0, 0, 900, 620);
+    grd.addColorStop(0, a); grd.addColorStop(1, b);
+    g.fillStyle = grd; g.fillRect(0, 0, 900, 620);
+    await put('images', { id, blob: await c.convertToBlob({ type: 'image/png' }) });
+  };
+  await plate('img-p2', '#e8c07a', '#c9a8e8');
+  await plate('img-p3', '#8fd9a8', '#8fb4e8');
   return true;
 })()`);
-await sleep(800);
-await shoot(page, "screenshot-5-search.png");
+
+const pictures = [
+  note({ id: "g1", x: 40, y: 700, width: 268, height: 200, pageId: "p-work",
+    html: `<p>Build fell over on deploy</p><img data-img-id="img-shot">` }),
+  note({ id: "g2", x: 348, y: 700, width: 254, height: 200, pageId: "p-work",
+    html: `<p>Cover ideas</p><img data-img-id="img-p2">` }),
+  note({ id: "g3", x: 642, y: 700, width: 246, height: 200, pageId: "p-work",
+    html: `<p>Palette</p><img data-img-id="img-p3">` }),
+];
+await page.seed("notes", [...board, ...clips.map(({ __colour, ...c }) => c), ...pictures]);
+await frame(page);
+await page.evaluate(VIEW);
+await sleep(600);
+await page.evaluate(`import('./js/gallery.js').then(m => m.openGallery('img-shot'))`);
+
+// The words are read on the spot, from inside the extension — so the shot has
+// to wait for them the same way a reader does.
+for (let i = 0; i < 60; i++) {
+  if (await page.evaluate(`document.querySelectorAll('.gallery-word').length`)) break;
+  await sleep(500);
+}
+
+// Selected, because a picture of an unselected picture says nothing about what
+// is new here. This is the same range a hand would drag.
+await page.evaluate(`(() => {
+  const words = [...document.querySelectorAll('.gallery-word')];
+  const from = words.findIndex((w) => /Cannot/.test(w.textContent));
+  const to = words.findIndex((w) => /theme/.test(w.textContent));
+  if (from < 0 || to < from) return false;
+  const range = document.createRange();
+  range.setStart(words[from].firstChild, 0);
+  range.setEnd(words[to].firstChild, words[to].textContent.trimEnd().length);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  return sel.toString();
+})()`);
+await sleep(400);
+await shoot(page, "screenshot-2-gallery.png");
 
 await browser.close();
 server.close();

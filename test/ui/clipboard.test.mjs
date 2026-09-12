@@ -102,4 +102,89 @@ export default async function run(page, s) {
   const placed = (await page.stored()).filter((n) => !n.deleted);
   check("a ctrl-drag lands on the grid", placed.some((n) => n.x % 24 === 0 && n.y % 24 === 0),
     JSON.stringify(placed.map((n) => [n.x, n.y])));
+
+  /* ------------------------------------------- pasting from the canvas menu */
+
+  // The real clipboard from here on, not a stub: the point of these is that the
+  // menu reaches it at all.
+  await page.evaluate(`(() => { delete navigator.clipboard.read; return true; })()`);
+  const writeClipboard = () =>
+    page.evaluate(`(async () => {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/plain': new Blob(['menu paste'], { type: 'text/plain' }),
+        'text/html': new Blob(['<b>menu</b> paste', ], { type: 'text/html' }),
+      })]);
+      return true;
+    })()`);
+
+  await page.key("Escape", "Escape");
+  await page.settle();
+  await writeClipboard();
+  await rightClick(page, 260, 560);
+  await menuPick(page, "Paste");
+  await page.settle(500);
+  let landed = await page.evaluate(`(() => {
+    const n = document.querySelector('.note.is-active');
+    if (!n) return null;
+    const b = n.querySelector('.note-body');
+    const r = n.getBoundingClientRect();
+    return { text: b.textContent, bold: b.querySelectorAll('b, strong').length, x: r.x, y: r.y };
+  })()`);
+  check("the canvas menu pastes into a new note", !!landed && landed.text.includes("menu paste"),
+    JSON.stringify(landed));
+  check("where it was asked for", Math.abs(landed.x - 260) < 60 && Math.abs(landed.y - 560) < 60,
+    `${Math.round(landed.x)},${Math.round(landed.y)}`);
+  check("with the formatting on it", landed.bold === 1, `${landed.bold} bold runs`);
+
+  await page.key("Escape", "Escape");
+  await page.settle();
+  await writeClipboard();
+  await rightClick(page, 700, 560);
+  await menuPick(page, "Paste without formatting");
+  await page.settle(500);
+  const plain = await page.evaluate(`(() => {
+    const n = document.querySelector('.note.is-active');
+    const b = n.querySelector('.note-body');
+    return { text: b.textContent, bold: b.querySelectorAll('b, strong').length };
+  })()`);
+  check("and the plain paste leaves the formatting behind",
+    plain.text.includes("menu paste") && plain.bold === 0, JSON.stringify(plain));
+
+  // Reading the clipboard is not the only way in. With the read refused
+  // outright, the menu falls back to asking the document to paste — the same
+  // door ⌘V goes through — and the words still arrive.
+  await page.key("Escape", "Escape");
+  await page.settle();
+  await writeClipboard();
+  await page.evaluate(`navigator.clipboard.read = () => Promise.reject(new Error('denied'))`);
+  await rightClick(page, 380, 300);
+  await menuPick(page, "Paste");
+  await page.settle(600);
+  const viaCommand = await page.evaluate(`(() => {
+    const n = document.querySelector('.note.is-active');
+    if (!n) return null;
+    const b = n.querySelector('.note-body');
+    return { text: b.textContent, bold: b.querySelectorAll('b, strong').length };
+  })()`);
+  check("a refused read still pastes, by command", !!viaCommand && viaCommand.text.includes("menu paste"),
+    JSON.stringify(viaCommand));
+  check("and the command paste keeps the formatting", viaCommand.bold === 1, JSON.stringify(viaCommand));
 }
+
+const rightClick = async (page, x, y) => {
+  await page.cdp.send("Input.dispatchMouseEvent", {
+    type: "mousePressed", x, y, button: "right", buttons: 2, clickCount: 1,
+  });
+  await page.settle(60);
+  await page.cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased", x, y, button: "right", buttons: 0, clickCount: 1,
+  });
+  await page.settle(300);
+};
+
+const menuPick = async (page, label) => {
+  await page.evaluate(
+    `[...document.querySelectorAll('.ctx-item')].find((b) => b.textContent === ${JSON.stringify(label)}).click()`
+  );
+  await page.settle(300);
+};

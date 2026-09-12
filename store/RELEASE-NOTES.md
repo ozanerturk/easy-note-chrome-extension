@@ -1,3 +1,35 @@
+Every picture on the board in one place, and the words inside them ready to copy.
+
+**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+
+## Double-click a picture to open it
+
+It fills the screen, and every other picture in every note is behind it — newest note first, wherever it lives. Arrow keys look through them, **Esc** comes back out.
+
+- Each picture says which page its note lives on and when that note was last written in, so a picture is never just floating on its own.
+- **⏎**, or *Go to note*, takes you to the note it came out of — opening its page if that is not the one you are on.
+- The board stays faintly visible behind it. This is something laid over your notes, not another screen you have gone away to.
+
+## Copy the text out of a photograph
+
+A screenshot of an error message, a photo of a whiteboard, a receipt from a phone camera — the words on them are the reason the picture was kept, and they were the one thing in a note you could not copy.
+
+- Open a picture and it is read in the background. When the words are ready the picture flashes once, and you can select them straight off it — or take all of it with **Copy text**.
+- It reads **English and Turkish**, including ı, ğ and ş.
+- **It all happens on your computer.** The recognition engine and both language models ship inside the extension; no picture, and nothing read out of one, is ever sent anywhere. It works with the network off.
+- A picture is read once, ever. After that its words come back instantly.
+
+## A quieter note
+
+- **A note can be one line tall.** The old floor was six lines of empty space every short note had to carry.
+- **The "Type or paste here" prompt is gone.** It said nothing the cursor did not, in every empty note at once.
+- **Headings go properly big**, and a maximised note has room to breathe instead of a wide margin squeezing its text into the middle.
+- **Menus read properly in dark mode**, and a note dropped back onto its own page no longer appears twice.
+
+---
+
+# Earlier: 3.2
+
 Clip anything off the web, file it when you are ready, and a board that finally has a dark mode.
 
 **[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**

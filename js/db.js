@@ -1,10 +1,11 @@
 const DB_NAME = "easynote";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export const NOTES = "notes";
 export const IMAGES = "images";
 export const META = "meta";
 export const PAGES = "pages";
+export const LISTS = "lists";
 
 // The Capture tray is a page like any other — same store, same sync, same
 // notes — reserved by a fixed id rather than by a schema of its own. Fixed so
@@ -30,7 +31,7 @@ export function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const upgraded = req.result;
-      [NOTES, IMAGES, META, PAGES].forEach((store) => {
+      [NOTES, IMAGES, META, PAGES, LISTS].forEach((store) => {
         if (!upgraded.objectStoreNames.contains(store)) {
           upgraded.createObjectStore(store, { keyPath: "id" });
         }
