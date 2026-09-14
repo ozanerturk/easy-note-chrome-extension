@@ -1,4 +1,4 @@
-import { NOTES, TRAY_ID, getAll } from "./db.js";
+import { NOTES, META, TRAY_ID, getAll } from "./db.js";
 import { whenLabel, plainText } from "./note.js";
 import { pages } from "./pages.js";
 import { markUsed } from "./tips.js";
@@ -137,23 +137,44 @@ const ORDER = {
   za: (a, b) => byText(b, a),
 };
 
+// A picture's words, once read, are stored once — see ocr.js — so folding
+// them in here costs one extra read of `meta`, never a recognition pass.
+const imgIdsIn = (html) => [...String(html || "").matchAll(/data-img-id="([^"]+)"/g)].map((m) => m[1]);
+
+async function ocrTextByImage() {
+  const rows = await getAll(META);
+  const byId = new Map();
+  rows.forEach((r) => {
+    if (typeof r.id === "string" && r.id.startsWith("ocr:") && r.text) byId.set(r.id.slice(4), r.text);
+  });
+  return byId;
+}
+
 async function run(query) {
-  const records = await getAll(NOTES);
+  const [records, ocrByImage] = await Promise.all([getAll(NOTES), ocrTextByImage()]);
   const q = query.trim().toLowerCase();
   const live = records
     // Captures are excluded: an unfiled one is already on screen in the tray,
     // and search's job is to take you to a note on a board — which a capture,
-    // by definition, is not on yet.
-    .filter((r) => !r.deleted && r.pageId !== TRAY_ID)
-    .map((r) => ({
-      id: r.id,
-      pageId: r.pageId,
-      color: r.color,
-      text: plainText(r.html),
-      at: r.editedAt || r.updatedAt || 0,
-      when: whenLabel(r),
-      remindAt: r.remindAt || 0,
-    }))
+    // by definition, is not on yet. A locked note hides its own content on
+    // purpose, and a search hit would show that content in the results list —
+    // so it is left out entirely while locked, the same as if it said nothing.
+    .filter((r) => !r.deleted && r.pageId !== TRAY_ID && !r.locked)
+    .map((r) => {
+      const ocr = imgIdsIn(r.html)
+        .map((id) => ocrByImage.get(id))
+        .filter(Boolean)
+        .join(" ");
+      return {
+        id: r.id,
+        pageId: r.pageId,
+        color: r.color,
+        text: ocr ? `${plainText(r.html)} ${ocr}`.trim() : plainText(r.html),
+        at: r.editedAt || r.updatedAt || 0,
+        when: whenLabel(r),
+        remindAt: r.remindAt || 0,
+      };
+    })
     .filter((r) => r.text);
 
   matches = live

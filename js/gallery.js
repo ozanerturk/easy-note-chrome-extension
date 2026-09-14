@@ -167,6 +167,8 @@ async function show(index) {
   // One picture is not a reel; the arrows would be two buttons that do
   // nothing.
   prevBtn.hidden = nextBtn.hidden = reel.length < 2;
+  // A capture opened straight out of the tray has no note to go to yet.
+  gotoBtn.hidden = !item.noteId;
 
   // Whatever was read off the last picture is not this picture's.
   found = null;
@@ -195,13 +197,20 @@ async function show(index) {
 /** Open on one image, with the rest of the page's pictures either side. */
 export async function openGallery(imgId) {
   reel = await collect();
-  if (!reel.length) return;
+  let start = reel.findIndex((item) => item.id === imgId);
+  if (start === -1) {
+    // Not filed to a page yet — a capture opened straight out of the tray.
+    // Shown on its own: there is no page of pictures to flip it against, and
+    // "Go to note" (hidden below, in show()) would have nowhere to send
+    // anyone either.
+    reel = [{ id: imgId, noteId: null, pageId: null, where: "Capture tray", when: "" }];
+    start = 0;
+  }
   markUsed("gallery");
-  const start = reel.findIndex((item) => item.id === imgId);
   root.hidden = false;
   document.body.classList.add("gallery-open");
   window.addEventListener("keydown", onKey, true);
-  show(start === -1 ? 0 : start);
+  show(start);
 }
 
 export function closeGallery() {
@@ -219,8 +228,9 @@ export function closeGallery() {
 /** Out of the reel and back to the words the picture belongs to. */
 function goToCurrent() {
   const item = reel[at];
+  if (!item || !item.noteId) return; // nowhere to go yet — still in the tray
   closeGallery();
-  if (item) onGoTo(item.noteId, item.pageId);
+  onGoTo(item.noteId, item.pageId);
 }
 
 function onKey(e) {
@@ -262,7 +272,10 @@ export function initGallery(goTo) {
   // should open the same way there.
   document.addEventListener("dblclick", (e) => {
     const img = e.target.closest?.("img[data-img-id]");
-    if (!img || !img.closest(".note")) return;
+    // A capture still sitting in the tray is not in a `.note` yet — it is
+    // exactly the picture someone grabbed to look at later, and "later" should
+    // not require filing it onto a page first.
+    if (!img || !(img.closest(".note") || img.closest(".tray-item"))) return;
     // Inside the editor a double-click would select the image node, which
     // leaves a highlighted box behind the gallery.
     e.preventDefault();

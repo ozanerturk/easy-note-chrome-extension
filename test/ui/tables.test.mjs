@@ -118,7 +118,15 @@ export default async function run(page, s) {
   check("it leaves a line under it to go on writing on", tail.tag === "P" && tail.empty,
     JSON.stringify(tail));
 
-  await page.settle(200); // the editor takes the caret back on the next frame
+  // The editor takes the caret back on a later frame, and on a busy machine
+  // that is a lot later. Wait for the caret, not for a guess at the frame.
+  await page
+    .waitFor(`(() => {
+      const at = window.getSelection().anchorNode;
+      const cell = at && (at.nodeType === 1 ? at : at.parentElement).closest('td');
+      return cell === document.querySelector('.note.is-active table td');
+    })()`, { timeout: 3000 })
+    .catch(() => {});
   await page.typeKeys("Rope");
   await page.settle();
   check("and the caret starts in the first cell",

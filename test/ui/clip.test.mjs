@@ -148,7 +148,7 @@ export default async function run(page, s) {
     "and the page is the user's again while it fades",
     (await page.evaluate(`getComputedStyle(document.getElementById('easynote-clip')).pointerEvents`)) === "none"
   );
-  await page.settle(2000);
+  await page.pause(2000); // the toast is up for as long as it takes to read
   s.check("and the overlay clears itself once the toast has been read", await gone());
 
   /* --------------------------------------------------------- a failed clip */
@@ -164,7 +164,7 @@ export default async function run(page, s) {
     (await page.evaluate(ui(".toast", "el.textContent"))).startsWith("Couldn't clip"),
     await page.evaluate(ui(".toast", "el.textContent"))
   );
-  await page.settle(2000);
+  await page.pause(2000); // the toast is up for as long as it takes to read
 
   /* -------------------------------------------------------- the saved note */
 

@@ -33,11 +33,37 @@ function separator(bar) {
   bar.appendChild(line);
 }
 
-/** The screen box of what is selected, or null if nothing is. */
-function selectionRect() {
-  const selection = window.getSelection();
-  if (!selection || !selection.rangeCount || selection.isCollapsed) return null;
-  const rect = selection.getRangeAt(0).getBoundingClientRect();
+/**
+ * The screen box of what is selected, or null if nothing is.
+ *
+ * Asked of the editor rather than of window.getSelection(), which is the
+ * document's idea of the selection and not the editor's. The two part company
+ * wherever the browser retargets a selection — inside a shadow root, for one —
+ * and there the bar simply never appeared.
+ */
+function selectionRect(editor) {
+  const { state, view } = editor;
+  if (state.selection.empty) return null;
+  const { from, to } = state.selection;
+  // This runs on every transaction, including ones the view has not caught up
+  // with yet. A throw here would come out inside the editor's own transaction
+  // handling, which is no place to find out about it.
+  let start;
+  let end;
+  try {
+    start = view.coordsAtPos(from);
+    end = view.coordsAtPos(to, -1);
+  } catch {
+    return null;
+  }
+  const rect = {
+    left: Math.min(start.left, end.left),
+    right: Math.max(start.right, end.right),
+    top: Math.min(start.top, end.top),
+    bottom: Math.max(start.bottom, end.bottom),
+  };
+  rect.width = rect.right - rect.left;
+  rect.height = rect.bottom - rect.top;
   return rect.width || rect.height ? rect : null;
 }
 
@@ -150,7 +176,7 @@ export function attachBubble(editor) {
 
   function update() {
     if (!editor.isEditable || editor.isDestroyed || selecting) return hide();
-    const rect = editor.isFocused ? selectionRect() : null;
+    const rect = editor.isFocused ? selectionRect(editor) : null;
     if (!rect) return hide();
     place(rect);
     controls.forEach(({ el, isOn, isOff }) => {

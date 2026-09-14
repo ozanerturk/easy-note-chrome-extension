@@ -7,6 +7,17 @@ Upload package: **`dist/easy-note-3.3.0.zip`** (built by `npm run package`).
 > are the on-device text recognition described below. Nothing about the
 > permissions has changed — there are still four, and still no host
 > permissions.
+>
+> **New in 3.5, and the thing a reviewer will look twice at now:** the manifest
+> declares `<all_urls>` under `optional_host_permissions`, for floating notes.
+> It is optional, not requested at install, and not granted until the user
+> floats a note for the first time — see the host permissions section below.
+> Nothing is injected into any page before that, and nothing stays injected
+> once the last floating note is put away. The manifest also gains
+> `web_accessible_resources`, for one file: `float.html`, the extension page a
+> floating note is drawn in, framed on the pages it floats over. It is listed
+> with `use_dynamic_url`, and draws nothing for a frame the extension did not
+> put there itself.
 
 ## Assets in this folder
 
@@ -43,14 +54,18 @@ The 128×128 store icon is `icons/icon128.png`.
 
 ## Permission justifications
 
-The extension requests **four** permissions and **no host permissions**.
+The extension requests **no host permissions at install**. One optional host
+permission, `<all_urls>`, exists for floating notes and is asked for at the
+moment a user first floats one.
 
-Host permissions were never added: Google's API endpoints answer cross-origin
+No host permission was ever required: Google's API endpoints answer cross-origin
 requests from an extension page without them — the Drive list, upload,
 userinfo and revoke calls all succeed, and a real authenticated sync round trip
 completes. The screen clipper added in 3.2 was deliberately built on
-`activeTab` for the same reason, so the extension still avoids the "in-depth
-review" path the store warns about for broad host access.
+`activeTab` for the same reason. Floating notes, added in 3.5, are the first
+feature that genuinely cannot work that way: a note that follows the user from
+page to page has to be drawn on pages the user has not invoked anything on. It
+is therefore optional and off until asked for.
 
 ### `identity` — paste this
 
@@ -129,19 +144,56 @@ runs in a Web Worker on the user's own machine and the result is cached
 locally so a picture is only ever read once.
 ```
 
-### Host permissions — none requested
+### Host permissions — one, optional, for floating notes
 
-If a field still asks, the honest answer is:
+Nothing is requested at install. `<all_urls>` is declared under
+`optional_host_permissions` and is requested by `chrome.permissions.request()`
+from the click that floats a note.
 
 ```
-This extension requests no host permissions. It calls Google's Drive and
-OAuth endpoints from the extension page using standard cross-origin requests,
-which Google's APIs allow. The screen clipper uses activeTab, which is granted
-per-invocation by the user, rather than standing access to any site.
+Easy Note requests no host permissions at install time. It calls Google's
+Drive and OAuth endpoints from the extension page using standard cross-origin
+requests, which Google's APIs allow, and the screen clipper uses activeTab,
+granted per-invocation by the user.
+
+One optional host permission, <all_urls>, is used for a single feature:
+floating notes. A floating note is a note the user has explicitly chosen to
+keep on screen over every page they visit, which requires drawing it on those
+pages. Easy Note asks for this permission at the moment the user first floats
+a note, never at install, and a user who does not use the feature is never
+asked and never grants it.
+
+The content script that places a floating note is registered dynamically, only
+while at least one note is actually floating, and is unregistered as soon as
+the last one is put away. It reads nothing from the page it is on. It adds one
+iframe per floating note, pointing at the extension's own float.html, and the
+note is drawn inside that frame, from the user's own local database, by the
+extension's own origin; the content script never handles the note's contents.
+No page content, URL or browsing activity is read, stored or transmitted.
 ```
+
+The mechanics, if a reviewer asks: `js/float/background.js` calls
+`chrome.scripting.registerContentScripts` when a note starts floating and
+`unregisterContentScripts` when the last one stops, and refuses to register at
+all while the permission is not granted. `js/float/frames.js` is the injected
+script (~7KB) — dependency-free, and it never touches the host page's DOM
+beyond appending one iframe per floating note to the document element.
+
+`float.html` is the only web-accessible resource. It is listed with
+`use_dynamic_url: true`, so its address changes every session and cannot be
+used to fingerprint the extension, and it renders nothing until the content
+script hands it a per-session token over a private `MessageChannel` — a site
+that frames it itself is shown an empty frame. Everything the frame loads is
+a file inside the package; nothing is fetched at runtime, and `script-src` is
+still `'self'`.
 
 ## Data disclosure
 
+- A floating note is an ordinary note with two extra fields on its record: that
+  it is floating, and the position and size it floats at. Both are stored
+  locally with the note and sync only through the user's own Drive appdata, the
+  same as every other note field. The content script that places it reads
+  nothing from the page it is drawn on.
 - Notes, pages, pasted images, screen clips and the text recognised inside
   pictures are stored **locally in IndexedDB**. Text recognition runs
   on-device, in a worker, from models shipped in the package; no image or

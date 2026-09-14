@@ -20,6 +20,36 @@ function face(ms) {
   return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+// The one moment a timer has something to say without being looked at. A
+// short chime rather than a browser notification: it needs no permission, it
+// is heard from a background tab as readily as the active one, and it asks
+// nothing of anyone who has not set a timer running in the first place.
+function chime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const beep = (at) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime + at;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    };
+    beep(0);
+    beep(0.22);
+    setTimeout(() => ctx.close().catch(() => {}), 700);
+  } catch (err) {
+    // No audio in this context (an unusual browser, a policy block) — the
+    // note still says "done" on screen, which is what it always did.
+  }
+}
+
 function button(label, className) {
   const el = document.createElement("button");
   el.className = className;
@@ -70,6 +100,11 @@ register({
       return left ?? ms ?? 0;
     };
 
+    // Chimed once per run, not once per tick — the ticker reaches `draw` four
+    // times a second, and "done" is true on every one of them until Start or
+    // Reset is pressed.
+    let chimed = false;
+
     const draw = () => {
       const ms = remaining();
       const running = !!api.state.endsAt;
@@ -82,6 +117,12 @@ register({
       go.disabled = !running && ms === 0;
       root.classList.toggle("is-running", running && !done);
       root.classList.toggle("is-done", done);
+      if (done && !chimed) {
+        chimed = true;
+        chime();
+      } else if (!done) {
+        chimed = false;
+      }
     };
 
     go.addEventListener("click", () => {

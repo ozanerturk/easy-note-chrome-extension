@@ -6,6 +6,7 @@
 // the small amount of schema knowledge a clip needs is restated here instead.
 
 import { openOnce, getAll, put, NOTES, IMAGES, PAGES, TRAY_ID } from "../db.js";
+import { textIn } from "../ocr.js";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 520;
@@ -37,6 +38,14 @@ export async function saveClip({ blob, width, height, scale, url, title }) {
 
   const imgId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await put(IMAGES, { id: imgId, blob });
+  // Read now, while the picture is still on screen and the reason for
+  // clipping it is fresh — not later, only if someone happens to open it. The
+  // answer is cached (see ocr.js), so this is the only time it ever runs for
+  // this image; a page that never gets opened still ends up searchable. A
+  // picture this can't read (no worker in this browser, nothing readable on
+  // it) fails the same way opening it later would: silently, with nothing
+  // else in the app any worse off for having tried early.
+  textIn(imgId).catch(() => {});
 
   const pageId = await ensureTray();
   const cssWidth = Math.max(1, width / scale);
@@ -87,7 +96,10 @@ function clipHtml(imgId, url, title) {
 //
 // The tray is a reserved page. It is created on first use rather than at
 // install, so a profile that never clips never grows one.
-async function ensureTray() {
+//
+// Exported because a floating note made from a webpage arrives the same way and
+// for the same reason: it came from out there, and it has not been filed yet.
+export async function ensureTray() {
   const existing = (await getAll(PAGES)).find((p) => p.id === TRAY_ID);
   if (existing && !existing.deleted) return TRAY_ID;
 

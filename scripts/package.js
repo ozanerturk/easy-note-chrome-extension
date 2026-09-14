@@ -20,6 +20,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "u
 const INCLUDE = [
   "manifest.json",
   "newtab.html",
+  "float.html", // a floating note, framed on the pages it floats over
   "css",
   "js",
   "icons",

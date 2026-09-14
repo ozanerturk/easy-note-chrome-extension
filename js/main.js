@@ -70,10 +70,14 @@ import { showMenu } from "./menu.js";
 import { hideUndo } from "./undo.js";
 import { undo, redo, clearHistory } from "./history.js";
 import { purgeTombstones } from "./note.js";
+// The board is where notes are placed, dragged and filed. Imported for what it
+// does on arrival: it tells note.js that notes drawn here belong on the canvas.
+import "./board-note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
 import { PAGES, LISTS } from "./db.js";
 import { drawBoard } from "./board.js";
 import { registerSyncedStore } from "./sync.js";
+import { syncFloating } from "./floating.js";
 
 // Lists ride the same document as notes and pages. Registered here rather than
 // in list.js so that everything that crosses the wire is declared in one place.
@@ -331,6 +335,18 @@ document.getElementById("toggle-blur").addEventListener("click", () => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (!msg || msg.type !== "easynote:clip-saved") return;
   markUsed("clip");
+  refreshTray();
+});
+
+// A note made from a webpage's right-click, which the worker writes straight
+// into the database, or one floated or put away somewhere else. Words typed
+// into a floating note arrive by another road — see adoptRecord in note.js —
+// but whether a note is floating at all is announced from here.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.type !== "easynote:float-changed") return;
+  syncFloating().catch(() => {});
+  // A note made out on a webpage lands in the Capture tray, exactly as a clip
+  // does — so the tray has to redraw for the same reason a clip makes it.
   refreshTray();
 });
 

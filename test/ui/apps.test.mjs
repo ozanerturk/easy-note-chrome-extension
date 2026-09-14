@@ -94,13 +94,13 @@ export default async function run(page, s) {
     !!(stored && stored.state.endsAt) && stored.state.left === null,
     JSON.stringify(stored && stored.state));
 
-  await page.settle(1300);
+  await page.pause(1300); // a clock that has to tick
   const ticking = await face(page);
   check("the face counts down", ticking !== "10:00" && ticking < "10:00", ticking);
 
   // The real test of a deadline: throw the page away and come back.
   await page.reload();
-  await page.settle(300);
+  await page.pause(1000); // at least one more tick, however quickly the page came back
   const afterReload = await face(page);
   check("a running timer survives a reload", afterReload !== null && afterReload < ticking,
     `${ticking} -> ${afterReload}`);
@@ -112,7 +112,7 @@ export default async function run(page, s) {
   stored = await record(page);
   check("pausing puts the clock back as a duration",
     stored.state.endsAt === null && stored.state.left > 0, JSON.stringify(stored.state));
-  await page.settle(900);
+  await page.pause(900);
   check("a paused timer stays where it was", (await face(page)) === paused, `${paused} -> ${await face(page)}`);
 
   await press(page, "Reset");

@@ -544,6 +544,9 @@ const dueCursor = new Map();
 // so. Its page says it instead — a count you can click through, rather than
 // only a nudge that something somewhere needs attention.
 export function markDuePages() {
+  // A note floating over a webpage runs this module too, and has no page tree
+  // to mark. Throwing here took the rest of setting a reminder down with it.
+  if (!treeRoot) return;
   const due = duePageIds();
   treeRoot.querySelectorAll("[data-page-id]").forEach((row) => {
     const pageId = row.dataset.pageId;
@@ -572,7 +575,7 @@ function visitNextDue(pageId) {
 }
 
 // One hop per spell of being due, as with the notes themselves.
-treeRoot.addEventListener("animationend", (e) => {
+treeRoot?.addEventListener("animationend", (e) => {
   if (e.animationName !== "name-wiggle") return;
   e.target.closest(".page-row")?.classList.add("has-hopped");
 });

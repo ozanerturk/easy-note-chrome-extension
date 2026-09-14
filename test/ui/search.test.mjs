@@ -150,7 +150,7 @@ export default async function run(page, s) {
     ["<p>apple pie</p>", "<p>banana bread</p>", "<p>banana split</p>", "<p>cherry tart</p>"].join());
 
   await spaceDown();
-  await page.settle(600);
+  await page.pause(600); // a hold that has to be held
   await spaceUp();
   await settled();
   check("nor does Space held and let go", (await state()).open === false);

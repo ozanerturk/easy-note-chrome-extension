@@ -67,7 +67,7 @@ export default async function run(page, s) {
   check("the picture opens", (await isOpen()) === true);
 
   const started = Date.now();
-  while (!(await words()) && Date.now() - started < PATIENCE_MS) await sleep(500);
+  while (!(await words()) && Date.now() - started < PATIENCE_MS) await sleep(100);
 
   const found = await words();
   check(`the engine runs entirely inside the extension`, found > 0,
@@ -122,7 +122,7 @@ export default async function run(page, s) {
 
   const blankStarted = Date.now();
   while (!(await page.stored("meta")).some((r) => r.id === "ocr:blank")
-    && Date.now() - blankStarted < PATIENCE_MS) await sleep(500);
+    && Date.now() - blankStarted < PATIENCE_MS) await sleep(100);
 
   check("a picture with no writing on it is asked once", true,
     `${Math.round((Date.now() - blankStarted) / 1000)}s`);

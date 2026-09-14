@@ -36,13 +36,19 @@ const canInject = (url) => !!url && !BLOCKED.some((re) => re.test(url));
 /* --------------------------------------------------------------- triggers */
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
+  // Created by id rather than after a removeAll. This used to wipe the menu
+  // first, which was fine while the clipper was the only thing in it — now
+  // that floating notes have an item of their own, a removeAll here is a race
+  // that can delete whichever half registered first. Creating the same id
+  // twice is an error rather than a no-op, so it is answered and ignored.
+  chrome.contextMenus.create(
+    {
       id: MENU_ID,
       title: "Clip to Easy Note",
       contexts: ["page", "selection", "image", "link"],
-    });
-  });
+    },
+    () => void chrome.runtime.lastError
+  );
 });
 
 chrome.action.onClicked.addListener((tab) => startCapture(tab));

@@ -984,6 +984,9 @@ body.is-resizing #sidebar {
   .note.is-due,
   .note.is-found,
   .note.is-found.has-hopped,
+  /* The lift stays — it is what says the note is floating. Only the bob goes. */
+  .note.is-floating,
+  .note.is-floating::after,
   .page-row.has-due:not(.is-current) .page-name {
     animation: none;
   }
@@ -1021,6 +1024,15 @@ body.is-resizing #sidebar {
 
 .note-body p {
   margin: 0;
+}
+
+/* A blank line between two written ones is part of what was written, so the
+   note has to keep it. The editor draws an empty paragraph with a <br> inside
+   and it stands up on its own; the markup we store is a bare <p>, which has no
+   line box at all — so the gap was there while the note was open and gone the
+   moment it went idle. */
+.note-body p:empty {
+  min-height: 1.4em;
 }
 
 .note-body p + p,
@@ -2092,6 +2104,20 @@ body.is-resizing #sidebar {
   background: var(--surface-2);
 }
 
+/* A capture that is words rather than a picture. The card is the same size and
+   the same card; only what is inside it differs. */
+.tray-words {
+  display: block;
+  overflow: hidden;
+  padding: 8px 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .tray-caption {
   display: block;
   padding: 4px 6px 5px;
@@ -2457,6 +2483,17 @@ body.is-resizing #sidebar {
   font-size: 10px;
   line-height: 1;
   opacity: 0.75;
+  cursor: pointer;
+}
+
+/* Locked hides by default — a quick toggle, not a password: the words are
+   still in the database, just not on screen until the eye is clicked. Content
+   only; the header and footer stay legible so there is still something to
+   click. Never persisted — see the `revealed` WeakMap in note.js. */
+.note.content-hidden .note-body {
+  filter: blur(8px);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* -------------------------------------------------------------- gallery */
@@ -2711,3 +2748,87 @@ body.is-resizing #sidebar {
 #gallery-close {
   font-size: 13px;
 }
+
+/* A note that is floating.
+   It stays exactly where it is on the board — floating is about the pages you
+   visit, not about this one — so all it needs here is to be recognisable as
+   one. A lift off the canvas, and a bob slow enough to read as "this is
+   somewhere else too" rather than as something demanding attention. */
+.note.is-floating,
+/* An unfilled note draws no shadow at all, and gains an inset edge when it is
+   reached for — both of which out-specify a bare .is-floating and would leave
+   the one note that is floating looking like every note that is not. */
+.note.is-floating.is-clear,
+.note.is-floating.is-clear:hover,
+.note.is-floating.is-clear.is-active {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--accent-soft);
+}
+
+/* Hover.css's hvr-bob, always on: lifted eight pixels, easing down to four and
+   back. On `translate` rather than `transform`, so the hop a note does when it
+   is due or found plays on top of it instead of stopping it; on a compositor
+   layer of its own, so the travel is a glide rather than a few one-pixel steps
+   of text. Every floating note keeps the same clock — floating.js starts each
+   one that far into its cycle — so however they were floated, they rise and
+   fall together. AFLOAT_MS in floating.js is this 1.5s. */
+.note.is-floating {
+  animation: note-afloat 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate;
+  will-change: translate;
+}
+
+@keyframes note-afloat {
+  0% { translate: 0 -8px; }
+  50% { translate: 0 -4px; }
+  100% { translate: 0 -8px; }
+}
+
+/* Its shadow on the ground. It stays where the note would rest — moving down
+   exactly as far as the note moves up, so it does not ride along — and it is
+   smaller and fainter the higher the note is, wider and darker as it comes down. */
+.note.is-floating::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: calc(100% + 4px);
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: -1;
+  animation: note-afloat-shadow 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate;
+  will-change: translate, scale, opacity;
+}
+
+@keyframes note-afloat-shadow {
+  0% { translate: 0 8px; scale: 0.78; opacity: 0.5; }
+  50% { translate: 0 4px; scale: 1; opacity: 0.9; }
+  100% { translate: 0 8px; scale: 0.78; opacity: 0.5; }
+}
+
+/* Due, or found by search: the hop, once, with the bob carrying on under it.
+   The bob is listed first so it keeps its place and does not restart. */
+.note.is-floating.is-due:not(.has-hopped):not(.is-active),
+.note.is-floating.is-found,
+.note.is-floating.is-found.has-hopped {
+  animation:
+    note-afloat 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate,
+    note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+/* A note being carried is already moving, and a note blown up to fill the
+   screen has left the board behind. Neither should also be bobbing. */
+#drag-layer .note.is-floating,
+.note.is-floating.is-fullscreen {
+  animation: none;
+}
+
+/* Carried, blown up, or a row in a list: there is no ground under it there. */
+#drag-layer .note.is-floating::after,
+.note.is-floating.is-fullscreen::after,
+.note.is-floating.is-listed::after {
+  display: none;
+}
+
+
