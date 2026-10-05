@@ -2,19 +2,22 @@
 //
 // A note is full of things that look like arithmetic and are not — dates,
 // phone numbers, "3-4 people", "and/or". So this is deliberately narrow: a run
-// of digits and + - * / ( ) at the end of the line, standing on its own, with
-// at least one operator between two numbers in it. Anything unsure is not a
-// sum; a missed answer costs nothing, a wrong one in the middle of a sentence
-// is noise.
+// of digits and + - * / % ** ( ) at the end of the line, standing on its own,
+// with at least one operator between two numbers in it. Anything unsure is not
+// a sum; a missed answer costs nothing, a wrong one in the middle of a
+// sentence is noise.
 //
 // Pure, and handed its evaluator, so the rules can be tested in node.
 
 // The characters a sum is made of. Letters, units, currency, commas and "="
-// are not among them, so none of those can ever reach the evaluator.
-const TAIL = /[\d.+\-*/() ]+$/;
+// are not among them, so none of those can ever reach the evaluator. "**" is
+// Python's spelling for power, alongside "%" for remainder.
+const TAIL = /[\d.+\-*/%() ]+$/;
 
-// Two numbers with an operator between them: "12*3", "(4 + 5)", "2 - -1".
-const BINARY = /[\d.)]\s*[+\-*/]\s*[-(.\d]/;
+// Two numbers with an operator between them: "12*3", "(4 + 5)", "2 - -1",
+// "2**3", "7%2". "**" is checked before the single-character operators so a
+// power is not read as two multiplications.
+const BINARY = /[\d.)]\s*(?:\*\*|[+\-*/%])\s*[-(.\d]/;
 
 // 2024-01-05, 555-123-4567, 1/5/2024: three or more runs of digits joined by
 // the same one of - or /, with no spaces. Arithmetic, technically; not what
@@ -62,7 +65,8 @@ export function formatResult(value) {
 /** Evaluate an expression and format its answer, or null if it has none. */
 export function calculate(expr, evaluate) {
   try {
-    return formatResult(evaluate(expr));
+    // The evaluator speaks "^" for power, not Python's "**".
+    return formatResult(evaluate(expr.replace(/\*\*/g, "^")));
   } catch (e) {
     return null; // "2+*3", "(4", and friends: no answer, and no fuss
   }

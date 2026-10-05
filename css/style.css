@@ -669,7 +669,7 @@ body.is-resizing #sidebar {
   height: 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 2px;
   /* No slab. It held five buttons once and had to be a surface to hold them;
      it holds one now, and a white bar hanging over every open note was the
@@ -706,7 +706,9 @@ body.is-resizing #sidebar {
   transform: none;
 }
 
-/* Resizing, now that the note cannot use the CSS resizer. */
+/* Resizing, now that the note cannot use the CSS resizer. No mark drawn in
+   the corner — a resizable box's own corner is affordance enough — just the
+   cursor change and the hit area to drag. */
 .note-grip {
   position: absolute;
   right: 0;
@@ -714,25 +716,13 @@ body.is-resizing #sidebar {
   width: 16px;
   height: 16px;
   cursor: nwse-resize;
-  opacity: 0;
-  transition: opacity 0.12s;
 }
 
-.note-grip::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid rgba(0, 0, 0, 0.3);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.3);
-  border-bottom-right-radius: 3px;
-}
-
-.note:hover > .note-grip,
-.note.is-active > .note-grip {
-  opacity: 1;
+/* The same grip, mirrored to the bottom-left corner. */
+.note-grip-left {
+  left: 0;
+  right: auto;
+  cursor: nesw-resize;
 }
 
 .note.is-fullscreen > .note-grip,
@@ -753,13 +743,7 @@ body.is-resizing #sidebar {
   cursor: grabbing;
 }
 
-.note-tools {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-
-/* The only button left on a note. Quiet until reached for. */
+/* The only button on a note. Quiet until reached for. */
 .note-btn-more {
   font-size: 13px;
   letter-spacing: 0.5px;
@@ -837,17 +821,6 @@ body.is-resizing #sidebar {
   :root:not([data-theme="light"]) .note.is-clear {
     color: var(--text);
   }
-}
-
-/* A locked note is pinned: it cannot be dragged or deleted. Resizing is still
-   allowed — the lock is about where it is, not how big. */
-.note.is-locked {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--note-edge);
-}
-
-.note.is-clear.is-locked,
-.note.is-clear.is-locked:hover {
-  box-shadow: inset 0 0 0 1px var(--note-edge);
 }
 
 /* Hung just under the note rather than inside it, so appearing on hover moves
@@ -2537,25 +2510,6 @@ body.is-resizing #sidebar {
    when it happens the tip steps up rather than sitting on top of the offer. */
 #toast:has(~ #undo-bar.is-open) {
   bottom: calc(112px + var(--tray-h));
-}
-
-/* ---------------------------------------------------------- the lock mark */
-
-.note-lock-mark {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.75;
-  cursor: pointer;
-}
-
-/* Locked hides by default — a quick toggle, not a password: the words are
-   still in the database, just not on screen until the eye is clicked. Content
-   only; the header and footer stay legible so there is still something to
-   click. Never persisted — see the `revealed` WeakMap in note.js. */
-.note.content-hidden .note-body {
-  filter: blur(8px);
-  pointer-events: none;
-  user-select: none;
 }
 
 /* -------------------------------------------------------------- gallery */

@@ -150,10 +150,8 @@ async function run(query) {
   const live = records
     // Captures are excluded: an unfiled one is already on screen in the tray,
     // and search's job is to take you to a note on a board — which a capture,
-    // by definition, is not on yet. A locked note hides its own content on
-    // purpose, and a search hit would show that content in the results list —
-    // so it is left out entirely while locked, the same as if it said nothing.
-    .filter((r) => !r.deleted && r.pageId !== TRAY_ID && !r.locked)
+    // by definition, is not on yet.
+    .filter((r) => !r.deleted && r.pageId !== TRAY_ID)
     .map((r) => {
       const ocr = imgIdsIn(r.html)
         .map((id) => ocrByImage.get(id))

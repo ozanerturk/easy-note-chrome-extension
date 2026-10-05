@@ -461,8 +461,7 @@ function makeListDraggable(el, list, head) {
     let moved = false;
 
     // Picked out with other things, it carries them: the other lists, and the
-    // loose notes, all by the same amount. Cards stay in their lists, and a
-    // locked note stays where it was put, as it does in any group drag.
+    // loose notes, all by the same amount. Cards stay in their lists.
     const group = selectionSize() > 1;
     const carriedLists = (group ? [...selectedLists] : [list.id])
       .map((id) => lists.get(id))
@@ -470,7 +469,7 @@ function makeListDraggable(el, list, head) {
       .map((entry) => ({ ...entry, from: { x: entry.list.x, y: entry.list.y } }));
     const carriedNotes = group
       ? selectedList()
-          .filter(({ note }) => !note.listId && !note.locked)
+          .filter(({ note }) => !note.listId)
           .map((entry) => ({ ...entry, from: { x: entry.note.x, y: entry.note.y } }))
       : [];
     // The group stops at the origin by its top-left corner, keeping its shape.

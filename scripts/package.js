@@ -21,6 +21,7 @@ const INCLUDE = [
   "manifest.json",
   "newtab.html",
   "float.html", // a floating note, framed on the pages it floats over
+  "offscreen.html", // a hidden document the clipper writes the clipboard from
   "css",
   "js",
   "icons",

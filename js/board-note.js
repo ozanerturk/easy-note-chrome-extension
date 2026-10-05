@@ -91,7 +91,7 @@ setNoteHost({
     if (!mountCard(note, el)) world.appendChild(el);
   },
 
-  wire(note, el, grip) {
+  wire(note, el, grip, gripLeft) {
     el.addEventListener(
       "pointerdown",
       (e) => {
@@ -104,7 +104,8 @@ setNoteHost({
       true
     );
     makeDraggable(el, note);
-    makeResizable(el, note, grip);
+    makeResizable(el, note, grip, "se");
+    makeResizable(el, note, gripLeft, "sw");
     el.__observer = observeResize(el, note);
   },
 
@@ -154,7 +155,7 @@ setNoteHost({
  * they stood. Cards already in a list stay where they are.
  */
 function listFromNotes(entries) {
-  const loose = entries.filter(({ note }) => !note.listId && !note.locked);
+  const loose = entries.filter(({ note }) => !note.listId);
   if (!loose.length) return null;
   const list = createList(
     Math.min(...loose.map(({ note }) => note.x)),
@@ -392,10 +393,10 @@ function makeDraggable(el, note) {
     // off currentPageId at the end.
     const homePageId = currentPageId;
 
-    // Dragging any member of a multi-selection moves the whole group — bar
-    // the locked ones, which stay exactly where they were put. Picked-out
-    // lists come too, cards and all; a card whose list is coming stays in it
-    // rather than being lifted out, unless it is the one in your hand.
+    // Dragging any member of a multi-selection moves the whole group.
+    // Picked-out lists come too, cards and all; a card whose list is coming
+    // stays in it rather than being lifted out, unless it is the one in your
+    // hand.
     const grouped = isSelected(note.id) && selectionSize() > 1;
     const group = grouped
       ? selectedList().filter((entry) => entry.note.id === note.id || !(entry.note.listId && isListSelected(entry.note.listId)))
@@ -419,7 +420,6 @@ function makeDraggable(el, note) {
     const keepLists = () => carriedLists.forEach((c) => placeList(c.list, { x: c.list.x, y: c.list.y }));
     const listMoves = () => carriedLists.map((c) => ({ list: c.list, from: c.from }));
     const anchored = group
-      .filter((entry) => !entry.note.locked)
       .map((entry) => {
         // A note in a list has no meaningful place on the canvas: its stored
         // x/y is wherever it sat before it was filed, which may be far off
@@ -683,7 +683,12 @@ function makeDraggable(el, note) {
 // CSS `resize: both` was doing this, but it forces overflow:hidden on the
 // note — which would clip the header popover against the note's own edge.
 // Fifteen lines buys the popover its room, and a grip we can style.
-function makeResizable(el, note, grip) {
+//
+// `corner` is "se" (grip at bottom-right, the default) or "sw" (bottom-left):
+// dragging the left corner grows the note leftward, moving `note.x` along
+// with it while the opposite edge holds still — same idea as the right grip,
+// mirrored.
+function makeResizable(el, note, grip, corner = "se") {
   grip.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || note.fullscreen) return;
     // In a list the column owns the width and the words own the height. The
@@ -696,6 +701,8 @@ function makeResizable(el, note, grip) {
     const startY = e.clientY;
     const startW = el.offsetWidth;
     const startH = el.offsetHeight;
+    const startLeft = note.x;
+    const rightEdge = startLeft + startW; // what the sw grip holds still
 
     const stopListening = () => {
       window.removeEventListener("pointermove", onMove);
@@ -705,17 +712,32 @@ function makeResizable(el, note, grip) {
 
     const onMove = (m) => {
       // Screen delta -> world delta, as everywhere else on the canvas.
-      el.style.width = `${startW + (m.clientX - startX) / view.zoom}px`;
+      const dx = (m.clientX - startX) / view.zoom;
       el.style.height = `${startH + (m.clientY - startY) / view.zoom}px`;
+      if (corner === "sw") {
+        el.style.width = `${startW - dx}px`;
+        // Read back the width CSS actually settled on (min-width can clamp
+        // it) so the fixed right edge does not drift while it is clamped.
+        el.style.left = `${rightEdge - el.offsetWidth}px`;
+      } else {
+        el.style.width = `${startW + dx}px`;
+      }
     };
 
     const onUp = () => {
       stopListening();
       note.width = el.offsetWidth;
       note.height = el.offsetHeight;
+      note.x = parseFloat(el.style.left) || note.x;
       if (note.width === startW && note.height === startH) return; // a grab, not a resize
       saveNote(note);
-      record(resizeStep(note, { width: startW, height: startH }, { width: note.width, height: note.height }));
+      record(
+        resizeStep(
+          note,
+          { x: startLeft, width: startW, height: startH },
+          { x: note.x, width: note.width, height: note.height }
+        )
+      );
     };
 
     // Escape abandons a resize the way it abandons a drag, and for the same
@@ -725,7 +747,7 @@ function makeResizable(el, note, grip) {
       keyEvent.preventDefault();
       keyEvent.stopPropagation();
       stopListening();
-      applyBox(note, { width: startW, height: startH });
+      applyBox(note, { x: startLeft, width: startW, height: startH });
     };
 
     window.addEventListener("pointermove", onMove);

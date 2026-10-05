@@ -93,7 +93,32 @@ export async function textIn(imgId) {
   return found && found.words.length ? found : null;
 }
 
+// Already inside the shared queue by the time this runs — textIn enqueues
+// it — so this calls the unqueued worker directly rather than through
+// recognize(), which would enqueue a second time and deadlock against itself.
 async function read(imgId, blob) {
+  const found = await recognizeNow(blob);
+  if (!found) return null;
+  // Kept even when empty: a picture with no writing on it should be asked
+  // once and then left alone.
+  await put(META, { id: cacheKey(imgId), ...found, at: Date.now() }).catch(() => {});
+  return found;
+}
+
+/**
+ * The words in a picture that was never stored, for a caller with nothing to
+ * key a cache by — the clipper reading a region before it has decided to keep
+ * it, say. Same engine and queue as textIn, same shape of answer, but nothing
+ * here is written down: ask twice and it is read twice.
+ *
+ * @returns { text, words: [{ t, x, y, w, h }] } or null if there are none.
+ */
+export async function recognize(blob) {
+  const found = await enqueue(() => recognizeNow(blob));
+  return found && found.words.length ? found : null;
+}
+
+async function recognizeNow(blob) {
   let size;
   try {
     const bitmap = await createImageBitmap(blob);
@@ -138,9 +163,5 @@ async function read(imgId, blob) {
     )
   );
 
-  const found = { text: (data.text || "").trim(), words };
-  // Kept even when empty: a picture with no writing on it should be asked
-  // once and then left alone.
-  await put(META, { id: cacheKey(imgId), ...found, at: Date.now() }).catch(() => {});
-  return found;
+  return { text: (data.text || "").trim(), words };
 }

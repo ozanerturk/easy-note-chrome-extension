@@ -10,7 +10,7 @@
 
 import { NOTES, TRAY_ID, getAll, getOne, put } from "./db.js";
 import { inBounds } from "./origin.js";
-import { imageIdsIn, imageUrlFor, updateHint } from "./note.js";
+import { imageIdsIn, imageUrlFor, updateHint, NO_FILL } from "./note.js";
 import { loadNote } from "./board-note.js";
 import { currentPageId, dropTargetAt, moveNotesToPage, setDraggedNotes } from "./pages.js";
 import { offerUndo } from "./undo.js";
@@ -22,6 +22,12 @@ const OPEN_HEIGHT = 124;
 const COLLAPSED_HEIGHT = 30;
 const THUMB_WIDTH = 132;
 const DRAG_THRESHOLD = 4;
+// The row the shot sits in is a fixed height, so its own height only ever
+// hints at whether the note is wide or tall — never its real aspect ratio,
+// which could run the card off the bottom of the strip.
+const SHOT_HEIGHT = 58;
+const SHOT_HEIGHT_MIN = 46;
+const SHOT_HEIGHT_MAX = 66;
 
 // Aging is presentation only. A capture from this morning and one from last
 // month are equally safe; the older one just stops competing for attention.
@@ -67,7 +73,14 @@ function sourceOf(note) {
   holder.innerHTML = note.html || "";
   const link = holder.querySelector("a[href]");
   const text = holder.textContent.replace(/\s+/g, " ").trim();
-  return { label: text || "Capture", href: link ? link.getAttribute("href") : "" };
+  // A note still empty — made on a page but never written in — has nothing
+  // of its own to show; the page it came from is the next best thing to
+  // tell it apart from every other blank capture.
+  const fallback = (note.sourceTitle || "").trim();
+  return {
+    label: text || fallback || "Capture",
+    href: link ? link.getAttribute("href") : note.sourceUrl || "",
+  };
 }
 
 function thumbFor(note) {
@@ -95,6 +108,17 @@ function thumbFor(note) {
     shot = document.createElement("div");
     shot.className = "tray-shot tray-words";
     shot.textContent = label;
+    // The fill the note itself was given — a note picked out in colour on the
+    // board should still be that colour here, not the plain card every other
+    // capture gets.
+    const fill = note.color || NO_FILL;
+    if (fill !== NO_FILL) shot.style.background = fill;
+  }
+  // A hint of the note's own shape, not its real size — the row only has so
+  // much room. A wide note reads a little flatter, a tall one a little deeper.
+  if (note.width && note.height) {
+    const hinted = Math.round((SHOT_HEIGHT * note.height) / note.width);
+    shot.style.height = `${Math.max(SHOT_HEIGHT_MIN, Math.min(SHOT_HEIGHT_MAX, hinted))}px`;
   }
 
   const caption = document.createElement("span");

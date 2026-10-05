@@ -181,16 +181,19 @@ const host = {
     });
   },
 
-  wire(n, element, grip) {
+  wire(n, element, grip, gripLeft) {
     carry(element);
-    stretch(grip);
+    stretch(grip, "se");
+    stretch(gripLeft, "sw");
   },
 
   gang: (n, element) => [{ note: n, el: element }],
 
-  // The note's own way back down. None of the board's rows — floating another
-  // note, gathering notes into a list — mean anything in here.
-  menu: () => ({ modes: [{ label: "Unfloat", run: putAway }] }),
+  // The note's own way back down, first and above the colours — the one
+  // thing about a floating note that is about this being a floating note.
+  // None of the board's rows — filing, gathering notes into a list — mean
+  // anything in here, and there is no other board here to copy a note onto.
+  menu: () => ({ top: [{ label: "Unfloat", run: putAway }], copy: false }),
 
   // Written somewhere else — moved in another tab, put away from the board.
   adopted(n) {
@@ -531,16 +534,22 @@ function carry(element) {
   });
 }
 
-function stretch(grip) {
+// "sw" mirrors "se": the left grip grows the note leftward, sliding `x` back
+// by however much the (clamped) width actually grew, so the right edge holds
+// still — same idea as the board's own sw grip in board-note.js.
+function stretch(grip, corner = "se") {
   grip.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || note.fullscreen) return;
     e.preventDefault();
     e.stopPropagation(); // not a drag of the note itself
-    follow(e, (start, dx, dy) => ({
-      ...start,
-      width: Math.max(MIN_WIDTH, start.width + dx),
-      height: Math.max(MIN_HEIGHT, start.height + dy),
-    }));
+    follow(e, (start, dx, dy) => {
+      const height = Math.max(MIN_HEIGHT, start.height + dy);
+      if (corner === "sw") {
+        const width = Math.max(MIN_WIDTH, start.width - dx);
+        return { ...start, x: start.x + (start.width - width), width, height };
+      }
+      return { ...start, width: Math.max(MIN_WIDTH, start.width + dx), height };
+    });
   });
 }
 
@@ -607,7 +616,8 @@ function follow(down, next, tap, { tuckIfOffEdge = false } = {}) {
 // but its last rung is different. Over a webpage, putting a note away means
 // tucking it to the side of the page, out of the way and one click from back;
 // taking it off every page is Unfloat, in its menu. Held down, Escape tucks
-// away every floating note at once.
+// away every floating note at once — and held again once they all already
+// are, it is the way back out instead, same as tapping every tab in turn.
 //
 // Decided when the key comes up rather than when it goes down, since until
 // then a press and the start of a hold are the same thing.
@@ -648,9 +658,16 @@ window.addEventListener("blur", () => {
 });
 
 // Every floating note to the side, each given its tab in turn so that no two
-// end up on top of each other.
+// end up on top of each other. Held again with every one of them already
+// tucked, it means the opposite: bring them all back out, the same hold
+// undoing what the last one did rather than being a one-way door.
 async function tuckAll() {
   const records = await floatingRecords();
+  if (note.floatingTucked && records.every((n) => n.id === id || n.floatingTucked)) {
+    untuckAll(records);
+    return;
+  }
+
   const taken = tabsTaken(records);
   const v = viewport();
   if (!note.floatingTucked) {
@@ -670,4 +687,11 @@ async function tuckAll() {
       // Taken in by its own frames, on every open page.
       patchNote(n.id, { floatingTucked: spot });
     });
+}
+
+function untuckAll(records) {
+  delete note.floatingTucked;
+  slide();
+  saveNote(note);
+  records.filter((n) => n.id !== id && n.floatingTucked).forEach((n) => patchNote(n.id, { floatingTucked: undefined }));
 }

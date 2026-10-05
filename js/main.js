@@ -53,7 +53,7 @@ import {
   setReselectHandler,
 } from "./pages.js";
 import { initSearch, setSearchPickHandler, open as openSearch } from "./search.js";
-import { initGallery } from "./gallery.js";
+import { initGallery, galleryIsOpen } from "./gallery.js";
 import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
 import { toast } from "./toast.js";
@@ -240,11 +240,14 @@ async function pasteOntoCanvas(x, y, { formatted }) {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (isEditing()) return;
+  // The gallery has its own picture up, with its own selectable text over it —
+  // the board's notes are not what Delete or ⌘C means while that is open, even
+  // though the note underneath is still nominally "selected".
+  if (isEditing() || galleryIsOpen()) return;
 
   if ((e.key === "Delete" || e.key === "Backspace") && selectedList().length) {
     e.preventDefault();
-    selectedList().forEach(({ note, el }) => deleteNote(note, el)); // locked notes survive
+    selectedList().forEach(({ note, el }) => deleteNote(note, el));
     return;
   }
   // ⌘C / ⌘X out here are about the notes themselves, not the words in them —

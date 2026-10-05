@@ -85,9 +85,14 @@ export async function createFloating(info, tab) {
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
     html: text ? textToHtml(text, info.pageUrl) : "",
+    // Where it came from, kept even when the note itself is blank — so the
+    // tray, faced with several empty notes made on different pages, has
+    // something other than "Capture" to tell them apart by. Never shown
+    // inside the note itself; an empty note stays exactly that.
+    sourceTitle: (tab && tab.title) || "",
+    sourceUrl: /^https?:\/\//i.test(info.pageUrl || "") ? info.pageUrl : "",
     color: "transparent",
     z: records.reduce((top, n) => Math.max(top, n.z || 0), 0) + 1,
-    locked: false,
     createdAt: now,
     editedAt: now,
     updatedAt: now,

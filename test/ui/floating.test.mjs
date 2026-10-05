@@ -432,7 +432,7 @@ async function webpage(browser, site, check) {
   await board.seed("notes", [{
     id: "afloat", x: 320, y: 220, width: 260, height: 190,
     html: '<p>written on the board</p><img data-img-id="img-afloat"><p>after the picture</p>',
-    color: "#fff6a3", z: 1, locked: false, createdAt: now, editedAt: now, updatedAt: now,
+    color: "#fff6a3", z: 1, createdAt: now, editedAt: now, updatedAt: now,
   }]);
 
   await noteMenu(board, "afloat");
@@ -725,9 +725,11 @@ async function webpage(browser, site, check) {
   check("[web] right-clicking it opens the note's own menu", menuUp);
   if (menuUp) {
     const labels = await frame.evaluate(`[...document.querySelectorAll('.ctx-item')].map((b) => b.textContent)`);
-    check("[web] with everything a note's menu has", labels.includes("Copy note") && labels.includes("Delete note") && labels.includes("Lock"),
+    check("[web] with everything a note's menu has", labels.includes("Delete note") && labels.includes("Fullscreen"),
       labels.join(", "));
-    check("[web] and the way back down", labels.includes("Unfloat"));
+    check("[web] and the way back down, first of all", labels[0] === "Unfloat", labels.join(", "));
+    check("[web] with no copy on a page with no other board to copy onto",
+      !labels.includes("Copy note"), labels.join(", "));
     check("[web] but nothing that only means something on a board",
       !labels.includes("Float") && !labels.some((l) => l.startsWith("Put these")), labels.join(", "));
     const menu = await rectIn(".ctx-menu");
@@ -768,7 +770,7 @@ async function webpage(browser, site, check) {
   // is already open has to be sent the note. And an app floats as what it is.
   await board.seed("notes", [{
     id: "afloat-timer", app: "timer", x: 760, y: 240, width: 220, height: 150, html: "",
-    color: "transparent", z: 2, locked: false, createdAt: now, editedAt: now, updatedAt: Date.now(),
+    color: "transparent", z: 2, createdAt: now, editedAt: now, updatedAt: Date.now(),
   }]);
   await noteMenu(board, "afloat-timer");
   await pick(board, "Float");
@@ -916,6 +918,29 @@ async function webpage(browser, site, check) {
   const otherFrame = await browser.frame("float.html?id=afloat-timer").catch(() => null);
   check("[web] and their frames take it in, with no reload",
     !!otherFrame && (await yes(otherFrame.waitFor(`!!document.querySelector('.note.is-tucked')`, { timeout: 5000 }))));
+
+  /* ------------------------------------- held again: a toggle, not a ratchet */
+
+  await web.cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...escape });
+  await web.pause(800);
+  await web.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...escape });
+  const backOut = await until(async () => {
+    const afloat = (await board.stored("notes")).filter((n) => n.floating && !n.deleted);
+    return afloat.length >= 2 && afloat.every((n) => !n.floatingTucked) ? afloat : null;
+  });
+  check("[web] and held again with all of them tucked, it is the way back out",
+    !!backOut,
+    JSON.stringify((await board.stored("notes")).filter((n) => n.floating).map((n) => [n.id.slice(0, 8), !!n.floatingTucked])));
+
+  // Put them back the way the next section finds them: tucked, same as
+  // holding Escape a third time would.
+  await web.cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...escape });
+  await web.pause(800);
+  await web.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...escape });
+  await until(async () => {
+    const afloat = (await board.stored("notes")).filter((n) => n.floating && !n.deleted);
+    return afloat.length >= 2 && afloat.every((n) => n.floatingTucked) ? afloat : null;
+  });
 
   /* ------------------------------------------------ Unfloat, from the menu */
 

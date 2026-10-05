@@ -474,9 +474,6 @@ export function pasteNoteRecords(records, worldX, worldY) {
       html: typeof r.html === "string" ? r.html : "",
       color: r.color || NO_FILL,
       z: nextZ(),
-      // A copy is not locked, whatever the original was. It is a new note on a
-      // board you are arranging; pinning it is a decision to take again.
-      locked: false,
       createdAt: Date.now(),
       editedAt: Date.now(),
       updatedAt: Date.now(),
@@ -525,9 +522,9 @@ function touch(note, el, html) {
 /* -------------------------------------------------------------------- apps */
 
 // A note whose `app` field names a renderer hands its body over to that
-// renderer. Everything else about it — where it is, what colour, which list,
-// whether it is locked — is unchanged, because an app is a way of drawing a
-// note and not a second kind of thing on the board.
+// renderer. Everything else about it — where it is, what colour, which list —
+// is unchanged, because an app is a way of drawing a note and not a second
+// kind of thing on the board.
 
 function mountAppOn(entry) {
   const { note, el } = entry;
@@ -621,7 +618,7 @@ function unbecomeApp(note, el) {
 // caret. The words go with it — the keyword was the instruction, not content.
 function convertIfKeyword(entry) {
   const { note, el } = entry;
-  if (note.app || note.locked) return;
+  if (note.app) return;
   const app = appForKeyword(plainText(note.html));
   if (!app) return;
   becomeApp(note, el, app, { keepText: false });
@@ -656,7 +653,6 @@ function addAppBeside(note, el, app) {
     html: "",
     color: NO_FILL,
     z: nextZ(),
-    locked: false,
     app: app.name,
     createdAt: Date.now(),
     editedAt: Date.now(),
@@ -948,7 +944,6 @@ export function createNote(worldX, worldY) {
     html: "",
     color: NO_FILL,
     z: nextZ(),
-    locked: false,
     createdAt: Date.now(),
     editedAt: Date.now(),
     updatedAt: Date.now(),
@@ -968,7 +963,6 @@ export function createNote(worldX, worldY) {
 // on the next sync. Images are kept until the tombstone is purged, since the
 // note may still exist elsewhere.
 export function deleteNote(note, el, { silent = false } = {}) {
-  if (note.locked) return false;
   if (fullscreenEntry && fullscreenEntry.note === note) exitFullscreen();
   // Deleting it ends its floating too — including on every page it is floating
   // over right now.
@@ -1000,7 +994,7 @@ export function deleteNote(note, el, { silent = false } = {}) {
 // removes it, so the canvas never fills up with blank squares. No undo is
 // offered: there is nothing in it to bring back.
 function discardIfEmpty({ note, el }) {
-  if (note.locked || note.fullscreen) return;
+  if (note.fullscreen) return;
   // An app note says nothing and is not thereby blank — a timer with no words
   // in it is exactly what a timer looks like.
   if (note.app) return;
@@ -1114,8 +1108,7 @@ function deleteStep(batch) {
  * One step however many notes travelled — a drag of six, or a grid arrange of
  * twenty, is one thing that happened and takes one ⌘Z. Notes that did not
  * actually end up somewhere else are left out: a click that grazed into a
- * one-pixel move, or a locked note an arrange stepped around, should not cost
- * anything to walk back.
+ * one-pixel move should not cost anything to walk back.
  *
  * @param {Array<{note: object, from: {x: number, y: number}}>} moves
  * @param {string} [label]  what to call it, if "the move" is not the words
@@ -1221,10 +1214,6 @@ export function adoptRecord(record) {
   if ((note.color || NO_FILL) !== (record.color || NO_FILL)) {
     note.color = record.color;
     applyColor(note, el);
-  }
-  if (!!note.locked !== !!record.locked) {
-    note.locked = !!record.locked;
-    applyLockUI(note, el);
   }
   if (note.remindAt !== record.remindAt) {
     if (record.remindAt) note.remindAt = record.remindAt;
@@ -1509,28 +1498,6 @@ function applyColor(note, el) {
   el.classList.toggle("is-clear", clear);
 }
 
-// Whether a locked note's content is shown, keyed by its element rather than
-// the note record: a toggle here is a way of looking at the note, not a fact
-// about it, so it is never written to the database and never reaches another
-// tab. The element is rebuilt from scratch whenever its page is left and come
-// back to (board.js tears every note down on a page switch and renders them
-// again from the stored record), which is what puts it back to hidden without
-// any reset of our own to write.
-const revealed = new WeakMap();
-
-function applyLockUI(note, el) {
-  el.classList.toggle("is-locked", !!note.locked);
-  const mark = el.querySelector(".note-lock-mark");
-  if (!mark) return;
-  mark.hidden = !note.locked;
-  const shown = !!note.locked && revealed.get(el) === true;
-  el.classList.toggle("content-hidden", !!note.locked && !shown);
-  if (note.locked) {
-    mark.textContent = shown ? "👁️" : "🙈";
-    mark.title = shown ? "Shown — click to hide again" : "Hidden — click to show";
-  }
-}
-
 /* ------------------------------------------------------------------- host */
 
 // A note is drawn by this module and put somewhere by a host. The board is one
@@ -1543,10 +1510,13 @@ function applyLockUI(note, el) {
 // A host is { place, putBack, wire, gang, menu }:
 //   place(note, el)        a freshly drawn note goes where it lives
 //   putBack(note, el)      it comes back from fullscreen
-//   wire(note, el, grip)   the gestures that move and size it there
+//   wire(note, el, grip,   the gestures that move and size it there, grip at
+//       gripLeft)          the bottom-right corner and gripLeft at the bottom-left
 //   gang(note, el)         the entries a menu opened on it acts on
-//   menu(note, el, gang)   { modes, together }: extra rows beside Lock, and
-//                          rows for a group, above Delete
+//   menu(note, el, gang)   { top, modes, together, copy }: top rows above the
+//                          colours, extra rows below Fullscreen, rows for a
+//                          group above Delete, and copy: false to leave
+//                          "Copy note" off entirely
 // and, optionally:
 //   adopted(note, el)      a write made elsewhere has been taken in
 //   beside(note, el)       where a note made from this one goes, in world units
@@ -1570,38 +1540,22 @@ export function renderNote(note) {
   const header = document.createElement("div");
   header.className = "note-header";
 
-  const left = document.createElement("div");
-  left.className = "note-tools";
-
-  // The lock is the one state worth seeing without asking for it — a note that
-  // will not move or delete should say so. Everything else is in the menu.
-  const lockMark = document.createElement("span");
-  lockMark.className = "note-lock-mark";
-  lockMark.textContent = "🔒";
-  lockMark.hidden = true;
-
-  // A locked note's own content is hidden by default — the lock icon is also
-  // the show/hide toggle for it, the same way the reminder chip is also the
-  // button that clears it.
-  lockMark.addEventListener("pointerdown", (e) => e.stopPropagation());
-  lockMark.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (!note.locked) return;
-    revealed.set(el, revealed.get(el) !== true);
-    applyLockUI(note, el);
-  });
-
   const moreBtn = document.createElement("button");
   moreBtn.className = "note-btn note-btn-more";
   moreBtn.textContent = "⋯";
   moreBtn.title = "Note actions";
 
-  left.append(lockMark);
-  header.append(left, moreBtn);
+  header.append(moreBtn);
 
   const grip = document.createElement("div");
   grip.className = "note-grip";
   grip.title = "Drag to resize";
+
+  // The same handle at the opposite bottom corner, so a note can be grown
+  // toward either side rather than only down and to the right.
+  const gripLeft = document.createElement("div");
+  gripLeft.className = "note-grip note-grip-left";
+  gripLeft.title = "Drag to resize";
 
   // Static markup until the note is opened; the editor takes the body over
   // then and hands it back on the way out.
@@ -1634,7 +1588,7 @@ export function renderNote(note) {
 
   footer.append(edited, remind, remindAdd);
 
-  el.append(header, body, footer, grip);
+  el.append(header, body, footer, grip, gripLeft);
   notes.set(note.id, { note, el });
   host.place(note, el);
 
@@ -1694,7 +1648,7 @@ export function renderNote(note) {
     // Right-clicking one of several selected notes means all of them, where
     // there is such a thing as several — the same rule the drag follows.
     const gang = host.gang(note, el);
-    const { modes = [], together = [] } = host.menu(note, el, gang);
+    const { top = [], modes = [], together = [], copy = true } = host.menu(note, el, gang);
     const many = gang.length > 1 ? `${gang.length} notes` : "note";
     // Like everything else here, a colour picked for one of a selection is for
     // all of it.
@@ -1706,6 +1660,8 @@ export function renderNote(note) {
       });
     showMenu(
       [
+        ...top,
+        ...(top.length ? [null] : []),
         { swatches: colourSwatches(note.color), pick: paint },
         null,
         { label: "Paste", run: () => pasteIntoNote(note, el, { formatted: true }) },
@@ -1714,9 +1670,10 @@ export function renderNote(note) {
         // hover; this only has to get the first one into the note.
         ...(note.app ? [] : [{ label: "Table", run: () => addTable(note) }]),
         null,
-        // Copy only. ⌘X still cuts; the menu does not need to say so twice.
-        { label: `Copy ${many}`, run: () => copyNotes(gang) },
-        null,
+        // Copy only. ⌘X still cuts; the menu does not need to say so twice. Not
+        // offered at all where a host says there is nothing to copy it into —
+        // a floating note has no other board to paste a copy onto.
+        ...(copy ? [{ label: `Copy ${many}`, run: () => copyNotes(gang) }, null] : []),
         // Reminders are set from the note's own footer, and an app is made by
         // typing its name into a note. Only the way back out lives here.
         ...(note.app ? [{ label: "Turn back into a note", run: () => unbecomeApp(note, el) }, null] : []),
@@ -1725,14 +1682,9 @@ export function renderNote(note) {
           else enterFullscreen(note, el);
         } },
         ...modes,
-        { label: note.locked ? "Unlock" : "Lock", run: () => {
-          note.locked = !note.locked;
-          applyLockUI(note, el);
-          saveNote(note);
-        } },
         null,
         ...together,
-        { label: "Delete note", run: () => deleteNote(note, el), danger: true, disabled: !!note.locked },
+        { label: "Delete note", run: () => deleteNote(note, el), danger: true },
       ],
       clientX,
       clientY
@@ -1782,8 +1734,6 @@ export function renderNote(note) {
     "pointerdown",
     (e) => {
       if (note.fullscreen || isPanGesture(e)) return; // a pan is not a click
-      // Hidden content cannot be opened around the toggle: show it first.
-      if (note.locked && revealed.get(el) !== true && !e.target.closest(".note-lock-mark")) return;
       setActiveNote(note.id);
     },
     true
@@ -1795,9 +1745,8 @@ export function renderNote(note) {
 
   applyColor(note, el);
   refreshReminder(note, el);
-  host.wire(note, el, grip);
+  host.wire(note, el, grip, gripLeft);
 
-  applyLockUI(note, el);
   return el;
 }
 

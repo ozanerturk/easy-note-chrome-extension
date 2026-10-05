@@ -48,7 +48,6 @@ already failing for unrelated reasons.
 | `js/floating.js`, `js/float/*` | `floating`, plus `node test/floating.test.mjs` |
 | `js/undo.js`, `js/history.js` | `history` |
 | `js/reminders.js`, `js/notify/*` | `reminders`, plus `node test/notify.test.mjs` |
-| `js/auth.js`, locking | `lock` |
 | `js/migrate/*`, `js/tips.js` | `npm test` (unit only) |
 
 Unsure which suite covers a change? Grep `test/ui/` for the feature name rather

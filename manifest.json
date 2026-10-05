@@ -46,7 +46,8 @@
     "contextMenus",
     "clipboardRead",
     "clipboardWrite",
-    "alarms"
+    "alarms",
+    "offscreen"
   ],
   "optional_permissions": [
     "notifications"

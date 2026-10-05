@@ -35,6 +35,9 @@ eq("nor a slash between words", expressionAt("and/or"), null);
 eq("nor one already answered", expressionAt("120*0.15 = 18"), null);
 eq("nor carrying on after an answer", expressionAt("3+4 = 7+1"), null);
 eq("a simple fraction is a sum", expressionAt("3/4"), "3/4");
+eq("python-style power is a sum", expressionAt("2**3"), "2**3");
+eq("modulo is a sum", expressionAt("7%2"), "7%2");
+eq("nor a power still being typed", expressionAt("2*"), null);
 
 console.log("\nThe answer");
 
@@ -50,6 +53,8 @@ eq("dividing by zero has no answer", calculate("1/0", evaluate), null);
 eq("nor does nonsense", calculate("2+*3", evaluate), null);
 eq("nor an unbalanced bracket", calculate("(4+5", evaluate), null);
 eq("big numbers stay numbers", calculate("99999*99999", evaluate), "9999800001");
+eq("python-style power", calculate("2**3", evaluate), "8");
+eq("modulo", calculate("7%2", evaluate), "1");
 
 console.log("\nWhat gets inserted");
 

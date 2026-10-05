@@ -68,7 +68,6 @@ export async function saveClip({ blob, width, height, scale, url, title }) {
     html: clipHtml(imgId, url, title),
     color: "transparent",
     z: records.reduce((top, n) => Math.max(top, n.z || 0), 0) + 1,
-    locked: false,
     createdAt: now,
     editedAt: now,
     updatedAt: now,

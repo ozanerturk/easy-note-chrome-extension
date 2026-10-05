@@ -13,7 +13,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { launch, suite, sleep } from "./harness.mjs";
 
-const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./lock.test.mjs", "./reminders.test.mjs", "./clip.test.mjs", "./tray.test.mjs", "./spring.test.mjs", "./sidebar.test.mjs", "./gallery.test.mjs", "./ocr.test.mjs", "./history.test.mjs", "./lists.test.mjs", "./tables.test.mjs", "./apps.test.mjs", "./search.test.mjs", "./origin.test.mjs", "./grouping.test.mjs", "./sums.test.mjs", "./sync.test.mjs", "./floating.test.mjs"];
+const SUITES = ["./notes.test.mjs", "./navigate.test.mjs", "./pages.test.mjs", "./clipboard.test.mjs", "./editor.test.mjs", "./reminders.test.mjs", "./clip.test.mjs", "./tray.test.mjs", "./spring.test.mjs", "./sidebar.test.mjs", "./gallery.test.mjs", "./ocr.test.mjs", "./history.test.mjs", "./lists.test.mjs", "./tables.test.mjs", "./apps.test.mjs", "./search.test.mjs", "./origin.test.mjs", "./grouping.test.mjs", "./sums.test.mjs", "./sync.test.mjs", "./floating.test.mjs"];
 
 const args = process.argv.slice(2);
 const headed = args.includes("--headed");

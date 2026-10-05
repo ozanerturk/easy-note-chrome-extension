@@ -20,7 +20,6 @@ const capture = (id, { title = "A page", ago = 0 } = {}) => ({
   html: `<img data-img-id="img-${id}"><p><a href="https://example.com/${id}">${title}</a></p>`,
   color: "transparent",
   z: 1,
-  locked: false,
   createdAt: Date.now() - ago,
   editedAt: Date.now() - ago,
   updatedAt: Date.now() - ago,
