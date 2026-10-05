@@ -1763,6 +1763,68 @@ body.is-resizing #sidebar {
   background: #f0eee9;
 }
 
+#bridge {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-line);
+}
+
+#bridge-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#bridge-status {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+#bridge-url-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#bridge-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: #faf9f7;
+  font-size: 11px;
+  color: var(--text);
+}
+
+#bridge-copy {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: #faf9f7;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#bridge-copy:hover {
+  background: #f0eee9;
+}
+
+#bridge-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 #open-sync[data-state="on"] {
   color: #2e7d32;
 }

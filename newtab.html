@@ -118,6 +118,17 @@
         <button id="sync-now" hidden>Sync now</button>
         <button id="sync-signout" hidden>Sign out</button>
       </div>
+      <div id="bridge">
+        <label id="bridge-toggle"><input type="checkbox" id="bridge-enabled"> Connect to Claude</label>
+        <div id="bridge-status">Off</div>
+        <div id="bridge-connector" hidden>
+          <div id="bridge-url-row">
+            <input id="bridge-url" readonly aria-label="Connector URL">
+            <button id="bridge-copy">Copy</button>
+          </div>
+          <div id="bridge-hint">Add this URL in Claude → Settings → Connectors.</div>
+        </div>
+      </div>
     </div>
 
     <div id="toast"></div>

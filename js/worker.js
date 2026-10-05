@@ -4,3 +4,4 @@
 import "./clip/background.js";
 import "./float/background.js";
 import "./notify/worker.js";
+import "./bridge/background.js";

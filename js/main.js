@@ -60,6 +60,7 @@ import { toast } from "./toast.js";
 import { initTips, markUsed } from "./tips.js";
 import { initReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
+import { initBridgeUI } from "./bridgeui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
@@ -358,6 +359,7 @@ initPages();
 initReminders();
 initSearch();
 initSyncUI();
+initBridgeUI();
 initTray();
 
 // A sync that pulled anything has changed pages and notes underneath us.

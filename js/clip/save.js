@@ -78,6 +78,43 @@ export async function saveClip({ blob, width, height, scale, url, title }) {
   return note;
 }
 
+/**
+ * Put some text in the tray — what Claude hands over through the bridge. The
+ * same shape as a clip, minus the picture: a paragraph per line, a bold title
+ * above it if there is one, and where it came from underneath.
+ */
+export async function saveText({ text, sourceUrl, title }) {
+  await openOnce();
+  const pageId = await ensureTray();
+  const records = (await getAll(NOTES)).filter((n) => !n.deleted);
+  const now = Date.now();
+
+  const lines = text.split(/\r?\n/);
+  const heading = (title || "").trim() ? `<p><strong>${escapeHtml(title.trim())}</strong></p>` : "";
+  const body = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  const safe = /^https?:\/\//i.test(sourceUrl || "") ? sourceUrl : "";
+  const source = safe
+    ? `<p><a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safe)}</a></p>`
+    : "";
+
+  const note = {
+    id: newId(),
+    x: 0,
+    y: 0,
+    width: 300,
+    height: clamp(90 + lines.length * 22, 140, 420),
+    html: heading + body + source,
+    color: "transparent",
+    z: records.reduce((top, n) => Math.max(top, n.z || 0), 0) + 1,
+    createdAt: now,
+    editedAt: now,
+    updatedAt: now,
+    pageId,
+  };
+  await put(NOTES, note);
+  return note;
+}
+
 // The same markup a pasted image produces — `data-img-id` with no src, since
 // the board resolves the blob at render time — followed by where it came from.
 function clipHtml(imgId, url, title) {

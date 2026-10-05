@@ -3,6 +3,7 @@ import { whenLabel, plainText } from "./note.js";
 import { pages } from "./pages.js";
 import { markUsed } from "./tips.js";
 import { remindLabel } from "./reminders.js";
+import { imgIdsIn, ocrMap } from "./notes/query.js";
 
 // Search is also the way to look over everything: open it with nothing typed
 // and it lists every note, in whichever order the tabs under the box say.
@@ -139,15 +140,8 @@ const ORDER = {
 
 // A picture's words, once read, are stored once — see ocr.js — so folding
 // them in here costs one extra read of `meta`, never a recognition pass.
-const imgIdsIn = (html) => [...String(html || "").matchAll(/data-img-id="([^"]+)"/g)].map((m) => m[1]);
-
 async function ocrTextByImage() {
-  const rows = await getAll(META);
-  const byId = new Map();
-  rows.forEach((r) => {
-    if (typeof r.id === "string" && r.id.startsWith("ocr:") && r.text) byId.set(r.id.slice(4), r.text);
-  });
-  return byId;
+  return ocrMap(await getAll(META));
 }
 
 async function run(query) {

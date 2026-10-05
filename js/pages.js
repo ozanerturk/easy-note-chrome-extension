@@ -1,4 +1,5 @@
 import { PAGES, NOTES, META, TRAY_ID, put, del, getAll, getOne } from "./db.js";
+import { pathFrom } from "./notes/query.js";
 import { notes } from "./store.js";
 
 import { duePageIds, dueOnPage, onReminderTick } from "./reminders.js";
@@ -57,13 +58,7 @@ function childrenOf(parentId) {
 
 /** "Work › Trips" — where a page sits, for anything naming a note's home. */
 export function pathOf(pageId) {
-  const parts = [];
-  let page = pages.get(pageId);
-  while (page) {
-    parts.unshift(page.name);
-    page = page.parentId ? pages.get(page.parentId) : null;
-  }
-  return parts.join(" › ");
+  return pathFrom(pages, pageId);
 }
 
 function descendantIds(id) {
