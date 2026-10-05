@@ -1,6 +1,6 @@
 Ask Claude about your notes, mark up what you clip, and a note without a lock.
 
-**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+**[What's new — guided tour and how-tos](https://easynote.tayfai.tech/release-notes.html)**
 
 ## Connect to Claude
 
@@ -10,7 +10,7 @@ Turn on **Connect to Claude** in the ☁ panel, add Easy Note as a connector in 
 - **What is due, for a morning briefing.** Claude can list your reminders — due now, today, or coming this week — in your own time zone. With Chrome closed it answers from the copy Google Drive sync keeps and says how recent that is.
 - **Capture.** Ask Claude to keep a line for you and it lands in the Capture tray, like a clip, until you file it. Claude only ever adds: it cannot edit, move or delete a note.
 - **Off by default.** While the switch is off, nothing is connected. Switching it off closes the connection and deletes the relay's sign-in to your Drive folder.
-- **What passes through.** A small relay carries Claude's request to your notes and the answer back — from your open browser, or with Chrome closed from your own Google Drive copy. It does not store or log what is in your notes. It keeps what it needs to sign you in: an opaque Google account id, a hashed sign-in token, and an encrypted sign-in to your Easy Note Drive folder for the Chrome-closed case. See the [privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html).
+- **What passes through.** A small relay carries Claude's request to your notes and the answer back — from your open browser, or with Chrome closed from your own Google Drive copy. It does not store or log what is in your notes. It keeps what it needs to sign you in: an opaque Google account id, a hashed sign-in token, and an encrypted sign-in to your Easy Note Drive folder for the Chrome-closed case. See the [privacy policy](https://easynote.tayfai.tech/privacy.html).
 - **No new permissions** for this. It needs Chrome 116 or newer, which is what keeps the connection alive in the background.
 
 ## Mark up a clip, and copy its words
@@ -30,7 +30,7 @@ After you drag a box with **⌥⇧S**, the bar has a pen, highlighter, arrows, n
 
 Every picture on the board in one place, and the words inside them ready to copy.
 
-**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+**[What's new — guided tour and how-tos](https://easynote.tayfai.tech/release-notes.html)**
 
 ## Double-click a picture to open it
 
@@ -62,7 +62,7 @@ A screenshot of an error message, a photo of a whiteboard, a receipt from a phon
 
 Clip anything off the web, file it when you are ready, and a board that finally has a dark mode.
 
-**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+**[What's new — guided tour and how-tos](https://easynote.tayfai.tech/release-notes.html)**
 
 ## Clip any part of any page
 
@@ -110,7 +110,7 @@ If you have not tried something the app can do, it will mention it — once, qui
 
 Reminders that tap you on the shoulder, notes you can actually write in, and a board that gets out of the way.
 
-**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+**[What's new — guided tour and how-tos](https://easynote.tayfai.tech/release-notes.html)**
 
 ## Reminders
 
@@ -155,4 +155,4 @@ Copy anything, press ⌘V on empty canvas, and it becomes a note where your curs
 
 ---
 
-[Privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html) · [Chrome Web Store](https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef)
+[Privacy policy](https://easynote.tayfai.tech/privacy.html) · [Chrome Web Store](https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef)

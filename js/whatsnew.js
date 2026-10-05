@@ -10,7 +10,7 @@ const KEY = "seenVersion";
 // stripped for the store, and it can never be newer than the version installed.
 // Whoever is reading it has just opened a new tab, so they are almost certainly
 // online — but if they are not, the copy inside the package still opens.
-const HOSTED = "https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html";
+const HOSTED = "https://easynote.tayfai.tech/release-notes.html";
 const PAGE = "docs/release-notes.html";
 
 function version() {

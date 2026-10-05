@@ -147,7 +147,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 ## The site
 
 `docs/` is served at
-[ozanerturk.github.io/easy-note-chrome-extension](https://ozanerturk.github.io/easy-note-chrome-extension/).
+[easynote.tayfai.tech](https://easynote.tayfai.tech/).
 The release notes page shows `docs/demo.mp4`, the tour `npm run video` shoots
 from the real extension. The site used to serve a running copy of the app
 instead; a second deployment of the product, kept alive only to be looked at,

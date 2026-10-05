@@ -316,7 +316,7 @@ against what the dashboard actually asks.
       Full privacy URL to paste into the listing:
 
       ```
-      https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html
+      https://easynote.tayfai.tech/privacy.html
       ```
 - [ ] **The relay is up.** `https://relay.easynote.tayfai.tech/healthz`
       answers, and the extension connects to it with the switch on. A reviewer
