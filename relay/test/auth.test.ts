@@ -19,7 +19,7 @@ function setup() {
   const tokens = createTokens({ privateKeyPem: pem(), baseUrl: BASE, db });
   const google = {
     authorizeUrl: (state: string, nonce: string) => `https://google.test/auth?state=${state}&nonce=${nonce}`,
-    subFromCode: vi.fn(async () => "google-sub-1"),
+    subFromCode: vi.fn(async () => ({ sub: "google-sub-1", refreshToken: "refresh-from-google" })),
   };
   return { db, tokens, google, provider: new RelayProvider({ db, tokens, google }) };
 }
@@ -258,7 +258,7 @@ describe("extension token validation", () => {
 });
 
 describe("startup", () => {
-  const base = { NODE_ENV: "production", RELAY_PUBLIC_BASE_URL: BASE, GOOGLE_WEB_CLIENT_ID: "a", GOOGLE_WEB_CLIENT_SECRET: "b", EXTENSION_GOOGLE_CLIENT_ID: "c", JWT_PRIVATE_KEY: "k", DATABASE_URL: "file:x.db" };
+  const base = { NODE_ENV: "production", RELAY_PUBLIC_BASE_URL: BASE, GOOGLE_WEB_CLIENT_ID: "a", GOOGLE_WEB_CLIENT_SECRET: "b", EXTENSION_GOOGLE_CLIENT_ID: "c", JWT_PRIVATE_KEY: "k", DATABASE_URL: "file:x.db", CREDENTIAL_KEY: "key" };
   it("refuses DEV_USER in production", () => {
     vi.spyOn(process, "exit").mockImplementation((() => { throw new Error("exit"); }) as never);
     vi.spyOn(console, "error").mockImplementation(() => {});

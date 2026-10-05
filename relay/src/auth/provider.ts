@@ -7,6 +7,7 @@ import type { OAuthClientInformationFull, OAuthTokens } from "@modelcontextproto
 import type { Db } from "../db/index.js";
 import { log } from "../log.js";
 import { ACCESS_TTL_S, type Tokens } from "./tokens.js";
+import type { Vault } from "./vault.js";
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const CODE_TTL_MS = 60 * 1000;
@@ -33,7 +34,7 @@ type Code = { sub: string; clientId: string; codeChallenge: string; redirectUri:
 // what the provider needs from Google, so tests can stand one in
 export type GoogleIdentity = {
   authorizeUrl(state: string, nonce: string): string;
-  subFromCode(code: string, nonce: string): Promise<string>;
+  subFromCode(code: string, nonce: string): Promise<{ sub: string; refreshToken?: string }>;
 };
 
 const random = () => randomBytes(32).toString("base64url");
@@ -51,7 +52,7 @@ export class RelayProvider implements OAuthServerProvider {
   private codes = new Map<string, Code>();
 
   constructor(
-    private deps: { db: Db; tokens: Tokens; google: GoogleIdentity },
+    private deps: { db: Db; tokens: Tokens; google: GoogleIdentity; vault?: Vault },
   ) {}
 
   get clientsStore(): OAuthRegisteredClientsStore {
@@ -106,7 +107,9 @@ export class RelayProvider implements OAuthServerProvider {
     if (typeof query.error === "string" || typeof query.code !== "string") return back({ error: "access_denied" });
 
     try {
-      const sub = await this.deps.google.subFromCode(query.code, pending.nonce);
+      const { sub, refreshToken } = await this.deps.google.subFromCode(query.code, pending.nonce);
+      // kept sealed, to read their own synced notes when no browser is connected
+      if (refreshToken && this.deps.vault) this.deps.db.saveCredential(sub, this.deps.vault.seal(refreshToken));
       prune(this.codes);
       const code = random();
       this.codes.set(code, {

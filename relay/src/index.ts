@@ -9,6 +9,9 @@ import { openDb } from "./db/index.js";
 import { createGoogle } from "./auth/google.js";
 import { RelayProvider } from "./auth/provider.js";
 import { createTokens } from "./auth/tokens.js";
+import { createVault } from "./auth/vault.js";
+import { createDriveReader, CREDENTIAL_TTL_MS } from "./drive/reader.js";
+import { createRouter } from "./bridge/router.js";
 import { log, requestLog } from "./log.js";
 import { mcpHandler, methodNotAllowed } from "./mcp/server.js";
 
@@ -29,6 +32,7 @@ app.get("/healthz", (_req, res) => {
 });
 
 let authenticate: Authenticate;
+let drive: ReturnType<typeof createDriveReader> | undefined;
 let guard: RequestHandler[];
 
 if (cfg.devAuth) {
@@ -51,7 +55,14 @@ if (cfg.devAuth) {
     baseUrl: cfg.baseUrl,
   });
   const tokens = createTokens({ privateKeyPem: real.jwtPrivateKey, baseUrl: cfg.baseUrl, db });
-  const provider = new RelayProvider({ db, tokens, google });
+  const vault = createVault(real.credentialKey);
+  drive = createDriveReader({ db, vault, google });
+  const provider = new RelayProvider({ db, tokens, google, vault });
+
+  // credentials nobody has used for a long while are let go, at start and daily
+  const prune = () => db.pruneCredentials(CREDENTIAL_TTL_MS);
+  prune();
+  setInterval(prune, 24 * 60 * 60 * 1000).unref();
 
   // /authorize, /token, /register, /revoke and both well-known documents
   app.use(mcpAuthRouter({ provider, issuerUrl: baseUrl, resourceServerUrl: mcpUrl, resourceName: "Easy Note" }));
@@ -77,10 +88,11 @@ if (cfg.devAuth) {
   ];
 }
 
-const hub = new Hub(authenticate);
+const hub = new Hub(authenticate, drive ? (sub) => drive!.forget(sub) : undefined);
+const router = createRouter({ hub, drive });
 
 // the body is only read once we know who is asking
-app.post("/mcp", ...guard, express.json({ limit: "1mb" }), mcpHandler(hub));
+app.post("/mcp", ...guard, express.json({ limit: "1mb" }), mcpHandler(router));
 app.get("/mcp", methodNotAllowed);
 app.delete("/mcp", methodNotAllowed);
 

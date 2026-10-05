@@ -13,11 +13,12 @@ const schema = z.object({
   EXTENSION_GOOGLE_CLIENT_ID: optional,
   JWT_PRIVATE_KEY: optional,
   DATABASE_URL: optional,
+  CREDENTIAL_KEY: optional,
 });
 
 type Parsed = z.infer<typeof schema>;
 
-export type Config = Omit<Parsed, "GOOGLE_WEB_CLIENT_ID" | "GOOGLE_WEB_CLIENT_SECRET" | "EXTENSION_GOOGLE_CLIENT_ID" | "JWT_PRIVATE_KEY" | "DATABASE_URL"> & {
+export type Config = Omit<Parsed, "GOOGLE_WEB_CLIENT_ID" | "GOOGLE_WEB_CLIENT_SECRET" | "EXTENSION_GOOGLE_CLIENT_ID" | "JWT_PRIVATE_KEY" | "DATABASE_URL" | "CREDENTIAL_KEY"> & {
   // true only in development with DEV_USER set
   devAuth: boolean;
   // no trailing slash
@@ -29,10 +30,11 @@ export type Config = Omit<Parsed, "GOOGLE_WEB_CLIENT_ID" | "GOOGLE_WEB_CLIENT_SE
     extensionClientId: string;
     jwtPrivateKey: string;
     databaseUrl: string;
+    credentialKey: string;
   } | null;
 };
 
-const REAL = ["GOOGLE_WEB_CLIENT_ID", "GOOGLE_WEB_CLIENT_SECRET", "EXTENSION_GOOGLE_CLIENT_ID", "JWT_PRIVATE_KEY", "DATABASE_URL"] as const;
+const REAL = ["GOOGLE_WEB_CLIENT_ID", "GOOGLE_WEB_CLIENT_SECRET", "EXTENSION_GOOGLE_CLIENT_ID", "JWT_PRIVATE_KEY", "DATABASE_URL", "CREDENTIAL_KEY"] as const;
 
 function die(problems: string[]): never {
   console.error(`invalid configuration:\n  ${problems.join("\n  ")}`);
@@ -63,6 +65,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       // .env files often hold the PEM on one line with literal \n
       jwtPrivateKey: cfg.JWT_PRIVATE_KEY!.replace(/\\n/g, "\n"),
       databaseUrl: cfg.DATABASE_URL!,
+      credentialKey: cfg.CREDENTIAL_KEY!,
     };
   }
 

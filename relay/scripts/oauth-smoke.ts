@@ -75,6 +75,18 @@ if (first.isError && /isn't connected/.test(first.text)) {
   check("tool call reached your extension and came back", !first.isError, first.text.slice(0, 120));
 }
 
+// the offline path: with Chrome closed this should come from Drive, saying so
+const rem = await mcp(tok.access_token as string, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_reminders", arguments: { when: "all", timezone: "UTC", limit: 100 } } });
+const remLine = (await rem.text()).split("\n").find((l) => l.startsWith("data:"));
+const remResult = remLine ? JSON.parse(remLine.slice(5)).result : null;
+if (remResult && !remResult.isError) {
+  const body = JSON.parse(remResult.content[0].text) as { source: string; asOf: string | null; result: unknown[] };
+  console.log(`INFO  list_reminders answered from ${body.source}${body.asOf ? `, notes last written ${body.asOf}` : ""}: ${body.result.length} reminders`);
+  check("list_reminders answers", true);
+} else {
+  console.log(`INFO  list_reminders: ${String(remResult?.content?.[0]?.text ?? "no answer").slice(0, 200)}`);
+}
+
 // rotation: r1 -> r2 works, r1 again does not, r2 -> r3 works
 const r1 = tok.refresh_token as string;
 const second = await (await fetch(`${base}/token`, form({ grant_type: "refresh_token", client_id: clientId, refresh_token: r1 }))).json() as Record<string, string>;

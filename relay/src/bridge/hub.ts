@@ -23,6 +23,8 @@ const frame = z.discriminatedUnion("type", [
     clientVersion: z.string().max(50).optional(),
   }),
   z.object({ type: z.literal("ping") }),
+  // the person switched the feature off: drop what is kept for their account
+  z.object({ type: z.literal("forget") }),
   z.object({
     type: z.literal("result"),
     id: z.string().min(1),
@@ -40,7 +42,10 @@ export class Hub {
   private byUser = new Map<string, Map<string, Connection>>();
   private sweeper?: NodeJS.Timeout;
 
-  constructor(private authenticate: Authenticate) {
+  constructor(
+    private authenticate: Authenticate,
+    private onForget?: (sub: string) => Promise<void>,
+  ) {
     this.wss.on("connection", (ws) => this.onConnection(ws));
   }
 
@@ -130,6 +135,8 @@ export class Hub {
       conn.lastSeen = Date.now();
       if (msg.type === "ping") {
         ws.send(JSON.stringify({ type: "pong" }));
+      } else if (msg.type === "forget") {
+        this.onForget?.(conn.sub).catch(() => log.warn("forget failed"));
       } else if (msg.type === "result") {
         const result: CallResult = msg.ok
           ? { ok: true, data: msg.data }

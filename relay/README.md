@@ -22,6 +22,7 @@ All in `.env` (see `.env.example`); validated at startup, and the relay exits wi
 | `GOOGLE_WEB_CLIENT_ID`, `GOOGLE_WEB_CLIENT_SECRET` | the relay's own Google OAuth client (type *Web application*). Redirect URI: `<base url>/oauth/google/callback` |
 | `EXTENSION_GOOGLE_CLIENT_ID` | the extension's OAuth client (`manifest.json` → `oauth2.client_id`); sockets are only accepted with tokens issued to it |
 | `JWT_PRIVATE_KEY` | PKCS8 PEM, one line with literal `\n` is fine. `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
+| `CREDENTIAL_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`). Seals the Google refresh tokens the relay keeps. Required; the relay will not start without it. If it is lost or changed those tokens cannot be opened and people just reconnect once |
 | `DATABASE_URL` | SQLite file, `file:relay.db` locally; the container sets `file:/data/relay.db` itself |
 | `DEV_USER` | development only, skips sign-in. The relay refuses to start if it is set in production |
 
@@ -54,7 +55,8 @@ On the server:
    ```
    mkdir -p ~/easynote-relay
    nano ~/easynote-relay/.env      # RELAY_PUBLIC_BASE_URL, the Google ids and secret, EXTENSION_GOOGLE_CLIENT_ID,
-                                   # JWT_PRIVATE_KEY as ONE line with literal \n, no DEV_USER
+                                   # JWT_PRIVATE_KEY as ONE line with literal \n, no DEV_USER,
+                                   # CREDENTIAL_KEY (openssl rand -base64 32), and keep a copy of it somewhere safe
    chmod 600 ~/easynote-relay/.env
    ```
    `NODE_ENV` and `DATABASE_URL` are set by `docker-compose.yml`, so whatever `.env` says for them is ignored. `PORT` here is the port **on the server** that Caddy proxies to (default 3000); inside the container the relay always uses 3000.
@@ -93,4 +95,14 @@ Claude → Settings → Connectors → add a custom connector with `https://rela
 
 ## What it will and won't do
 
-Three tools: `search_notes`, `get_note`, `capture` (appends to the Capture Tray). It never edits or deletes notes. If Chrome is closed Claude is told Easy Note isn't connected.
+Four tools: `search_notes`, `get_note`, `list_reminders` and `capture` (appends to the Capture Tray). It never edits or deletes notes.
+
+Every answer says where it came from: `{ source: "browser" | "drive", asOf, result }`.
+
+**With Chrome closed** the three reads are answered from the user's own Google Drive copy instead. At sign-in the relay also asks for the `drive.appdata` scope with offline access, and keeps the refresh token **sealed** (AES-256-GCM, `CREDENTIAL_KEY`) in `google_credentials`. When no browser is connected it refreshes an access token, reads `easynote.json` from the app data folder, answers, and keeps nothing of the notes: the parsed document is held in memory for a minute, never written down. Only `GET`s are ever made, though Google has no read-only app-data scope, so the token could do more than the code does.
+
+- The copy is as fresh as the last sync, which runs every two minutes while an Easy Note tab is open. `asOf` is when the file was last written.
+- The text read out of pictures is cached on the device only, so it is missing from Drive answers.
+- `capture` needs the browser and is never redirected: doing it twice is worse than not doing it.
+- The credential is deleted when the user switches Connect to Claude off (the extension sends `forget`, and the relay revokes the token at Google), when Google says access was removed, and after 90 days unused.
+- The reading logic is a TypeScript copy of the extension's (`src/shared`); `test/parity.test.ts` runs both over the same inputs and fails if they differ.
