@@ -1,3 +1,21 @@
+Ask Claude about your notes — search them, read one, or hand it a line to keep.
+
+**[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
+
+## Connect to Claude
+
+Turn on **Connect to Claude** in the ☁ panel, add Easy Note as a connector in Claude (*Settings → Connectors*, with the address the panel shows), and sign in with the same Google account. Then ask: *"what did I write about the Lisbon trip?"*
+
+- **Search and read.** Claude searches your notes and reads the one it needs — headings, lists and tables come across as plain, readable text. The Capture tray is never searched.
+- **Capture.** Ask Claude to keep a line for you and it lands in the Capture tray, like a clip, until you file it. Claude only ever adds: it cannot edit, move or delete a note.
+- **Off by default.** While the switch is off, nothing is connected. Claude can reach your notes only while Chrome is open, and switching it off closes the connection at once.
+- **What passes through.** A small relay carries Claude's request to your browser and the answer back. It does not store or log what is in your notes; it keeps only what it needs to sign you in (an opaque Google account id and a hashed sign-in token). See the [privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html).
+- **No new permissions** for this. It needs Chrome 116 or newer, which is what keeps the connection alive in the background.
+
+---
+
+# Earlier: 3.3
+
 Every picture on the board in one place, and the words inside them ready to copy.
 
 **[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
