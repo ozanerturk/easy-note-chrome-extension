@@ -44,3 +44,75 @@ export function snippetAround(text, terms, max = 300) {
   const body = flat.slice(from, from + max - 2);
   return (from ? "…" : "") + body + (from + max - 2 < flat.length ? "…" : "");
 }
+
+/* ------------------------------------------------------------- reminders */
+
+// Time zones without a library: Intl knows them, this just reads it.
+export function validTimeZone(tz) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function wallClock(ms, tz) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const out = {};
+  fmt.formatToParts(ms).forEach((p) => (out[p.type] = Number(p.value)));
+  return out;
+}
+
+// how far the clock in `tz` is ahead of UTC at that instant
+function offsetAt(ms, tz) {
+  const c = wallClock(ms, tz);
+  return Date.UTC(c.year, c.month - 1, c.day, c.hour, c.minute, c.second) - Math.floor(ms / 1000) * 1000;
+}
+
+/** The instant midnight begins, in `tz`, `plusDays` days after the day `ms` falls on. */
+export function startOfDay(ms, tz, plusDays = 0) {
+  const c = wallClock(ms, tz);
+  const wall = Date.UTC(c.year, c.month - 1, c.day + plusDays);
+  // twice, so a day with a daylight-saving change in it still lands on midnight
+  const first = wall - offsetAt(wall, tz);
+  return wall - offsetAt(first, tz);
+}
+
+/** "2026-10-06 09:30" on the clock in `tz`. */
+export function localString(ms, tz) {
+  const c = wallClock(ms, tz);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${c.year}-${p(c.month)}-${p(c.day)} ${p(c.hour)}:${p(c.minute)}`;
+}
+
+export const WHEN = ["today", "due", "upcoming", "all"];
+const WEEK_DAYS = 8;
+
+// Reminders are notes with a remindAt — dismissing one deletes it, so every one
+// that is left is waiting. "today" is what is on your plate: everything that is
+// already due plus whatever falls before tomorrow starts, which is what a
+// morning briefing wants. Soonest first.
+export function pickReminders(notes, { now, tz, when }) {
+  const tomorrow = startOfDay(now, tz, 1);
+  const weekEnd = startOfDay(now, tz, WEEK_DAYS);
+  const keep = {
+    today: (at) => at < tomorrow,
+    due: (at) => at <= now,
+    upcoming: (at) => at >= tomorrow && at < weekEnd,
+    all: () => true,
+  }[when];
+  return notes
+    .filter((n) => n.remindAt && keep(n.remindAt))
+    .sort((a, b) => a.remindAt - b.remindAt)
+    .map((note) => ({ note, due: note.remindAt <= now }));
+}

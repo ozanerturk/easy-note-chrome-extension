@@ -140,6 +140,9 @@ function disconnect() {
   clearInterval(pingTimer);
   const socket = ws;
   ws = null;
+  // switching it off asks the relay to forget this account's Drive access, not
+  // just to hang up; sent before the close so it is ahead of it on the wire
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "forget" }));
   socket?.close(1000);
 }
 

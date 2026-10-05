@@ -3,7 +3,7 @@
 
 import { openOnce, getAll, getOne, NOTES, PAGES, META, TRAY_ID } from "../db.js";
 import { saveText } from "../clip/save.js";
-import { imgIdsIn, ocrMap, pathFrom, snippetAround, titleOf } from "../notes/query.js";
+import { imgIdsIn, ocrMap, pathFrom, snippetAround, titleOf, pickReminders, localString } from "../notes/query.js";
 import { htmlToText, capped } from "./text.js";
 
 export class ToolError extends Error {
@@ -69,4 +69,26 @@ export async function capture({ text, sourceUrl, title }) {
   return { id: note.id, location: "Capture Tray" };
 }
 
-export const handlers = { search_notes: searchNotes, get_note: getNote, capture };
+export async function listReminders({ when, timezone, limit }) {
+  await openOnce();
+  const [notes, pageRows] = await Promise.all([getAll(NOTES), getAll(PAGES)]);
+  const pages = new Map(pageRows.map((p) => [p.id, p]));
+  const now = Date.now();
+  return pickReminders(notes.filter(readable), { now, tz: timezone, when })
+    .slice(0, limit)
+    .map(({ note, due }) => {
+      const text = htmlToText(note.html);
+      return {
+        id: note.id,
+        title: titleOf(text),
+        snippet: snippetAround(text, [], 300),
+        pagePath: pathFrom(pages, note.pageId),
+        remindAt: new Date(note.remindAt).toISOString(),
+        remindAtLocal: localString(note.remindAt, timezone),
+        due,
+        updatedAt: stamp(note),
+      };
+    });
+}
+
+export const handlers = { search_notes: searchNotes, get_note: getNote, capture, list_reminders: listReminders };

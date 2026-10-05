@@ -2,6 +2,7 @@
 // the tool, and makes sure a retried capture is not captured twice.
 
 import { handlers, ToolError } from "./handlers.js";
+import { WHEN, validTimeZone } from "../notes/query.js";
 
 const REMEMBER = 100;
 
@@ -22,6 +23,15 @@ const validators = {
   get_note(a) {
     if (!isString(a.id, 1, 200)) bad("id must be a string of 1-200 characters");
     return { id: a.id };
+  },
+  list_reminders(a) {
+    const when = a.when === undefined ? "today" : a.when;
+    if (!WHEN.includes(when)) bad(`when must be one of ${WHEN.join(", ")}`);
+    const timezone = a.timezone === undefined ? "UTC" : a.timezone;
+    if (!isString(timezone, 1, 64) || !validTimeZone(timezone)) bad("timezone must be an IANA name such as Europe/Istanbul");
+    const limit = a.limit === undefined ? 50 : a.limit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) bad("limit must be an integer from 1 to 100");
+    return { when, timezone, limit };
   },
   capture(a) {
     if (!isString(a.text, 1, 10_000)) bad("text must be a string of 1-10000 characters");
