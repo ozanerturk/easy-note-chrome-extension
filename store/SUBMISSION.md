@@ -27,6 +27,11 @@ Upload package: **`dist/easy-note-3.6.0.zip`** (built by `npm run package`).
 > `minimum_chrome_version: "116"`. What it sends and keeps is in the
 > "Connect to Claude" section below, and the privacy policy says the same.
 
+> **Also new in 3.6: one more permission, `offscreen`.** The clipper now copies
+> a clip to the clipboard and reads the writing in it, and a service worker can
+> do neither on its own. See its justification below. Still no host permissions
+> at install.
+
 ## Assets in this folder
 
 | File | Where it goes |
@@ -118,6 +123,23 @@ Used together with activeTab to inject the clipper's selection overlay into
 the current page on demand. No content script is registered to run
 automatically on any site; the overlay is injected only after the user asks
 for a clip, and it removes itself when the clip is saved or cancelled.
+```
+
+### `offscreen` — paste this
+
+```
+Used by the screen clipper, and only when the user asks for it. A Manifest V3
+service worker cannot write to the system clipboard and cannot start a Web
+Worker of its own, and two clipper actions need exactly that: "Copy text",
+which puts the words found in a clipped region on the clipboard, and copying
+the clipped picture. When the user chooses one of them, the service worker
+opens one hidden extension page, offscreen.html, with the reasons CLIPBOARD and
+WORKERS, and hands it the clipped image.
+
+The page has no interface and loads nothing from the network. The text
+recognition it runs is the on-device engine already shipped in the package
+(see the content_security_policy note), so no image and nothing read out of one
+is transmitted anywhere. It is created on demand rather than at install.
 ```
 
 ### `contextMenus` — paste this

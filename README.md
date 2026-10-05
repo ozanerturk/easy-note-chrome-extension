@@ -73,7 +73,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 
 - Left-drag empty canvas to marquee-select; click a note to select it
 - Shift-click to add or remove a note from the selection
-- ⌘A selects all, Esc clears, Delete removes the selection (locked notes survive)
+- ⌘A selects all, Esc clears, Delete removes the selection
 - Dragging any selected note moves the whole group
 - With 2+ selected, a toolbar offers align (left/centre/right, top/middle/bottom),
   distribute horizontally or vertically, and arrange into a grid
@@ -103,9 +103,6 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - The header is a popover above the active note, in the note's own colour, so
   it costs the body no room and hides the text of nothing
 - Empty a note and leave it and it removes itself
-- **Lock** (🔒) pins a note where it is and guards it from deletion, including
-  from a bulk delete and from a group drag or an align that moves its
-  neighbours. It can still be resized and edited
 - **Colour** (◑) opens an 18-swatch palette; notes start with no fill
 - **Fullscreen** (⤢, or double-click the header) expands a note; Esc or a
   backdrop click restores it to its exact previous position and size
@@ -163,7 +160,7 @@ was more to go wrong than it was worth.
 - `js/boot.js` — render-blocking; applies the sidebar state before first paint
 - `js/db.js` — IndexedDB open/upgrade plus small promise helpers
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
-- `js/note.js` — note rendering, drag, resize, lock, colour, fullscreen, dates
+- `js/note.js` — note rendering, drag, resize, colour, fullscreen, dates
 - `js/editor.js` — the editor: schema, input rules, and mounting it on the
   active note
 - `js/vendor/tiptap.js` — the bundled editor library, built from
@@ -271,7 +268,7 @@ viewport. Anything that turns a mouse position into a note position goes through
 
 | Store    | Contents                                                                   |
 | -------- | -------------------------------------------------------------------------- |
-| `notes`  | `{id, pageId, x, y, width, height, html, color, z, locked, updatedAt}`       |
+| `notes`  | `{id, pageId, x, y, width, height, html, color, z, updatedAt}`               |
 | `images` | `{id, blob}` — pasted images, referenced by `data-img-id`                    |
 | `pages`  | `{id, name, parentId, order, collapsed}`                                     |
 | `meta`   | `view:<pageId>` per page, plus `prefs`, `currentPage`, `sidebar`             |

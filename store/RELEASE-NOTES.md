@@ -1,4 +1,4 @@
-Ask Claude about your notes — search them, read one, or hand it a line to keep.
+Ask Claude about your notes, mark up what you clip, and a note without a lock.
 
 **[What's new — guided tour and how-tos](https://ozanerturk.github.io/easy-note-chrome-extension/release-notes.html)**
 
@@ -12,6 +12,17 @@ Turn on **Connect to Claude** in the ☁ panel, add Easy Note as a connector in 
 - **Off by default.** While the switch is off, nothing is connected. Switching it off closes the connection and deletes the relay's sign-in to your Drive folder.
 - **What passes through.** A small relay carries Claude's request to your notes and the answer back — from your open browser, or with Chrome closed from your own Google Drive copy. It does not store or log what is in your notes. It keeps what it needs to sign you in: an opaque Google account id, a hashed sign-in token, and an encrypted sign-in to your Easy Note Drive folder for the Chrome-closed case. See the [privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html).
 - **No new permissions** for this. It needs Chrome 116 or newer, which is what keeps the connection alive in the background.
+
+## Mark up a clip, and copy its words
+
+After you drag a box with **⌥⇧S**, the bar has a pen, highlighter, arrows, numbered steps, text and blur, in colours you pick, with undo and redo. **Save** puts it in the tray; **Download** keeps a copy as a file. When the region has writing in it, **Copy text** appears and puts the words on your clipboard — read on your computer, nothing sent anywhere. In the gallery, a **Download** button saves the picture, and its words can be selected straight off it.
+
+## Smaller things
+
+- **Resize from either bottom corner**, including a note floating over a page.
+- **Sums** learn `%` (remainder) and `**` (power).
+- **The lock is retired.** Notes you had locked are now ordinary notes you can move and delete. A note locked in an earlier version is still never shared with Claude.
+- **A new permission, `offscreen`**, lets the clipper copy to the clipboard and read text out of a clip, which a service worker cannot do on its own.
 
 ---
 

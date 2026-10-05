@@ -250,8 +250,8 @@
       <h1>Your new tab is a <span class="mark">notes canvas</span>.</h1>
       <p class="lede">
         Open a tab, double-click, start typing. Easy Note v3 adds Google Drive
-        sync, an endless canvas, pages to organise everything, and a lock so you
-        can't delete a note by mistake.
+        sync, an endless canvas, pages to organise everything, and a screen clipper
+        that marks up what it captures.
       </p>
     </div>
 
@@ -290,7 +290,7 @@
     <a href="#sync">Google Drive sync</a>
     <a href="#canvas">The canvas</a>
     <a href="#pages">Pages</a>
-    <a href="#lock">Lock notes</a>
+    <a href="#note">Colour &amp; fullscreen</a>
     <a href="#tidy">Tidy up a board</a>
     <a href="#find">Find a note</a>
     <a href="#upgrade">Upgrading</a>
@@ -302,7 +302,7 @@
   <div class="wrap stack">
     <div class="col stack">
       <span class="eyebrow">New in 3.6</span>
-      <h2>Ask Claude about your notes</h2>
+      <h2>Ask Claude about your notes, and mark up what you clip</h2>
     </div>
     <div class="highlights" style="margin-top:8px">
       <div class="hl">
@@ -349,6 +349,46 @@
           folder in Drive for that, and deletes it the moment you switch the
           feature off. Claude can only add to your tray while Chrome is open.
           The <a href="privacy.html">privacy policy</a> has the details.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-pink)">✏️</span>
+        <h3>Mark up a clip before you save it</h3>
+        <p>
+          Drag a box with <span class="kbd">⌥⇧S</span> and the bar that appears
+          now has a pen, a highlighter, arrows, numbered steps, text and a blur
+          for hiding something, in colours you pick, with undo and redo. Save puts
+          the clip in your tray; Download keeps a copy as a file.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">🔤</span>
+        <h3>Copy the words out of a clip</h3>
+        <p>
+          When a clipped region has writing in it, a <strong>Copy text</strong>
+          button appears and puts the words on your clipboard. They are read on
+          your own computer; nothing about the picture is sent anywhere. In the
+          gallery, the same words can be selected and copied straight off the
+          picture, and a <strong>Download</strong> button saves it.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">↙️</span>
+        <h3>Resize a note from either corner</h3>
+        <p>
+          The bottom-left corner stretches a note now, as well as the
+          bottom-right, and so does a note floating over a page. Sums learn
+          <strong>%</strong> for a remainder and <strong>**</strong> for a
+          power.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-peach)">🔓</span>
+        <h3>The lock is retired</h3>
+        <p>
+          Notes you had locked are now ordinary notes: you can move, resize and
+          delete them like any other. A note you locked in an earlier version is
+          still never shared with Claude.
         </p>
       </div>
       <div class="hl">
@@ -603,11 +643,6 @@
         <h3>Pages</h3>
         <p>Keep work, shopping and side projects on separate boards — and nest pages inside pages.</p>
       </div>
-      <div class="hl">
-        <span class="chip" style="background:var(--n-peach)">🔒</span>
-        <h3>Lock notes</h3>
-        <p>Lock the notes you can't afford to lose. They stay where you put them, and they can't be deleted.</p>
-      </div>
     </div>
   </div>
 </section>
@@ -693,26 +728,18 @@
   </div>
 </section>
 
-<section id="lock">
+<section id="note">
   <div class="wrap stack-lg">
     <div class="col stack">
       <span class="eyebrow">How to</span>
-      <h2>Lock a note you can't lose</h2>
+      <h2>Make a note your own</h2>
       <p>
-        Wi-Fi passwords, a phone number, the thing you'll need in six months —
-        lock it and a stray click can't take it away.
+        Right-click a note, or use the <strong>⋯</strong> above it, and the
+        colours are right there.
       </p>
     </div>
-    <div class="col">
-      <ol class="steps">
-        <li><div><strong>Click the note</strong> — a small bar appears just above it.<span class="sub">Only the note you are working in shows one, so the rest of the board stays clean.</span></div></li>
-        <li><div><strong>Click the padlock</strong> 🔓<span class="sub">It closes to 🔒 and the note gets a thin outline so you can spot it at a glance.</span></div></li>
-        <li><div><strong>The delete button greys out</strong> and the note stops moving — no dragging it away by accident.<span class="sub">You can still resize it and write in it.</span></div></li>
-        <li><div><strong>To delete it later,</strong> click the padlock again to unlock, then delete.</div></li>
-      </ol>
-    </div>
     <div class="col stack">
-      <h3>While you're in that bar</h3>
+      <h3>In that menu</h3>
       <div class="swatches" style="margin:2px 0 6px">
         <span class="swatch" style="background:var(--n-yellow)"></span>
         <span class="swatch" style="background:var(--n-pink)"></span>
@@ -741,7 +768,7 @@
         <li><div><strong>Drag a box</strong> across empty space to select several notes, or hold <span class="kbd">Shift</span> and click them one by one.</div></li>
         <li><div><strong>Drag any one of them</strong> and the whole group moves together.</div></li>
         <li><div><strong>Use the toolbar</strong> that appears at the top to line them up, space them evenly, or snap them into a neat grid.</div></li>
-        <li><div><strong><span class="kbd">⌘A</span></strong> selects everything, <strong><span class="kbd">Esc</span></strong> clears the selection, <strong><span class="kbd">Delete</span></strong> removes it.<span class="sub">Locked notes are skipped, so they survive a bulk delete.</span></div></li>
+        <li><div><strong><span class="kbd">⌘A</span></strong> selects everything, <strong><span class="kbd">Esc</span></strong> clears the selection, <strong><span class="kbd">Delete</span></strong> removes it.</div></li>
       </ol>
     </div>
   </div>
@@ -799,7 +826,7 @@
           <tr><td class="g">⌘ / Ctrl + scroll, or pinch</td><td>Zoom in and out</td></tr>
           <tr><td class="g">Shift + click a note</td><td>Add it to the selection</td></tr>
           <tr><td class="g">⌘A · Esc · Delete</td><td>Select all · clear · delete</td></tr>
-          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour, copy, lock, fullscreen, delete</td></tr>
+          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour, copy, fullscreen, delete</td></tr>
           <tr><td class="g">⌥⇧S on any web page</td><td>Clip a region into your tray</td></tr>
           <tr><td class="g">Drag a note onto a page</td><td>Move it there — hold to open that page first</td></tr>
           <tr><td class="g">Click the page you are on</td><td>Back to the start of the page</td></tr>
