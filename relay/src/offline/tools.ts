@@ -16,7 +16,8 @@ export class OfflineError extends Error {
   }
 }
 
-const readable = (n: Note | undefined): n is Note => !!n && !n.deleted && n.pageId !== TRAY_ID;
+// a note locked in an earlier version stays private: a lock hid its content, so it is never shared
+const readable = (n: Note | undefined): n is Note => !!n && !n.deleted && n.pageId !== TRAY_ID && !n.locked;
 const stamp = (n: Note) => n.editedAt || n.updatedAt || 0;
 const pageMap = (doc: SyncedDoc) => new Map<string, Page>(doc.pages.map((p) => [p.id, p]));
 

@@ -25,6 +25,7 @@ const doc: SyncedDoc = {
     { id: "milk", pageId: "p1", html: "<p>groceries: milk</p>", editedAt: 2, remindAt: Date.parse("2026-10-06T15:00:00Z") },
     { id: "tray", pageId: "capture-tray", html: "<p>secret trip</p>", editedAt: 1 },
     { id: "dead", pageId: "p1", html: "<p>deleted trip</p>", deleted: true },
+    { id: "locked", pageId: "p1", html: "<p>locked trip secret</p>", locked: true, remindAt: Date.parse("2026-10-06T04:30:00Z") },
   ],
 };
 
@@ -78,7 +79,7 @@ describe("drive reader", () => {
     const r = await s.reader.load("u1");
     expect(r.status).toBe("ok");
     if (r.status === "ok") {
-      expect(r.doc.notes).toHaveLength(4);
+      expect(r.doc.notes).toHaveLength(5);
       expect(r.asOf).toBe(Date.parse("2026-10-05T22:03:06.428Z"));
     }
     expect(s.google.accessTokenFromRefresh).toHaveBeenCalledWith("refresh");
@@ -184,7 +185,7 @@ describe("router", () => {
     const d = (r as { data: { source: string; asOf: string; result: { id: string; pagePath: string }[] } }).data;
     expect(d.source).toBe("drive");
     expect(d.asOf).toBe("2026-10-05T22:03:06.428Z");
-    expect(d.result.map((x) => x.id)).toEqual(["plan"]); // not the tray note, not the deleted one
+    expect(d.result.map((x) => x.id)).toEqual(["plan"]); // not the tray note, the deleted one, or the locked one
     expect(d.result[0]!.pagePath).toBe("Work › Trips");
   });
 
@@ -199,7 +200,7 @@ describe("router", () => {
     const router = createRouter({ hub: live(offline), drive: s.reader });
     const ok = await router.call("u1", "get_note", { id: "plan" });
     expect((ok as { data: { result: { content: string } } }).data.result.content).toBe("Trip plan\n- book flights");
-    for (const id of ["tray", "dead", "nope"]) {
+    for (const id of ["tray", "dead", "locked", "nope"]) {
       const r = await router.call("u1", "get_note", { id });
       expect(r.ok === false && r.error.code).toBe("NOT_FOUND");
     }
@@ -211,6 +212,7 @@ describe("router", () => {
     const s = withDrive();
     const r = await createRouter({ hub: live(offline), drive: s.reader }).call("u1", "list_reminders", { when: "today", timezone: "Europe/Istanbul", limit: 50 });
     const res = (r as { data: { result: { id: string; due: boolean; remindAtLocal: string }[] } }).data.result;
+    // the locked note has a reminder in range, and must not appear
     expect(res.map((x) => [x.id, x.due, x.remindAtLocal])).toEqual([["plan", true, "2026-10-06 07:00"], ["milk", false, "2026-10-06 18:00"]]);
     vi.useRealTimers();
   });

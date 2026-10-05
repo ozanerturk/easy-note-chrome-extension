@@ -13,7 +13,7 @@ const CACHE_MAX = 50;
 // a credential nobody has used for this long is let go
 export const CREDENTIAL_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-export type Note = { id: string; html?: string; pageId?: string; deleted?: boolean; remindAt?: number; editedAt?: number; updatedAt?: number };
+export type Note = { id: string; html?: string; pageId?: string; deleted?: boolean; locked?: boolean; remindAt?: number; editedAt?: number; updatedAt?: number };
 export type Page = { id: string; name: string; parentId?: string | null; deleted?: boolean };
 export type SyncedDoc = { notes: Note[]; pages: Page[] };
 

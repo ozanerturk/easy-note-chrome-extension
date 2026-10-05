@@ -14,8 +14,9 @@ export class ToolError extends Error {
 }
 
 // Same rule as the board's search and sidebar: tombstones and the capture tray
-// are not notes anyone is looking for.
-const readable = (note) => note && !note.deleted && note.pageId !== TRAY_ID;
+// are not notes anyone is looking for. A note that was locked in an earlier
+// version stays private: a lock hid a note's content, so it is never shared.
+const readable = (note) => note && !note.deleted && note.pageId !== TRAY_ID && !note.locked;
 
 const stamp = (note) => note.editedAt || note.updatedAt || 0;
 
