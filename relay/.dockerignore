@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.*
+*.pem
+*.db
+*.db-*
+test
+scripts
+README.md
+Caddyfile.example
+Dockerfile
+.dockerignore
+docker-compose.yml
