@@ -176,7 +176,8 @@
     </ul>
     <p>
       With Connect to Claude on, it also keeps a connection open to
-      <code>relay.easynote.tayfai.tech</code> (see the next section). There are
+      <code>relay.easynote.tayfai.tech</code>, and that relay may read your Easy Note
+      folder in your Drive on your behalf (see the next section). There are
       no other network requests, no third-party services, no
       advertising networks and no data brokers. Your notes are never sold,
       rented, or used to train anything.
@@ -194,8 +195,9 @@
       Chrome is open. It cannot edit or delete anything.
     </p>
     <ul>
-      <li><strong>What passes through the relay.</strong> A request from Claude, and the answer your browser gives to it — the matching notes or the one note you asked for. The relay hands it on and forgets it: it does not store or log note content, search words or what Claude asked for.</li>
-      <li><strong>What the relay keeps.</strong> Only what is needed to sign you in: your Google account's identifier (not your email address), a scrambled (hashed) copy of the long-lived sign-in token, and the name and return address of the Claude connector. Nothing it keeps can be used to read your notes.</li>
+      <li><strong>What passes through the relay.</strong> A request from Claude, and the answer — the matching notes, the one note you asked for, or your reminders. The relay hands it on and forgets it: it does not store or log note content, search words or what Claude asked for.</li>
+      <li><strong>When Chrome is closed.</strong> Claude can still search and read your notes, and ask what is due. The relay then reads the copy that Easy Note's Google Drive sync keeps in your own Drive, answers from it, and keeps nothing of it. That copy is only as recent as your last sync, and the answer says so. Adding to the Capture tray needs Chrome open.</li>
+      <li><strong>What the relay keeps.</strong> What it needs to sign you in and to do the above: your Google account's identifier (not your email address), a scrambled (hashed) copy of the long-lived sign-in token, the name and return address of the Claude connector, and an <strong>encrypted copy of the access Google gave it to the Easy Note folder in your Drive</strong>. That last one is the only thing it keeps that could be used to read your notes. It is used only when Claude asks while Chrome is closed, and it is deleted when you switch Connect to Claude off, when you remove Easy Note's access in your Google account, and after 90 days without use.</li>
       <li><strong>What Claude receives.</strong> Whatever it asks for and your browser returns. What Claude does with it is governed by your agreement with Anthropic, not by this policy.</li>
       <li><strong>Whose notes.</strong> The relay only passes a request to the Easy Note that is signed in with the same Google account that signed in to Claude, and refuses connections that cannot prove they belong to that account.</li>
       <li><strong>Turning it off.</strong> Switch it off in the sync panel and the connection closes straight away. You can also remove the connector in Claude.</li>

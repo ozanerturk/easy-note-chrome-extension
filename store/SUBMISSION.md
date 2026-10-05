@@ -178,10 +178,20 @@ Claude made for the same account, and the extension answers from the user's
 local notes. A WebSocket needs no host permission.
 
 The relay does not store or log note contents, search words or results. It
-keeps three things: an opaque Google account id, a SHA-256 hash of the sign-in
-refresh token, and the Claude connector's registration. Nothing is sent unless
-the switch is on and Claude has asked, and turning it off closes the connection
-at once.
+keeps four things: an opaque Google account id, a SHA-256 hash of the sign-in
+refresh token, the Claude connector's registration, and the user's Google
+refresh token for the Drive app-data scope, encrypted (AES-256-GCM) at rest.
+
+That last one lets the relay answer when Chrome is closed: if the extension is
+not connected, the relay refreshes an access token, reads the user's own
+easynote.json (the sync copy this extension already writes to their Drive app
+folder) with GET requests only, answers, and keeps nothing of it beyond a
+minute in memory. The same Cloud project's web client is used, so no new
+account or storage is involved. The stored token is deleted when the user turns
+the switch off (the extension tells the relay, which also revokes it at
+Google), when Google reports the access removed, and after 90 days unused.
+Nothing is sent unless the switch is on and Claude has asked, and turning it
+off closes the connection at once.
 
 No remote code is loaded or evaluated: script-src is still 'self', and the
 relay only ever sends data. minimum_chrome_version is 116 because from that
@@ -254,17 +264,20 @@ still `'self'`.
   with one **opt-in exception**. With "Connect to Claude" on (off by default),
   the extension holds a WebSocket to the developer's relay. Through it passes
   whatever Claude asks for and the browser answers — search results, one note,
-  or a line to add to the Capture tray. The relay does not store or log it. The
-  relay keeps an opaque Google account id, a hashed refresh token and the
-  connector's registration, and is shown the Google access token once per
-  connection to check the account.
+  or a line to add to the Capture tray. The relay does not store or log it.
+  When the browser is not connected it reads the user's own sync copy from
+  their Drive instead (see the section above) and does not keep it. The relay
+  keeps an opaque Google account id, a hashed refresh token, the connector's
+  registration and an encrypted Google refresh token for Drive app-data access,
+  and is shown the Google access token once per connection to check the
+  account.
 
 Answer the disclosure form as: collects **personal communications** (the note
 content) only when sync or "Connect to Claude" is enabled; not sold; not used
 for anything unrelated to the single purpose. For Connect to Claude, also
-declare **authentication information** (the Google access token, shown to the
-relay to prove the account, not stored) and the account **id** the relay
-keeps. These categories are my best reading of the form's wording — check each
+declare **authentication information** (the Google access token shown to the
+relay to prove the account, and the encrypted Drive refresh token the relay
+**does store**) and the account **id** the relay keeps. These categories are my best reading of the form's wording — check each
 against what the dashboard actually asks.
 
 ## Before you can submit
@@ -289,7 +302,12 @@ against what the dashboard actually asks.
 - [ ] **The relay's Google OAuth client** (type *Web application*, redirect URI
       `https://relay.easynote.tayfai.tech/oauth/google/callback`) shares this
       project's consent screen, so it must be **published** too, or only test
-      users can connect Claude. It asks only for `openid` and `email`.
+      users can connect Claude. It asks for `openid`, `email` and
+      `drive.appdata` — the same Drive scope the extension already has, now also
+      requested with offline access so the relay can read the user's notes when
+      Chrome is closed. Check that scope is on the consent screen's list.
+- [ ] **The relay has `CREDENTIAL_KEY` set** in its `.env` (it will not start
+      without it), and a copy of that key is kept somewhere safe.
 - [ ] Update the dashboard's **Privacy practices** tab with the data types
       above, and check the privacy policy URL shows the new "Connect to Claude"
       section.

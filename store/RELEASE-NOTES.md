@@ -7,9 +7,10 @@ Ask Claude about your notes — search them, read one, or hand it a line to keep
 Turn on **Connect to Claude** in the ☁ panel, add Easy Note as a connector in Claude (*Settings → Connectors*, with the address the panel shows), and sign in with the same Google account. Then ask: *"what did I write about the Lisbon trip?"*
 
 - **Search and read.** Claude searches your notes and reads the one it needs — headings, lists and tables come across as plain, readable text. The Capture tray is never searched.
+- **What is due, for a morning briefing.** Claude can list your reminders — due now, today, or coming this week — in your own time zone. With Chrome closed it answers from the copy Google Drive sync keeps and says how recent that is.
 - **Capture.** Ask Claude to keep a line for you and it lands in the Capture tray, like a clip, until you file it. Claude only ever adds: it cannot edit, move or delete a note.
-- **Off by default.** While the switch is off, nothing is connected. Claude can reach your notes only while Chrome is open, and switching it off closes the connection at once.
-- **What passes through.** A small relay carries Claude's request to your browser and the answer back. It does not store or log what is in your notes; it keeps only what it needs to sign you in (an opaque Google account id and a hashed sign-in token). See the [privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html).
+- **Off by default.** While the switch is off, nothing is connected. Switching it off closes the connection and deletes the relay's sign-in to your Drive folder.
+- **What passes through.** A small relay carries Claude's request to your notes and the answer back — from your open browser, or with Chrome closed from your own Google Drive copy. It does not store or log what is in your notes. It keeps what it needs to sign you in: an opaque Google account id, a hashed sign-in token, and an encrypted sign-in to your Easy Note Drive folder for the Chrome-closed case. See the [privacy policy](https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html).
 - **No new permissions** for this. It needs Chrome 116 or newer, which is what keeps the connection alive in the background.
 
 ---
