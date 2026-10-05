@@ -1,0 +1,11 @@
+# add to the server's Caddyfile; Caddy gets the certificate by itself once the
+# DNS record for this name points at the server
+relay.easynote.tayfai.tech {
+	reverse_proxy localhost:3000 {
+		transport http {
+			# sockets are pinged every 20s; this only has to be longer than the
+			# 60s the relay allows an idle one
+			read_timeout 120s
+		}
+	}
+}

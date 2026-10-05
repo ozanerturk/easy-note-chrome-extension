@@ -95,7 +95,6 @@ export function convertNote(v1Note, index, pageId, now = Date.now()) {
     html,
     color: THEME_COLORS[String(v1Note.theme || "default").toLowerCase()] || THEME_COLORS.default,
     z: index + 1,
-    locked: false,
     createdAt: now,
     editedAt: now,
     updatedAt: now,

@@ -20,6 +20,8 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "u
 const INCLUDE = [
   "manifest.json",
   "newtab.html",
+  "float.html", // a floating note, framed on the pages it floats over
+  "offscreen.html", // a hidden document the clipper writes the clipboard from
   "css",
   "js",
   "icons",
@@ -60,6 +62,18 @@ const staged = JSON.parse(fs.readFileSync(path.join(stage, "manifest.json"), "ut
 const hadKey = "key" in staged;
 delete staged.key;
 fs.writeFileSync(path.join(stage, "manifest.json"), JSON.stringify(staged, null, 2) + "\n");
+
+// The bridge can be pointed at a local relay and a fake user for development
+// (see js/bridge/socket.js). That is a way past real sign-in, so it must not be
+// in anything shipped: the marked blocks come out, and the build stops if any
+// trace of them is left.
+for (const rel of files.filter((f) => f.startsWith("js/bridge/") && f.endsWith(".js"))) {
+  const file = path.join(stage, rel);
+  const before = fs.readFileSync(file, "utf8");
+  const after = before.replace(/[ \t]*\/\/ dev-auth:begin[\s\S]*?\/\/ dev-auth:end\n?/g, "");
+  if (/dev-auth|devUser|relayUrl/.test(after)) throw new Error(`dev auth left in ${rel}`);
+  fs.writeFileSync(file, after);
+}
 
 // The hosted release-notes page carries a Google Analytics tag. MV3 blocks
 // remote scripts on extension pages, so inside the package it could never run

@@ -5,7 +5,7 @@
 // with no network and no blob workers. That either works or it does not, and
 // nothing else in the app would notice if it stopped.
 
-import { sleep } from "./harness.mjs";
+import { sleep, MOD } from "./harness.mjs";
 
 export const title = "ocr";
 
@@ -67,7 +67,7 @@ export default async function run(page, s) {
   check("the picture opens", (await isOpen()) === true);
 
   const started = Date.now();
-  while (!(await words()) && Date.now() - started < PATIENCE_MS) await sleep(500);
+  while (!(await words()) && Date.now() - started < PATIENCE_MS) await sleep(100);
 
   const found = await words();
   check(`the engine runs entirely inside the extension`, found > 0,
@@ -78,8 +78,8 @@ export default async function run(page, s) {
     await page.evaluate(`document.getElementById('gallery-text').textContent`)
   );
   check(
-    "which can then be copied",
-    (await page.evaluate(`!document.getElementById('gallery-copy').hidden`)) === true
+    "which can then be selected — a real text layer, not a button of ours",
+    (await page.evaluate(`!document.getElementById('gallery-text').hidden`)) === true
   );
 
   // Dragging across two words is the gesture the whole layer exists for. It
@@ -99,6 +99,25 @@ export default async function run(page, s) {
     "the words can be selected off the picture, across the gap between them",
     picked.endsWith("world") && picked.includes(" "),
     picked
+  );
+
+  // The note behind the gallery is still nominally "selected" from the
+  // double-click that opened it — ⌘C must reach the browser's own copy, not
+  // be swallowed by the board's "copy this note" shortcut first. Checked on
+  // `defaultPrevented` rather than the real clipboard, which a shared OS
+  // clipboard and other suites running alongside this one make no promises
+  // about.
+  await page.evaluate(`(() => {
+    window.__ocrKeyPrevented = null;
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "c" && (e.metaKey || e.ctrlKey)) window.__ocrKeyPrevented = e.defaultPrevented;
+    });
+    return true;
+  })()`);
+  await page.key("c", "KeyC", MOD.ctrl);
+  check(
+    "and is not intercepted by the board's own copy shortcut",
+    (await page.evaluate(`window.__ocrKeyPrevented`)) === false
   );
 
   /* -------------------------------------------------------------- keeping */
@@ -122,13 +141,13 @@ export default async function run(page, s) {
 
   const blankStarted = Date.now();
   while (!(await page.stored("meta")).some((r) => r.id === "ocr:blank")
-    && Date.now() - blankStarted < PATIENCE_MS) await sleep(500);
+    && Date.now() - blankStarted < PATIENCE_MS) await sleep(100);
 
   check("a picture with no writing on it is asked once", true,
     `${Math.round((Date.now() - blankStarted) / 1000)}s`);
   check("and says nothing", (await words()) === 0);
   check(
-    "with no copy button to press",
-    (await page.evaluate(`document.getElementById('gallery-copy').hidden`)) === true
+    "with no text layer to select from either",
+    (await page.evaluate(`document.getElementById('gallery-text').hidden`)) === true
   );
 }

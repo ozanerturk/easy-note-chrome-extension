@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Easy Note",
-  "version": "3.3.0",
+  "version": "3.6.0",
+  "minimum_chrome_version": "116",
   "description": "Take freeform notes the moment you open a new tab. Double-click anywhere to start writing.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoG1WSqk+33DzM7zSErHJilrYMwdCvk/sz30MxfYvjcx3HPl3HPOaGZ3iqaTZY0NdfkHqFYvZJEbHwfRc2UBhoObtHT7lA16t43WIdwTSPVLerh/xY8JPxPaZSORhbMbUSMIUArUSkiLXxDsD0O+Bzs9EOyy8sikDQ/P0UfU6O5H0L3FccnLi3kipRc5JeaHHQfwNC6tN5wB+FcB+HyW+Vho1PZkaxehAf3KYu4PhQtPUKqd11sBXAmYD1oNaNeMVrrTbia7tASW8+ExWz1gWvWPjOGGk2WJpIMfA1Wp6v9/14djeKyAkv85KsMtlhjs8Gk0FB6DVioSVhxW2J/g3mQIDAQAB",
   "chrome_url_overrides": {
@@ -23,7 +24,7 @@
     }
   },
   "background": {
-    "service_worker": "js/clip/background.js",
+    "service_worker": "js/worker.js",
     "type": "module"
   },
   "commands": {
@@ -43,7 +44,23 @@
     "activeTab",
     "scripting",
     "contextMenus",
-    "clipboardRead"
+    "clipboardRead",
+    "clipboardWrite",
+    "alarms",
+    "offscreen"
+  ],
+  "optional_permissions": [
+    "notifications"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["float.html"],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
   ],
   "oauth2": {
     "client_id": "1042376880553-kb4u1v9rbhjn4b3tn3i8scl28l2nnlo5.apps.googleusercontent.com",

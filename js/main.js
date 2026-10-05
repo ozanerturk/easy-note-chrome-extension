@@ -12,21 +12,24 @@ import {
   fitToNotes,
   persistViewNow,
   viewKey,
-  goHome,
-  setHome,
+  goToOrigin,
+  setSpaceTapHandler,
 } from "./view.js";
 import {
   createNote,
-  setShowDates,
   isFullscreen,
   deleteNote,
   activateNote,
+  hopNote,
   setBlurNotes,
   isBlurred,
   clearActiveNote,
   createNoteWithContent,
   createNoteAndPasteByCommand,
   dismissTopmost,
+  copyNotes,
+  cutNotes,
+  pasteNoteRecords,
 } from "./note.js";
 import {
   initSelection,
@@ -36,6 +39,7 @@ import {
   selectAll,
   selectedList,
   selectOnly,
+  selectNotes,
 } from "./selection.js";
 import {
   initPages,
@@ -48,28 +52,33 @@ import {
   setDuePickHandler,
   setReselectHandler,
 } from "./pages.js";
-import { initSearch, setSearchPickHandler } from "./search.js";
-import { initGallery } from "./gallery.js";
+import { initSearch, setSearchPickHandler, open as openSearch } from "./search.js";
+import { initGallery, galleryIsOpen } from "./gallery.js";
 import { initTray, refreshTray } from "./tray.js";
 import { initTheme } from "./theme.js";
 import { toast } from "./toast.js";
 import { initTips, markUsed } from "./tips.js";
 import { initReminders } from "./reminders.js";
 import { initSyncUI, setSyncAppliedHandler } from "./syncui.js";
+import { initBridgeUI } from "./bridgeui.js";
 import { migrateFromV1 } from "./migrate/v1.js";
 import { initWhatsNew } from "./whatsnew.js";
 import { notes } from "./store.js";
 import { loadPrefs, getPref } from "./prefs.js";
 import { readClipboard, hasContent } from "./clipboard.js";
+import { decodeNotes } from "./noteclip.js";
 import { showMenu } from "./menu.js";
 import { hideUndo } from "./undo.js";
 import { undo, redo, clearHistory } from "./history.js";
 import { purgeTombstones } from "./note.js";
+// The board is where notes are placed, dragged and filed. Imported for what it
+// does on arrival: it tells note.js that notes drawn here belong on the canvas.
+import "./board-note.js";
 import { adoptPages, renderTree as renderPageTree } from "./pages.js";
 import { PAGES, LISTS } from "./db.js";
 import { drawBoard } from "./board.js";
-import { createList } from "./list.js";
 import { registerSyncedStore } from "./sync.js";
+import { syncFloating } from "./floating.js";
 
 // Lists ride the same document as notes and pages. Registered here rather than
 // in list.js so that everything that crosses the wire is declared in one place.
@@ -151,8 +160,20 @@ document.addEventListener("paste", (e) => {
   e.preventDefault();
   markUsed("paste");
   const { x, y } = pasteOrigin();
+  // Notes copied from a board come back as notes — same colour, same size, same
+  // arrangement — rather than as one note holding all their words.
+  if (dropNotes(decodeNotes(html), x, y)) return;
   createNoteWithContent(x, y, { html, text, blobs });
 });
+
+// Put copied notes back on the board and leave them selected, so a paste of
+// several can be dragged somewhere else in one go.
+function dropNotes(records, x, y) {
+  const made = records ? pasteNoteRecords(records, x, y) : [];
+  if (!made.length) return false;
+  selectNotes(made.map(({ note }) => note.id));
+  return true;
+}
 
 // Ctrl+P does the same without the paste gesture, by asking for the clipboard
 // directly — the `clipboardRead` permission is what makes that answer. If it
@@ -163,7 +184,9 @@ window.addEventListener("keydown", async (e) => {
   e.preventDefault(); // and no print dialog
   const { x, y } = pasteOrigin();
   const content = await readClipboard();
-  if (hasContent(content)) {
+  if (content && dropNotes(decodeNotes(content.html), x, y)) {
+    markUsed("paste");
+  } else if (hasContent(content)) {
     markUsed("paste");
     createNoteWithContent(x, y, content);
   } else if (createNoteAndPasteByCommand(x, y)) {
@@ -181,7 +204,6 @@ canvas.addEventListener("contextmenu", (e) => {
   showMenu(
     [
       { label: "New note", run: () => createNote(x, y) },
-      { label: "New list", run: () => createList(x, y) },
       null,
       { label: "Paste", run: () => pasteOntoCanvas(x, y, { formatted: true }) },
       { label: "Paste without formatting", run: () => pasteOntoCanvas(x, y, { formatted: false }) },
@@ -196,6 +218,12 @@ canvas.addEventListener("contextmenu", (e) => {
 // without a prompt.
 async function pasteOntoCanvas(x, y, { formatted }) {
   const content = await readClipboard();
+  // Whole notes only come back whole when the formatting is being kept; asked
+  // for as plain text, a copied note is the words in it and nothing else.
+  if (formatted && content && dropNotes(decodeNotes(content.html), x, y)) {
+    markUsed("paste");
+    return;
+  }
   if (hasContent(content)) {
     markUsed("paste");
     createNoteWithContent(x, y, content, { formatted });
@@ -212,11 +240,35 @@ async function pasteOntoCanvas(x, y, { formatted }) {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (isEditing()) return;
+  // The gallery has its own picture up, with its own selectable text over it —
+  // the board's notes are not what Delete or ⌘C means while that is open, even
+  // though the note underneath is still nominally "selected".
+  if (isEditing() || galleryIsOpen()) return;
 
   if ((e.key === "Delete" || e.key === "Backspace") && selectedList().length) {
     e.preventDefault();
-    selectedList().forEach(({ note, el }) => deleteNote(note, el)); // locked notes survive
+    selectedList().forEach(({ note, el }) => deleteNote(note, el));
+    return;
+  }
+  // ⌘C / ⌘X out here are about the notes themselves, not the words in them —
+  // inside a note the caret owns them, and this handler has already stood down.
+  if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "x")) {
+    const picked = selectedList();
+    if (!picked.length) return;
+    e.preventDefault();
+    const cutting = e.key.toLowerCase() === "x";
+    // A cut that could not reach the clipboard says so itself, and deletes
+    // nothing — losing notes to a failed copy is the one outcome to avoid.
+    (cutting ? cutNotes(picked) : copyNotes(picked)).then((count) => {
+      if (cutting) return;
+      toast(
+        !count
+          ? "Could not copy to the clipboard"
+          : count === 1
+            ? "Note copied"
+            : `${count} notes copied`
+      );
+    });
     return;
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
@@ -263,55 +315,15 @@ async function stepHistory(direction) {
 // of the note you are typing in is the whole job here.
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (dismissTopmost()) return; // a palette, a menu, fullscreen, the open note
+  if (dismissTopmost()) return; // a menu, fullscreen, the open note
   if (selectedList().length) {
     clearSelection();
     return;
   }
-  // Nothing left to dismiss, so Escape means "put the board back where I
-  // like it" rather than doing nothing at all.
-  goHome();
-});
-
-/* ----------------------------------------------------------- home view */
-
-// Click to go home, hold to make here home. A press-and-hold rather than a
-// second button: setting a home view is rare and returning to one is not, so
-// the common action gets the plain click.
-// Click to go home, hold to make here home. A press-and-hold rather than a
-// second button: setting a home view is rare and returning to one is not, so
-// the common action gets the plain click. The ring fills while it is held, so
-// the wait is something happening rather than nothing happening.
-const HOLD_MS = 700;
-const homeBtn = document.getElementById("go-home");
-let holdTimer = null;
-let held = false;
-
-homeBtn.addEventListener("pointerdown", (e) => {
-  if (e.button !== 0) return;
-  held = false;
-  homeBtn.classList.add("is-holding"); // starts the ring filling
-  holdTimer = setTimeout(async () => {
-    held = true;
-    homeBtn.classList.remove("is-holding");
-    await setHome();
-    toast("Home view set for this page");
-  }, HOLD_MS);
-});
-
-const endHold = (run) => {
-  clearTimeout(holdTimer);
-  holdTimer = null;
-  homeBtn.classList.remove("is-holding");
-  if (run && !held) goHome();
-  held = false;
-};
-
-homeBtn.addEventListener("pointerup", () => endHold(true));
-homeBtn.addEventListener("pointerleave", () => endHold(false));
-
-document.getElementById("toggle-dates").addEventListener("click", () => {
-  setShowDates(!document.body.classList.contains("show-dates"));
+  // Nothing left to dismiss, so Escape means "back to the start of the page",
+  // at whatever zoom you are looking at it.
+  markUsed("origin");
+  goToOrigin();
 });
 
 document.getElementById("toggle-blur").addEventListener("click", () => {
@@ -330,6 +342,18 @@ chrome.runtime.onMessage.addListener((msg) => {
   refreshTray();
 });
 
+// A note made from a webpage's right-click, which the worker writes straight
+// into the database, or one floated or put away somewhere else. Words typed
+// into a floating note arrive by another road — see adoptRecord in note.js —
+// but whether a note is floating at all is announced from here.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.type !== "easynote:float-changed") return;
+  syncFloating().catch(() => {});
+  // A note made out on a webpage lands in the Capture tray, exactly as a clip
+  // does — so the tray has to redraw for the same reason a clip makes it.
+  refreshTray();
+});
+
 /* ----------------------------------------------------------------- boot */
 
 initPanZoom();
@@ -338,6 +362,7 @@ initPages();
 initReminders();
 initSearch();
 initSyncUI();
+initBridgeUI();
 initTray();
 
 // A sync that pulled anything has changed pages and notes underneath us.
@@ -361,12 +386,12 @@ setPageSwitchHandler(async (id, previous) => {
   await restoreViewFor(id);
 });
 
-// Each page remembers where you were. A page seen for the first time gets
-// framed instead, so its notes are never off-screen on arrival.
+// Each page remembers where you were. A page seen for the first time opens at
+// its start, which is where its notes begin.
 async function restoreViewFor(pageId) {
   const saved = await getOne(META, viewKey(pageId));
   if (saved) setView(saved);
-  else await goHome(); // its home view, or a framing of its notes if it has none
+  else goToOrigin();
 }
 
 // Going to one named note, wherever it lives. Search uses it for a hit, and a
@@ -381,14 +406,41 @@ async function goToNote(noteId, pageId) {
   activateNote(entry);
 }
 
-setSearchPickHandler(goToNote);
+// Search only finds. It takes you to the note and picks it out, and leaves
+// opening it to you: what you were looking for is often something to look
+// at, and a note that opens for typing the moment it is found invites a stray
+// keystroke into it.
+async function locateNote(noteId, pageId) {
+  if (pageId !== currentPageId) await switchPage(pageId);
+  const entry = notes.get(noteId);
+  if (!entry) return;
+  clearActiveNote();
+  selectOnly(noteId);
+  // Centred where it can be. One near the origin cannot be without showing
+  // past it, so the hop is what says which note it is.
+  focusNote(entry.el); // pans only — the zoom the user set is left alone
+  hopNote(entry);
+}
+
+// A clicked reminder notification opens a tab straight onto its note. The hash
+// is taken off first, so that reloading the tab later does not jump again.
+async function openFromHash() {
+  const match = /^#note=(.+)$/.exec(location.hash);
+  if (!match) return;
+  history.replaceState(null, "", location.pathname);
+  const note = await getOne(NOTES, decodeURIComponent(match[1]));
+  if (note && !note.deleted) await goToNote(note.id, note.pageId);
+}
+
+setSearchPickHandler(locateNote);
+setSpaceTapHandler(openSearch);
 setDuePickHandler(goToNote);
 // Double-clicking a picture opens the page's pictures; "go to note" brings you
 // back to the one it belongs to, by the same door search uses.
 initGallery(goToNote);
 
 // Clicking the page you are on is a request to be put back where you like it.
-setReselectHandler(() => goHome());
+setReselectHandler(() => goToOrigin());
 
 openDB()
   .then(async () => {
@@ -443,10 +495,10 @@ openDB()
     await refreshTray();
     if (!startView) fitToNotes();
     initTheme(); // after loadPrefs, so a synced choice is known
-    setShowDates(!!getPref("showDates"), false);
     // boot.js already applied the class from localStorage; this only syncs the
     // button, and covers a profile whose pref arrived by sync.
     setBlurNotes(isBlurred() || !!getPref("blurNotes"), false);
+    await openFromHash();
     purgeTombstones().catch(() => {});
 
     // Someone with notes already — imported from v1 or created here — is an

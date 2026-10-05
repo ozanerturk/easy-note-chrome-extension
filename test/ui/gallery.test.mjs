@@ -100,6 +100,24 @@ export default async function run(page, s) {
   await page.settle(150);
   check("the arrow button does what the key does", (await count()) === "1 / 4");
 
+  /* ------------------------------------------------------------ download */
+
+  // Real navigation and a real save dialog are not something a headless
+  // Chrome can be asked to finish, so the anchor's own click is caught before
+  // it fires — what matters here is what Download built, not the OS after it.
+  const built = await page.evaluate(`(() => {
+    return new Promise((resolve) => {
+      const real = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () {
+        HTMLAnchorElement.prototype.click = real;
+        resolve({ href: this.href, download: this.download });
+      };
+      document.getElementById('gallery-download').click();
+    });
+  })()`);
+  check("Download builds a link to the picture's own blob", built.href.startsWith("blob:"), built.href);
+  check("named with an extension, not left bare", /\.\w+$/.test(built.download), built.download);
+
   /* ---------------------------------------------------------- go to note */
 
   // The last frame is the picture on the page that is not on screen.

@@ -6,7 +6,7 @@ const count = (selector) => `document.querySelectorAll(${JSON.stringify(selector
 
 const due = (id, pageId, ago) => ({
   id, x: 40, y: 40, width: 200, height: 150, html: `<p>${id}</p>`,
-  color: "transparent", z: 1, locked: false, remindAt: Date.now() - ago,
+  color: "transparent", z: 1, remindAt: Date.now() - ago,
   createdAt: Date.now(), editedAt: Date.now(), updatedAt: Date.now(), pageId,
 });
 

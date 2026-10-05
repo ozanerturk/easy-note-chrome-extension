@@ -16,6 +16,7 @@
 // reminders and the ⋯ menu keep working with no second implementation.
 
 import { LISTS, NOTES, put, getAll } from "./db.js";
+import { EDGE } from "./origin.js";
 import { world, view } from "./view.js";
 import { notes } from "./store.js";
 import { currentPageId } from "./pages.js";
@@ -24,7 +25,16 @@ import { record } from "./history.js";
 import { offerUndo } from "./undo.js";
 import { registerLayer } from "./board.js";
 import { markUsed } from "./tips.js";
-import { newId, saveNote, updateHint } from "./note.js";
+import { newId, saveNote, updateHint, createNote, editorFor, recordMove } from "./note.js";
+import {
+  isListSelected,
+  selectionSize,
+  selectedLists,
+  selectedList,
+  selectOnlyList,
+  toggleListSelect,
+  forgetListSelection,
+} from "./selection.js";
 
 const DEFAULT_WIDTH = 240;
 const DRAG_THRESHOLD = 3;
@@ -131,6 +141,17 @@ export function unmountCard(note, el) {
   if (from) refreshCount(from);
 }
 
+/**
+ * Redraw the count on a list, and with it the empty state.
+ *
+ * Exported because a card can leave a list without going through here — a note
+ * deleted while it is in one — and a list that says "3" over two cards is
+ * lying about the only thing it claims to know.
+ */
+export function refreshList(listId) {
+  if (listId) refreshCount(listId);
+}
+
 function refreshCount(listId) {
   const entry = lists.get(listId);
   if (!entry) return;
@@ -161,8 +182,8 @@ export function freeNote(note, el, x, y) {
   const from = note.listId;
   delete note.listId;
   delete note.listOrder;
-  if (x !== undefined) note.x = Math.round(x);
-  if (y !== undefined) note.y = Math.round(y);
+  if (x !== undefined) note.x = Math.max(EDGE, Math.round(x));
+  if (y !== undefined) note.y = Math.max(EDGE, Math.round(y));
   saveNote(note);
   unmountCard(note, el);
   if (from) refreshCount(from);
@@ -289,12 +310,17 @@ export function renderList(list) {
   count.className = "list-count";
   count.textContent = "0";
 
+  const add = document.createElement("button");
+  add.className = "list-btn-add";
+  add.textContent = "+";
+  add.title = "New note in this list";
+
   const more = document.createElement("button");
   more.className = "list-btn-more";
   more.textContent = "⋯";
   more.title = "List actions";
 
-  head.append(name, count, more);
+  head.append(name, count, add, more);
 
   const body = document.createElement("div");
   body.className = "list-body";
@@ -308,6 +334,12 @@ export function renderList(list) {
   name.addEventListener("dblclick", (e) => {
     e.stopPropagation(); // the canvas would otherwise make a note behind it
     renameList(list);
+  });
+
+  add.addEventListener("pointerdown", (e) => e.stopPropagation());
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    addNoteTo(list);
   });
 
   more.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -410,10 +442,17 @@ export function renameList(list) {
 function makeListDraggable(el, list, head) {
   head.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    if (e.target.closest(".list-btn-more")) return;
+    if (e.target.closest("button")) return;
     if (e.target.classList.contains("is-editing")) return;
     e.preventDefault();
     e.stopPropagation();
+
+    // Shift adds it to what is picked out, or takes it away, as with a note.
+    if (e.shiftKey) {
+      toggleListSelect(list.id);
+      return;
+    }
+    if (!isListSelected(list.id)) selectOnlyList(list.id);
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -421,16 +460,43 @@ function makeListDraggable(el, list, head) {
     const fromY = list.y;
     let moved = false;
 
+    // Picked out with other things, it carries them: the other lists, and the
+    // loose notes, all by the same amount. Cards stay in their lists.
+    const group = selectionSize() > 1;
+    const carriedLists = (group ? [...selectedLists] : [list.id])
+      .map((id) => lists.get(id))
+      .filter(Boolean)
+      .map((entry) => ({ ...entry, from: { x: entry.list.x, y: entry.list.y } }));
+    const carriedNotes = group
+      ? selectedList()
+          .filter(({ note }) => !note.listId)
+          .map((entry) => ({ ...entry, from: { x: entry.note.x, y: entry.note.y } }))
+      : [];
+    // The group stops at the origin by its top-left corner, keeping its shape.
+    const everything = [...carriedLists, ...carriedNotes];
+    const leftmost = Math.min(...everything.map((c) => c.from.x));
+    const topmost = Math.min(...everything.map((c) => c.from.y));
+
     const onMove = (m) => {
       // Screen delta -> world delta, as everywhere else on the canvas.
-      const dx = (m.clientX - startX) / view.zoom;
-      const dy = (m.clientY - startY) / view.zoom;
+      let dx = (m.clientX - startX) / view.zoom;
+      let dy = (m.clientY - startY) / view.zoom;
       if (!moved && Math.hypot(m.clientX - startX, m.clientY - startY) < DRAG_THRESHOLD) return;
       moved = true;
-      list.x = Math.round(fromX + dx);
-      list.y = Math.round(fromY + dy);
-      el.style.left = `${list.x}px`;
-      el.style.top = `${list.y}px`;
+      dx = Math.max(dx, EDGE - leftmost);
+      dy = Math.max(dy, EDGE - topmost);
+      carriedLists.forEach((c) => {
+        c.list.x = Math.round(c.from.x + dx);
+        c.list.y = Math.round(c.from.y + dy);
+        c.el.style.left = `${c.list.x}px`;
+        c.el.style.top = `${c.list.y}px`;
+      });
+      carriedNotes.forEach((c) => {
+        c.note.x = Math.round(c.from.x + dx);
+        c.note.y = Math.round(c.from.y + dy);
+        c.el.style.left = `${c.note.x}px`;
+        c.el.style.top = `${c.note.y}px`;
+      });
     };
 
     const stop = () => {
@@ -442,8 +508,19 @@ function makeListDraggable(el, list, head) {
     const onUp = () => {
       stop();
       if (!moved) return;
-      saveList(list);
-      record(moveStep(list, { x: fromX, y: fromY }, { x: list.x, y: list.y }));
+      if (!group) {
+        saveList(list);
+        record(moveStep(list, { x: fromX, y: fromY }, { x: list.x, y: list.y }));
+        return;
+      }
+      carriedLists.forEach((c) => saveList(c.list));
+      carriedNotes.forEach((c) => saveNote(c.note));
+      // One step for the lot, so one ⌘Z puts all of it back.
+      recordMove(
+        carriedNotes.map((c) => ({ note: c.note, from: c.from })),
+        null,
+        carriedLists.map((c) => ({ list: c.list, from: c.from }))
+      );
     };
 
     // Escape abandons the move, as it does for a note.
@@ -452,7 +529,13 @@ function makeListDraggable(el, list, head) {
       keyEvent.preventDefault();
       keyEvent.stopPropagation();
       stop();
-      placeList(list, { x: fromX, y: fromY });
+      carriedLists.forEach((c) => placeList(c.list, c.from));
+      carriedNotes.forEach((c) => {
+        c.note.x = c.from.x;
+        c.note.y = c.from.y;
+        c.el.style.left = `${c.from.x}px`;
+        c.el.style.top = `${c.from.y}px`;
+      });
     };
 
     window.addEventListener("pointermove", onMove);
@@ -461,7 +544,7 @@ function makeListDraggable(el, list, head) {
   });
 }
 
-function placeList(list, at) {
+export function placeList(list, at) {
   list.x = at.x;
   list.y = at.y;
   const entry = lists.get(list.id);
@@ -480,8 +563,8 @@ export function createList(worldX, worldY) {
     id: newId(),
     pageId: currentPageId,
     name: "New list",
-    x: Math.round(worldX),
-    y: Math.round(worldY),
+    x: Math.max(EDGE, Math.round(worldX)),
+    y: Math.max(EDGE, Math.round(worldY)),
     width: DEFAULT_WIDTH,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -495,12 +578,41 @@ export function createList(worldX, worldY) {
 }
 
 /**
+ * A new note, already in the list, open to type into.
+ *
+ * Making a note for a list by making it on the canvas and dragging it in is a
+ * gesture too many for the commonest thing you do with a list — most of what
+ * ends up in one was written to go in it. It lands at the bottom, which is
+ * where a list you are filling grows.
+ *
+ * The note is given the list's own spot as its canvas position, so that a card
+ * later dragged out, or spilled by a delete, comes down somewhere it was seen
+ * rather than at the origin.
+ */
+export function addNoteTo(list) {
+  markUsed("lists");
+  const { note, el } = createNote(list.x, list.y);
+  fileIntoList(note, el, list.id, cardsIn(list.id).length);
+  // createNote takes the caret, and mounting the card moves the element — which
+  // drops it. Asking for it again after the move is what leaves you typing.
+  const editor = editorFor(note.id);
+  if (editor) editor.commands.focus("end");
+  return { note, el };
+}
+
+/**
  * Remove a list. Its notes are put back on the board where it stood.
  *
  * A grouping is never worth losing a note over, so this deletes the list and
  * nothing else — the notes spill out rather than going with it.
  */
+/** A list and its element, for the few things outside that move one. */
+export function listEntry(id) {
+  return lists.get(id) || null;
+}
+
 export function deleteList(list) {
+  forgetListSelection(list.id);
   const members = spill(list);
   tombstone(list);
   const what = members.length

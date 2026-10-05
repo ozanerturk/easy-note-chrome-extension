@@ -1,0 +1,29 @@
+services:
+  relay:
+    build: .
+    image: easy-note-relay
+    restart: unless-stopped
+    # secrets stay in .env on the server; it is never baked into the image
+    env_file: .env
+    environment:
+      # these win over .env, so the dev-auth bypass can never be switched on here
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: file:/data/relay.db
+    # only Caddy, on the same machine, reaches it. PORT in .env picks the port
+    # on the host (default 3000); point Caddy's reverse_proxy at the same one.
+    # Inside the container the relay always listens on 3000, set below.
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    volumes:
+      - relay-data:/data
+    stop_grace_period: 8s
+    # docker keeps every line forever unless told not to
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  relay-data:

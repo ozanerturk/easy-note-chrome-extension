@@ -18,7 +18,7 @@ export function hideUndo() {
   clearTimeout(timer);
   timer = null;
   offered = null;
-  bar.classList.remove("is-open");
+  bar?.classList.remove("is-open");
 }
 
 export function runUndo() {
@@ -36,6 +36,8 @@ export function runUndo() {
  * @param {object} step  the recorded history step the button walks back to
  */
 export function offerUndo(text, step) {
+  // A note in a frame over a webpage has no bar to offer it in.
+  if (!bar) return;
   clearTimeout(timer);
   offered = step;
   label.textContent = text;
@@ -50,4 +52,4 @@ export function offerUndo(text, step) {
   timer = setTimeout(hideUndo, WINDOW_MS);
 }
 
-button.addEventListener("click", runUndo);
+button?.addEventListener("click", runUndo);

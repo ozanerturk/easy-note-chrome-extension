@@ -1,5 +1,4 @@
-import { put, getOne, META } from "./db.js";
-import { markUsed } from "./tips.js";
+import { put, META } from "./db.js";
 import { currentPageId } from "./pages.js";
 
 export const MIN_ZOOM = 0.2;
@@ -25,32 +24,13 @@ export function screenToWorld(clientX, clientY) {
 
 export const viewKey = (pageId) => `view:${pageId}`;
 
-/* --------------------------------------------------------------- home view */
+/* ----------------------------------------------------------------- origin */
 
-// Where a page starts. Distinct from the view above, which follows you around
-// and remembers wherever you happened to stop — this one only moves when it is
-// deliberately set, so there is always somewhere known to get back to.
-export const homeKey = (pageId) => `home:${pageId}`;
-
-/** Return to the page's home view, or frame its notes if it has none yet. */
-export async function goHome() {
-  const pageId = currentPageId;
-  if (!pageId) return fitToNotes();
-  const saved = await getOne(META, homeKey(pageId));
-  if (saved) setView({ x: saved.x, y: saved.y, zoom: saved.zoom });
-  else fitToNotes();
-}
-
-/** Make wherever you are now the page's home view. */
-export async function setHome() {
-  const pageId = currentPageId;
-  if (!pageId) return;
-  markUsed("homeview");
-  await put(META, { id: homeKey(pageId), x: view.x, y: view.y, zoom: view.zoom });
-}
-
-export async function hasHome() {
-  return currentPageId ? !!(await getOne(META, homeKey(currentPageId))) : false;
+// Every page has a start — its top-left corner, see origin.js — so there is no
+// need for a place of your own choosing to get back to. The zoom is left as it
+// is: going back to the start is a move, not a change of how close you look.
+export function goToOrigin() {
+  setView({ x: 0, y: 0 });
 }
 
 let viewSaveTimer;
@@ -73,6 +53,11 @@ export function persistViewNow(pageId) {
 }
 
 export function applyView() {
+  // The origin is the board's top-left corner and the view never passes it —
+  // see origin.js. Every pan, zoom, fit and jump comes through here, so this
+  // is the one place it has to be said.
+  view.x = Math.min(0, view.x);
+  view.y = Math.min(0, view.y);
   world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
   const gap = GRID * view.zoom;
   canvas.style.backgroundSize = `${gap}px ${gap}px`;
@@ -173,6 +158,19 @@ let panning = null;
 let lastPanEndAt = 0;
 let spaceHeld = false;
 
+// Space does two jobs. Held while dragging, it pans; tapped on its own, it
+// opens search. A tap is a quick press with nothing done while it was down —
+// a press held long enough to have been meant for a drag is not one, even if
+// the drag never came.
+const SPACE_TAP_MS = 350;
+let spaceDownAt = 0;
+let spaceUsed = false;
+let onSpaceTap = () => {};
+
+export function setSpaceTapHandler(fn) {
+  onSpaceTap = fn;
+}
+
 export function didJustPan() {
   return Date.now() - lastPanEndAt < PAN_CLICK_GRACE;
 }
@@ -182,6 +180,7 @@ export function isPanGesture(e) {
 }
 
 export function beginPan(e) {
+  if (spaceHeld) spaceUsed = true;
   panning = {
     id: e.pointerId,
     startX: e.clientX,
@@ -248,16 +247,25 @@ export function initPanZoom() {
 
   window.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || e.repeat) return;
-    if (e.target.isContentEditable || e.target.tagName === "INPUT") return;
+    if (e.target.isContentEditable || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     spaceHeld = true;
+    spaceDownAt = Date.now();
+    spaceUsed = e.metaKey || e.ctrlKey || e.altKey || e.shiftKey;
     canvas.classList.add("space-held");
     e.preventDefault();
   });
   window.addEventListener("keyup", (e) => {
     if (e.code !== "Space") return;
+    const tapped = spaceHeld && !spaceUsed && Date.now() - spaceDownAt < SPACE_TAP_MS;
     spaceHeld = false;
     canvas.classList.remove("space-held");
+    if (tapped) onSpaceTap();
   });
+  // A click while it is down — even one that never became a pan — was the
+  // start of something else.
+  window.addEventListener("pointerdown", () => {
+    if (spaceHeld) spaceUsed = true;
+  }, true);
   window.addEventListener("blur", () => {
     spaceHeld = false;
     canvas.classList.remove("space-held");

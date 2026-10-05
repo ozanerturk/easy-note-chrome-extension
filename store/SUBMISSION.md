@@ -1,12 +1,36 @@
-# Chrome Web Store submission — Easy Note 3.3.0
+# Chrome Web Store submission — Easy Note 3.6.0
 
-Upload package: **`dist/easy-note-3.3.0.zip`** (built by `npm run package`).
+Upload package: **`dist/easy-note-3.6.0.zip`** (built by `npm run package`).
 
 > **New in 3.3, and the one thing a reviewer will look twice at:** the package
 > is ~7MB bigger, and the manifest now sets a `content_security_policy`. Both
 > are the on-device text recognition described below. Nothing about the
 > permissions has changed — there are still four, and still no host
 > permissions.
+>
+> **New in 3.5, and the thing a reviewer will look twice at now:** the manifest
+> declares `<all_urls>` under `optional_host_permissions`, for floating notes.
+> It is optional, not requested at install, and not granted until the user
+> floats a note for the first time — see the host permissions section below.
+> Nothing is injected into any page before that, and nothing stays injected
+> once the last floating note is put away. The manifest also gains
+> `web_accessible_resources`, for one file: `float.html`, the extension page a
+> floating note is drawn in, framed on the pages it floats over. It is listed
+> with `use_dynamic_url`, and draws nothing for a frame the extension did not
+> put there itself.
+
+> **New in 3.6, and the other thing a reviewer will look at:** an opt-in switch,
+> "Connect to Claude", makes the extension open a WebSocket to a relay the
+> developer runs (`wss://relay.easynote.tayfai.tech`). It is off by default and
+> nothing connects until the user turns it on. It adds no permission and no
+> host permission — a WebSocket needs neither — and its only manifest change is
+> `minimum_chrome_version: "116"`. What it sends and keeps is in the
+> "Connect to Claude" section below, and the privacy policy says the same.
+
+> **Also new in 3.6: one more permission, `offscreen`.** The clipper now copies
+> a clip to the clipboard and reads the writing in it, and a service worker can
+> do neither on its own. See its justification below. Still no host permissions
+> at install.
 
 ## Assets in this folder
 
@@ -43,14 +67,18 @@ The 128×128 store icon is `icons/icon128.png`.
 
 ## Permission justifications
 
-The extension requests **four** permissions and **no host permissions**.
+The extension requests **no host permissions at install**. One optional host
+permission, `<all_urls>`, exists for floating notes and is asked for at the
+moment a user first floats one.
 
-Host permissions were never added: Google's API endpoints answer cross-origin
+No host permission was ever required: Google's API endpoints answer cross-origin
 requests from an extension page without them — the Drive list, upload,
 userinfo and revoke calls all succeed, and a real authenticated sync round trip
 completes. The screen clipper added in 3.2 was deliberately built on
-`activeTab` for the same reason, so the extension still avoids the "in-depth
-review" path the store warns about for broad host access.
+`activeTab` for the same reason. Floating notes, added in 3.5, are the first
+feature that genuinely cannot work that way: a note that follows the user from
+page to page has to be drawn on pages the user has not invoked anything on. It
+is therefore optional and off until asked for.
 
 ### `identity` — paste this
 
@@ -65,8 +93,11 @@ drive.appdata, so notes can be saved to a hidden application folder in the
 user's own Google Drive, and userinfo.email, so the sync panel can show which
 account is signed in.
 
-Nothing is sent anywhere other than the user's own Google Drive. There is no
-developer server, no analytics and no tracking. The extension is fully usable
+Nothing is sent anywhere other than the user's own Google Drive, with one
+opt-in exception: if the user turns on "Connect to Claude" (off by default),
+the same token is shown once per connection to the developer's relay, to prove
+which Google account this browser belongs to (see the Connect to Claude
+section). There is no analytics and no tracking. The extension is fully usable
 without ever signing in, and signing out revokes the token.
 ```
 
@@ -92,6 +123,23 @@ Used together with activeTab to inject the clipper's selection overlay into
 the current page on demand. No content script is registered to run
 automatically on any site; the overlay is injected only after the user asks
 for a clip, and it removes itself when the clip is saved or cancelled.
+```
+
+### `offscreen` — paste this
+
+```
+Used by the screen clipper, and only when the user asks for it. A Manifest V3
+service worker cannot write to the system clipboard and cannot start a Web
+Worker of its own, and two clipper actions need exactly that: "Copy text",
+which puts the words found in a clipped region on the clipboard, and copying
+the clipped picture. When the user chooses one of them, the service worker
+opens one hidden extension page, offscreen.html, with the reasons CLIPBOARD and
+WORKERS, and hands it the clipped image.
+
+The page has no interface and loads nothing from the network. The text
+recognition it runs is the on-device engine already shipped in the package
+(see the content_security_policy note), so no image and nothing read out of one
+is transmitted anywhere. It is created on demand rather than at install.
 ```
 
 ### `contextMenus` — paste this
@@ -129,19 +177,99 @@ runs in a Web Worker on the user's own machine and the result is cached
 locally so a picture is only ever read once.
 ```
 
-### Host permissions — none requested
+### Connect to Claude — new in 3.6, if the review asks
 
-If a field still asks, the honest answer is:
+No permission was added for it; its only manifest change is
+`"minimum_chrome_version": "116"`.
 
 ```
-This extension requests no host permissions. It calls Google's Drive and
-OAuth endpoints from the extension page using standard cross-origin requests,
-which Google's APIs allow. The screen clipper uses activeTab, which is granted
-per-invocation by the user, rather than standing access to any site.
+"Connect to Claude" is an optional switch in the sync panel, off by default.
+It lets the user ask Claude (Anthropic's assistant), in their own Claude
+account, about their own notes: it can search notes, read one, and add a line
+of text to the Capture tray. It cannot edit, move or delete anything. It serves
+the extension's single purpose, a note-taking tool, by letting the user reach
+their notes from the assistant they already use.
+
+When the user turns it on, the service worker opens a WebSocket to
+wss://relay.easynote.tayfai.tech, operated by the developer, and keeps it open
+while Chrome runs (a keepalive every 20 seconds). The first message carries the
+user's Google access token, which the relay checks with Google and accepts only
+if it was issued to this extension's own OAuth client; that tells it which
+Google account the browser belongs to. The relay passes on a request that
+Claude made for the same account, and the extension answers from the user's
+local notes. A WebSocket needs no host permission.
+
+The relay does not store or log note contents, search words or results. It
+keeps four things: an opaque Google account id, a SHA-256 hash of the sign-in
+refresh token, the Claude connector's registration, and the user's Google
+refresh token for the Drive app-data scope, encrypted (AES-256-GCM) at rest.
+
+That last one lets the relay answer when Chrome is closed: if the extension is
+not connected, the relay refreshes an access token, reads the user's own
+easynote.json (the sync copy this extension already writes to their Drive app
+folder) with GET requests only, answers, and keeps nothing of it beyond a
+minute in memory. The same Cloud project's web client is used, so no new
+account or storage is involved. The stored token is deleted when the user turns
+the switch off (the extension tells the relay, which also revokes it at
+Google), when Google reports the access removed, and after 90 days unused.
+Nothing is sent unless the switch is on and Claude has asked, and turning it
+off closes the connection at once.
+
+No remote code is loaded or evaluated: script-src is still 'self', and the
+relay only ever sends data. minimum_chrome_version is 116 because from that
+version WebSocket traffic keeps the Manifest V3 service worker alive.
 ```
+
+### Host permissions — one, optional, for floating notes
+
+Nothing is requested at install. `<all_urls>` is declared under
+`optional_host_permissions` and is requested by `chrome.permissions.request()`
+from the click that floats a note.
+
+```
+Easy Note requests no host permissions at install time. It calls Google's
+Drive and OAuth endpoints from the extension page using standard cross-origin
+requests, which Google's APIs allow, and the screen clipper uses activeTab,
+granted per-invocation by the user.
+
+One optional host permission, <all_urls>, is used for a single feature:
+floating notes. A floating note is a note the user has explicitly chosen to
+keep on screen over every page they visit, which requires drawing it on those
+pages. Easy Note asks for this permission at the moment the user first floats
+a note, never at install, and a user who does not use the feature is never
+asked and never grants it.
+
+The content script that places a floating note is registered dynamically, only
+while at least one note is actually floating, and is unregistered as soon as
+the last one is put away. It reads nothing from the page it is on. It adds one
+iframe per floating note, pointing at the extension's own float.html, and the
+note is drawn inside that frame, from the user's own local database, by the
+extension's own origin; the content script never handles the note's contents.
+No page content, URL or browsing activity is read, stored or transmitted.
+```
+
+The mechanics, if a reviewer asks: `js/float/background.js` calls
+`chrome.scripting.registerContentScripts` when a note starts floating and
+`unregisterContentScripts` when the last one stops, and refuses to register at
+all while the permission is not granted. `js/float/frames.js` is the injected
+script (~7KB) — dependency-free, and it never touches the host page's DOM
+beyond appending one iframe per floating note to the document element.
+
+`float.html` is the only web-accessible resource. It is listed with
+`use_dynamic_url: true`, so its address changes every session and cannot be
+used to fingerprint the extension, and it renders nothing until the content
+script hands it a per-session token over a private `MessageChannel` — a site
+that frames it itself is shown an empty frame. Everything the frame loads is
+a file inside the package; nothing is fetched at runtime, and `script-src` is
+still `'self'`.
 
 ## Data disclosure
 
+- A floating note is an ordinary note with two extra fields on its record: that
+  it is floating, and the position and size it floats at. Both are stored
+  locally with the note and sync only through the user's own Drive appdata, the
+  same as every other note field. The content script that places it reads
+  nothing from the page it is drawn on.
 - Notes, pages, pasted images, screen clips and the text recognised inside
   pictures are stored **locally in IndexedDB**. Text recognition runs
   on-device, in a worker, from models shipped in the package; no image or
@@ -154,11 +282,25 @@ per-invocation by the user, rather than standing access to any site.
 - The extension collects **no analytics and no telemetry**. The Google
   Analytics tag lives only on the hosted release-notes web page and is stripped
   from the packaged extension, because MV3 blocks remote scripts anyway.
-- Nothing is sent to any server other than Google Drive, on the user's behalf.
+- Nothing is sent to any server other than Google Drive, on the user's behalf —
+  with one **opt-in exception**. With "Connect to Claude" on (off by default),
+  the extension holds a WebSocket to the developer's relay. Through it passes
+  whatever Claude asks for and the browser answers — search results, one note,
+  or a line to add to the Capture tray. The relay does not store or log it.
+  When the browser is not connected it reads the user's own sync copy from
+  their Drive instead (see the section above) and does not keep it. The relay
+  keeps an opaque Google account id, a hashed refresh token, the connector's
+  registration and an encrypted Google refresh token for Drive app-data access,
+  and is shown the Google access token once per connection to check the
+  account.
 
 Answer the disclosure form as: collects **personal communications** (the note
-content) only when sync is enabled; not sold; not used for anything unrelated
-to the single purpose.
+content) only when sync or "Connect to Claude" is enabled; not sold; not used
+for anything unrelated to the single purpose. For Connect to Claude, also
+declare **authentication information** (the Google access token shown to the
+relay to prove the account, and the encrypted Drive refresh token the relay
+**does store**) and the account **id** the relay keeps. These categories are my best reading of the form's wording — check each
+against what the dashboard actually asks.
 
 ## Before you can submit
 
@@ -174,8 +316,23 @@ to the single purpose.
       Full privacy URL to paste into the listing:
 
       ```
-      https://ozanerturk.github.io/easy-note-chrome-extension/privacy.html
+      https://easynote.tayfai.tech/privacy.html
       ```
+- [ ] **The relay is up.** `https://relay.easynote.tayfai.tech/healthz`
+      answers, and the extension connects to it with the switch on. A reviewer
+      may try the feature.
+- [ ] **The relay's Google OAuth client** (type *Web application*, redirect URI
+      `https://relay.easynote.tayfai.tech/oauth/google/callback`) shares this
+      project's consent screen, so it must be **published** too, or only test
+      users can connect Claude. It asks for `openid`, `email` and
+      `drive.appdata` — the same Drive scope the extension already has, now also
+      requested with offline access so the relay can read the user's notes when
+      Chrome is closed. Check that scope is on the consent screen's list.
+- [ ] **The relay has `CREDENTIAL_KEY` set** in its `.env` (it will not start
+      without it), and a copy of that key is kept somewhere safe.
+- [ ] Update the dashboard's **Privacy practices** tab with the data types
+      above, and check the privacy policy URL shows the new "Connect to Claude"
+      section.
 - [ ] Confirm the OAuth client's **Item ID** is
       `hheobakelknbjicekbkmijjgcbephcef` and the **Drive API is enabled** on the
       Cloud project.

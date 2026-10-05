@@ -22,13 +22,12 @@
 // the picture as a selection layer, and the picture flashes once to say so,
 // the way a phone does when it has found text in a photograph.
 
-import { NOTES, TRAY_ID, getAll } from "./db.js";
+import { NOTES, TRAY_ID, IMAGES, getAll, getOne } from "./db.js";
 import { notes } from "./store.js";
 import { imageUrlFor, imageIdsIn, whenLabel, timestampOf } from "./note.js";
 import { pathOf } from "./pages.js";
 import { markUsed } from "./tips.js";
 import { textIn } from "./ocr.js";
-import { toast } from "./toast.js";
 
 const root = document.getElementById("gallery");
 const frame = document.getElementById("gallery-img");
@@ -39,9 +38,14 @@ const where = document.getElementById("gallery-where");
 const when = document.getElementById("gallery-when");
 const stage = document.getElementById("gallery-stage");
 const layer = document.getElementById("gallery-text");
-const copyBtn = document.getElementById("gallery-copy");
 const gotoBtn = document.getElementById("gallery-goto");
+const downloadBtn = document.getElementById("gallery-download");
 const closeBtn = document.getElementById("gallery-close");
+
+// A stored image is whatever it was pasted or clipped as — png for a clip,
+// often jpeg or webp for one pasted off another page. Anything else downloads
+// as a plain png rather than as a nameless file with no extension at all.
+const EXTENSIONS = { "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 
 // [{ id, noteId, pageId, where, when }], built when the gallery opens. A
 // snapshot rather than a live list: the board cannot change while it is up,
@@ -53,8 +57,6 @@ let at = 0;
 // does not overwrite the one you are looking at.
 let token = 0;
 let onGoTo = () => {};
-// The words on the picture currently up, once they have been read.
-let found = null;
 
 export function galleryIsOpen() {
   return !root.hidden;
@@ -101,7 +103,6 @@ function paintText(words) {
   layer.textContent = "";
   if (!words || !words.length) {
     layer.hidden = true;
-    copyBtn.hidden = true;
     return;
   }
 
@@ -123,7 +124,6 @@ function paintText(words) {
   });
 
   layer.hidden = false;
-  copyBtn.hidden = false;
 
   // Widths, in one read pass and then one write pass: a typeface that is not
   // the one in the photograph will not set a word to the same width, so each
@@ -167,9 +167,10 @@ async function show(index) {
   // One picture is not a reel; the arrows would be two buttons that do
   // nothing.
   prevBtn.hidden = nextBtn.hidden = reel.length < 2;
+  // A capture opened straight out of the tray has no note to go to yet.
+  gotoBtn.hidden = !item.noteId;
 
   // Whatever was read off the last picture is not this picture's.
-  found = null;
   paintText(null);
   stage.classList.remove("is-found");
 
@@ -188,20 +189,26 @@ async function show(index) {
   // when they arrive — if the reader is still on this frame by then.
   const read = await textIn(item.id).catch(() => null);
   if (mine !== token) return;
-  found = read;
   paintText(read && read.words);
 }
 
 /** Open on one image, with the rest of the page's pictures either side. */
 export async function openGallery(imgId) {
   reel = await collect();
-  if (!reel.length) return;
+  let start = reel.findIndex((item) => item.id === imgId);
+  if (start === -1) {
+    // Not filed to a page yet — a capture opened straight out of the tray.
+    // Shown on its own: there is no page of pictures to flip it against, and
+    // "Go to note" (hidden below, in show()) would have nowhere to send
+    // anyone either.
+    reel = [{ id: imgId, noteId: null, pageId: null, where: "Capture tray", when: "" }];
+    start = 0;
+  }
   markUsed("gallery");
-  const start = reel.findIndex((item) => item.id === imgId);
   root.hidden = false;
   document.body.classList.add("gallery-open");
   window.addEventListener("keydown", onKey, true);
-  show(start === -1 ? 0 : start);
+  show(start);
 }
 
 export function closeGallery() {
@@ -212,15 +219,15 @@ export function closeGallery() {
   token++; // anything still loading is no longer wanted
   frame.removeAttribute("src");
   paintText(null);
-  found = null;
   reel = [];
 }
 
 /** Out of the reel and back to the words the picture belongs to. */
 function goToCurrent() {
   const item = reel[at];
+  if (!item || !item.noteId) return; // nowhere to go yet — still in the tray
   closeGallery();
-  if (item) onGoTo(item.noteId, item.pageId);
+  onGoTo(item.noteId, item.pageId);
 }
 
 function onKey(e) {
@@ -262,7 +269,10 @@ export function initGallery(goTo) {
   // should open the same way there.
   document.addEventListener("dblclick", (e) => {
     const img = e.target.closest?.("img[data-img-id]");
-    if (!img || !img.closest(".note")) return;
+    // A capture still sitting in the tray is not in a `.note` yet — it is
+    // exactly the picture someone grabbed to look at later, and "later" should
+    // not require filing it onto a page first.
+    if (!img || !(img.closest(".note") || img.closest(".tray-item"))) return;
     // Inside the editor a double-click would select the image node, which
     // leaves a highlighted box behind the gallery.
     e.preventDefault();
@@ -270,15 +280,22 @@ export function initGallery(goTo) {
     openGallery(img.dataset.imgId);
   });
 
-  copyBtn.addEventListener("click", async () => {
-    if (!found || !found.text) return;
-    try {
-      await navigator.clipboard.writeText(found.text);
-      markUsed("phototext");
-      toast("Text copied");
-    } catch (err) {
-      toast("Could not reach the clipboard");
-    }
+  // The tip's hook, now that copying is the browser's own Ctrl+C or
+  // right-click, not a button of ours to instrument.
+  layer.addEventListener("copy", () => markUsed("phototext"));
+
+  downloadBtn.addEventListener("click", async () => {
+    const item = reel[at];
+    if (!item) return;
+    const record = await getOne(IMAGES, item.id).catch(() => null);
+    if (!record || !record.blob) return;
+    const ext = EXTENSIONS[record.blob.type] || "png";
+    const url = URL.createObjectURL(record.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `easynote-picture.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
   });
 
   prevBtn.addEventListener("click", () => show(at - 1));

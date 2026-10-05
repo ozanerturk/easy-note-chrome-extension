@@ -14,6 +14,11 @@ export const LISTS = "lists";
 // writes clips need to know the id, and they share nothing else.
 export const TRAY_ID = "capture-tray";
 
+// Where the secret a floating note's frame is let in with is kept — see
+// frameToken in float/background.js. The worker writes it and the frame reads
+// it, and the database is the one thing the two of them share.
+export const FLOAT_TOKEN = "floatToken";
+
 let db;
 // Callers such as the sync panel run before boot has finished opening the
 // database, so every helper waits on this rather than touching a null handle.
@@ -56,6 +61,12 @@ export function openDB() {
   });
 }
 
+// The service worker has no boot sequence to open the database for it, and can
+// be woken for a clip and a reminder in the same breath. One connection per
+// wake, whoever asks first.
+let opening = null;
+export const openOnce = () => (opening ||= openDB());
+
 export async function getAll(store) {
   const d = await conn();
   return new Promise((resolve, reject) => {
@@ -80,6 +91,63 @@ export async function put(store, value) {
     const tx = d.transaction(store, "readwrite");
     tx.objectStore(store).put(value);
     tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Write a record, keeping some of its fields as the database already has them.
+ *
+ * For a writer whose copy of a record can be behind on fields that are not its
+ * to change: a note floating over a webpage owns its words, not which page it
+ * is filed on — and writing its whole copy back undid a move made on the board.
+ * Read and write happen in one transaction, so nothing lands in between.
+ *
+ * @returns the record as written
+ */
+export async function putKeeping(store, value, keep) {
+  const d = await conn();
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(store, "readwrite");
+    const os = tx.objectStore(store);
+    let written = value;
+    const req = os.get(value.id);
+    req.onsuccess = () => {
+      const current = req.result;
+      if (current) {
+        written = { ...value };
+        keep.forEach((key) => {
+          if (key in current) written[key] = current[key];
+          else delete written[key];
+        });
+      }
+      os.put(written);
+    };
+    tx.oncomplete = () => resolve(written);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Change some fields of a stored record and leave the rest as they are, read
+ * and written in one transaction. For a record whose live copy is somewhere
+ * else entirely.
+ *
+ * @returns the record as written, or null if there was none
+ */
+export async function patch(store, key, fields) {
+  const d = await conn();
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(store, "readwrite");
+    const os = tx.objectStore(store);
+    let written = null;
+    const req = os.get(key);
+    req.onsuccess = () => {
+      if (!req.result) return;
+      written = { ...req.result, ...fields };
+      os.put(written);
+    };
+    tx.oncomplete = () => resolve(written);
     tx.onerror = () => reject(tx.error);
   });
 }

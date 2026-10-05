@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Easy Note v3 — What's new</title>
-<meta name="description" content="A guided tour of what's new in Easy Note v3: clip any web page into your tray, dark mode, home views, reminders, Google Drive sync and an infinite canvas.">
+<meta name="description" content="A guided tour of what's new in Easy Note v3: clip any web page into your tray, dark mode, reminders, Google Drive sync and an infinite canvas.">
 
 <!-- analytics:start
      Only for the hosted copy of this page. MV3 blocks remote scripts inside
@@ -140,10 +140,9 @@
     border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
     color: var(--ink); background: var(--paper);
   }
-  .linkish { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
   #stage {
-    position: relative; height: clamp(320px, 52vh, 520px);
-    border: 0; width: 100%; display: block; background: var(--paper);
+    width: 100%; display: block; aspect-ratio: 16 / 10;
+    background: var(--paper); border: 0;
   }
   .demo-note { padding: 10px 14px; border-top: 1px solid var(--rule); font-size: .82rem; color: var(--graphite); }
 
@@ -244,36 +243,37 @@
   <div class="wrap">
     <div class="hero-head col">
       <div class="badges">
-        <span class="tag now">Version 3.3</span>
+        <span class="tag now">Version 3.6</span>
         <span class="tag">Free</span>
         <span class="tag">Chrome</span>
       </div>
       <h1>Your new tab is a <span class="mark">notes canvas</span>.</h1>
       <p class="lede">
         Open a tab, double-click, start typing. Easy Note v3 adds Google Drive
-        sync, an endless canvas, pages to organise everything, and a lock so you
-        can't delete a note by mistake.
+        sync, an endless canvas, pages to organise everything, and a screen clipper
+        that marks up what it captures.
       </p>
     </div>
 
     <div class="cta">
       <a class="primary" href="https://chromewebstore.google.com/detail/easy-note/hheobakelknbjicekbkmijjgcbephcef">Add to your browser</a>
-      <a class="secondary" href="demo/" target="_blank" rel="noopener">Quick try — no install</a>
+      <a class="secondary" href="#tour">Watch the tour</a>
       <span class="aside">Free. Your notes stay on your computer.</span>
     </div>
 
-    <div class="demo">
+    <div class="demo" id="tour">
       <div class="demo-bar">
-        <span><span class="kbd">Double-click</span> the board below to try it — this is the extension itself, running in the page</span>
-        <a class="linkish" href="demo/" target="_blank" rel="noopener">Open full screen</a>
+        <span>A short tour, recorded from the extension itself</span>
       </div>
-      <!-- The real app, built into docs/demo/ by scripts/demo.mjs. Loading it
-           lazily keeps a page opened for the release notes from paying for a
-           board nobody scrolled to. -->
-      <iframe id="stage" src="demo/" title="Easy Note, running here" loading="lazy"></iframe>
+      <!-- Shot from the real thing by scripts/video.mjs, so it cannot drift
+           into showing a product that no longer exists. preload="none" keeps a
+           page opened for the release notes from paying for four megabytes
+           nobody scrolled to; the poster is a real screenshot. -->
+      <video id="stage" src="demo.mp4" poster="demo-poster.png" title="Easy Note, a short tour"
+             controls playsinline preload="none"></video>
       <p class="demo-note">
-        Everything you write here is stored in this browser, on this page's own
-        board — not in your extension, and nowhere else.
+        Recorded from the shipping extension: real clicks, real drags, no
+        mock-ups.
       </p>
     </div>
   </div>
@@ -281,20 +281,185 @@
 
 <nav class="jump">
   <div class="wrap jump-inner">
+    <a href="#new36">New in 3.6</a>
+    <a href="#new34">New in 3.4</a>
     <a href="#new33">New in 3.3</a>
     <a href="#new32">New in 3.2</a>
     <a href="#new31">New in 3.1</a>
     <a href="#new">What's new in 3</a>
     <a href="#sync">Google Drive sync</a>
-    <a href="#canvas">Infinite canvas</a>
+    <a href="#canvas">The canvas</a>
     <a href="#pages">Pages</a>
-    <a href="#lock">Lock notes</a>
+    <a href="#note">Colour &amp; fullscreen</a>
     <a href="#tidy">Tidy up a board</a>
     <a href="#find">Find a note</a>
     <a href="#upgrade">Upgrading</a>
     <a href="#cheatsheet">Cheat sheet</a>
   </div>
 </nav>
+
+<section id="new36">
+  <div class="wrap stack">
+    <div class="col stack">
+      <span class="eyebrow">New in 3.6</span>
+      <h2>Ask Claude about your notes, and mark up what you clip</h2>
+    </div>
+    <div class="highlights" style="margin-top:8px">
+      <div class="hl">
+        <span class="chip" style="background:var(--n-purple)">💬</span>
+        <h3>Claude can search and read your notes</h3>
+        <p>
+          Turn on <strong>Connect to Claude</strong> in the ☁ panel, add Easy
+          Note as a connector in Claude, and you can ask things like “what did I
+          write down about the Lisbon trip?”. Claude searches your notes, and
+          reads the one it needs — headings, lists and tables come across as
+          plain, readable text.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-peach)">🌅</span>
+        <h3>What is due today, for a morning briefing</h3>
+        <p>
+          Claude can list your reminders — what is already due, what falls
+          today, what is coming this week — in your own time zone, so a
+          scheduled morning briefing knows what to put first. It works with
+          Chrome closed too: it then reads the copy Google Drive sync keeps, and
+          says how recent that is.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-yellow)">📥</span>
+        <h3>…and can drop something into your tray</h3>
+        <p>
+          Ask Claude to keep a line for you and it lands in the
+          <strong>Capture tray</strong>, like a clip — unfiled, until you drag it
+          onto a page. Claude only ever adds. It cannot edit, move or delete a
+          note.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">🔒</span>
+        <h3>Off until you turn it on, and your notes are not kept</h3>
+        <p>
+          The switch is off by default, and while it is off nothing is
+          connected. When it is on, a small relay passes Claude's request to
+          your notes and the answer back — from your open browser, or, with
+          Chrome closed, from your own Google Drive copy. It does not store or
+          log what is in them. It keeps an encrypted sign-in to your Easy Note
+          folder in Drive for that, and deletes it the moment you switch the
+          feature off. Claude can only add to your tray while Chrome is open.
+          The <a href="privacy.html">privacy policy</a> has the details.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-pink)">✏️</span>
+        <h3>Mark up a clip before you save it</h3>
+        <p>
+          Drag a box with <span class="kbd">⌥⇧S</span> and the bar that appears
+          now has a pen, a highlighter, arrows, numbered steps, text and a blur
+          for hiding something, in colours you pick, with undo and redo. Save puts
+          the clip in your tray; Download keeps a copy as a file.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">🔤</span>
+        <h3>Copy the words out of a clip</h3>
+        <p>
+          When a clipped region has writing in it, a <strong>Copy text</strong>
+          button appears and puts the words on your clipboard. They are read on
+          your own computer; nothing about the picture is sent anywhere. In the
+          gallery, the same words can be selected and copied straight off the
+          picture, and a <strong>Download</strong> button saves it.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">↙️</span>
+        <h3>Resize a note from either corner</h3>
+        <p>
+          The bottom-left corner stretches a note now, as well as the
+          bottom-right, and so does a note floating over a page. Sums learn
+          <strong>%</strong> for a remainder and <strong>**</strong> for a
+          power.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-peach)">🔓</span>
+        <h3>The lock is retired</h3>
+        <p>
+          Notes you had locked are now ordinary notes: you can move, resize and
+          delete them like any other. A note you locked in an earlier version is
+          still never shared with Claude.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">🔗</span>
+        <h3>How to connect</h3>
+        <p>
+          Sign in with Google in the ☁ panel, turn on
+          <strong>Connect to Claude</strong>, and copy the address it shows. In
+          Claude, go to <em>Settings → Connectors</em>, add a custom connector
+          with that address, and sign in with the <strong>same Google
+          account</strong>. Needs Chrome 116 or newer.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="new34">
+  <div class="wrap stack">
+    <div class="col stack">
+      <span class="eyebrow">New in 3.4</span>
+      <h2>Reminders that reach you, and a board that starts somewhere</h2>
+    </div>
+    <div class="highlights" style="margin-top:8px">
+      <div class="hl">
+        <span class="chip" style="background:var(--n-yellow)">🔔</span>
+        <h3>Reminders, even with no tab open</h3>
+        <p>
+          A reminder that comes due is now a notification from Chrome, whether
+          or not Easy Note is open. Click it and a tab opens on the note. Chrome
+          asks once, the first time you set one — say no and reminders work as
+          before, on the board. There is also <strong>Now</strong>, and a
+          <strong>Remind me</strong> right under every note.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-blue)">🔍</span>
+        <h3>Tap Space to see everything</h3>
+        <p>
+          Search opens with a tap of <span class="kbd">Space</span> and lists
+          every note before you type — recent first, or your reminders, or
+          A–Z. Typing narrows whichever list you are on. Pick one and the board
+          takes you to it, and the note hops so you can see which.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-green)">📐</span>
+        <h3>A board with a corner</h3>
+        <p>
+          Every page now starts at its top-left corner and grows right and
+          down, like paper. You can no longer drift off in every direction and
+          lose where you started, and <span class="kbd">Esc</span> takes you back
+          to it at the zoom you are on — so the 🏠 button is gone. Boards you
+          already have are moved in whole, nothing rearranged.
+        </p>
+      </div>
+      <div class="hl">
+        <span class="chip" style="background:var(--n-purple)">🗂️</span>
+        <h3>Lists, tables, and undo</h3>
+        <p>
+          Put notes in a list that keeps them in order, add a table to a note a
+          row at a time, and undo or redo anything you did to the board. Copied
+          notes paste back as notes, colour and all. Type
+          <span class="kbd">/</span> in a note to put a timer down right beside
+          it, or a sum like 120*0.15 to see its answer and
+          <span class="kbd">Tab</span> it in.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section id="new33">
   <div class="wrap stack">
@@ -384,6 +549,8 @@
           Hold the <span class="kbd">🏠</span> button to say where a page should
           open. Click it, press <span class="kbd">Esc</span>, or click the page's
           name again to get back there from wherever you have wandered.
+          <em>Since 3.4 every page starts at its corner, and those take you there
+          instead.</em>
         </p>
       </div>
       <div class="hl">
@@ -476,11 +643,6 @@
         <h3>Pages</h3>
         <p>Keep work, shopping and side projects on separate boards — and nest pages inside pages.</p>
       </div>
-      <div class="hl">
-        <span class="chip" style="background:var(--n-peach)">🔒</span>
-        <h3>Lock notes</h3>
-        <p>Lock the notes you can't afford to lose. They stay where you put them, and they can't be deleted.</p>
-      </div>
     </div>
   </div>
 </section>
@@ -519,10 +681,11 @@
   <div class="wrap stack-lg">
     <div class="col stack">
       <span class="eyebrow">How to</span>
-      <h2>Move around the infinite canvas</h2>
+      <h2>Move around the canvas</h2>
       <p>
-        There are no edges. Spread notes out as much as you like — you'll always
-        be able to get back to them.
+        A page starts at its top-left corner and goes on as far right and down
+        as you like. Spread notes out — you'll always be able to get back to
+        them, and to where you started.
       </p>
     </div>
     <div class="col">
@@ -565,26 +728,18 @@
   </div>
 </section>
 
-<section id="lock">
+<section id="note">
   <div class="wrap stack-lg">
     <div class="col stack">
       <span class="eyebrow">How to</span>
-      <h2>Lock a note you can't lose</h2>
+      <h2>Make a note your own</h2>
       <p>
-        Wi-Fi passwords, a phone number, the thing you'll need in six months —
-        lock it and a stray click can't take it away.
+        Right-click a note, or use the <strong>⋯</strong> above it, and the
+        colours are right there.
       </p>
     </div>
-    <div class="col">
-      <ol class="steps">
-        <li><div><strong>Click the note</strong> — a small bar appears just above it.<span class="sub">Only the note you are working in shows one, so the rest of the board stays clean.</span></div></li>
-        <li><div><strong>Click the padlock</strong> 🔓<span class="sub">It closes to 🔒 and the note gets a thin outline so you can spot it at a glance.</span></div></li>
-        <li><div><strong>The delete button greys out</strong> and the note stops moving — no dragging it away by accident.<span class="sub">You can still resize it and write in it.</span></div></li>
-        <li><div><strong>To delete it later,</strong> click the padlock again to unlock, then delete.</div></li>
-      </ol>
-    </div>
     <div class="col stack">
-      <h3>While you're in that bar</h3>
+      <h3>In that menu</h3>
       <div class="swatches" style="margin:2px 0 6px">
         <span class="swatch" style="background:var(--n-yellow)"></span>
         <span class="swatch" style="background:var(--n-pink)"></span>
@@ -613,7 +768,7 @@
         <li><div><strong>Drag a box</strong> across empty space to select several notes, or hold <span class="kbd">Shift</span> and click them one by one.</div></li>
         <li><div><strong>Drag any one of them</strong> and the whole group moves together.</div></li>
         <li><div><strong>Use the toolbar</strong> that appears at the top to line them up, space them evenly, or snap them into a neat grid.</div></li>
-        <li><div><strong><span class="kbd">⌘A</span></strong> selects everything, <strong><span class="kbd">Esc</span></strong> clears the selection, <strong><span class="kbd">Delete</span></strong> removes it.<span class="sub">Locked notes are skipped, so they survive a bulk delete.</span></div></li>
+        <li><div><strong><span class="kbd">⌘A</span></strong> selects everything, <strong><span class="kbd">Esc</span></strong> clears the selection, <strong><span class="kbd">Delete</span></strong> removes it.</div></li>
       </ol>
     </div>
   </div>
@@ -671,12 +826,11 @@
           <tr><td class="g">⌘ / Ctrl + scroll, or pinch</td><td>Zoom in and out</td></tr>
           <tr><td class="g">Shift + click a note</td><td>Add it to the selection</td></tr>
           <tr><td class="g">⌘A · Esc · Delete</td><td>Select all · clear · delete</td></tr>
-          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour, remind, lock, fullscreen, delete</td></tr>
+          <tr><td class="g">Right-click a note, or its ⋯</td><td>Colour, copy, fullscreen, delete</td></tr>
           <tr><td class="g">⌥⇧S on any web page</td><td>Clip a region into your tray</td></tr>
           <tr><td class="g">Drag a note onto a page</td><td>Move it there — hold to open that page first</td></tr>
-          <tr><td class="g">Click the page you are on</td><td>Back to its home view</td></tr>
-          <tr><td class="g">Hold 🏠</td><td>Make here this page's home view</td></tr>
-          <tr><td class="g">Esc, on an empty board</td><td>Back to the home view</td></tr>
+          <tr><td class="g">Click the page you are on</td><td>Back to the start of the page</td></tr>
+          <tr><td class="g">Esc, on an empty board</td><td>Back to the start of the page</td></tr>
           <tr><td class="g">⌘F</td><td>Search every page</td></tr>
           <tr><td class="g">Alt + B</td><td>Blur every note, for screen sharing</td></tr>
           <tr><td class="g">Fit</td><td>Bring every note back on screen</td></tr>

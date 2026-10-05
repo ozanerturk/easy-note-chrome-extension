@@ -1,4 +1,5 @@
 import { PAGES, NOTES, META, TRAY_ID, put, del, getAll, getOne } from "./db.js";
+import { pathFrom } from "./notes/query.js";
 import { notes } from "./store.js";
 
 import { duePageIds, dueOnPage, onReminderTick } from "./reminders.js";
@@ -57,13 +58,7 @@ function childrenOf(parentId) {
 
 /** "Work › Trips" — where a page sits, for anything naming a note's home. */
 export function pathOf(pageId) {
-  const parts = [];
-  let page = pages.get(pageId);
-  while (page) {
-    parts.unshift(page.name);
-    page = page.parentId ? pages.get(page.parentId) : null;
-  }
-  return parts.join(" › ");
+  return pathFrom(pages, pageId);
 }
 
 function descendantIds(id) {
@@ -544,6 +539,9 @@ const dueCursor = new Map();
 // so. Its page says it instead — a count you can click through, rather than
 // only a nudge that something somewhere needs attention.
 export function markDuePages() {
+  // A note floating over a webpage runs this module too, and has no page tree
+  // to mark. Throwing here took the rest of setting a reminder down with it.
+  if (!treeRoot) return;
   const due = duePageIds();
   treeRoot.querySelectorAll("[data-page-id]").forEach((row) => {
     const pageId = row.dataset.pageId;
@@ -572,7 +570,7 @@ function visitNextDue(pageId) {
 }
 
 // One hop per spell of being due, as with the notes themselves.
-treeRoot.addEventListener("animationend", (e) => {
+treeRoot?.addEventListener("animationend", (e) => {
   if (e.animationName !== "name-wiggle") return;
   e.target.closest(".page-row")?.classList.add("has-hopped");
 });
@@ -649,9 +647,8 @@ function rowFor(page, depth) {
   row.addEventListener("click", () => {
     // A reorder drag ends in a click on this row; it must not also switch page.
     if (Date.now() - dragEndedAt < 250) return;
-    // Clicking the page you are already on has always done nothing. It now
-    // takes you to that page's home view — the same click, the same place,
-    // whether or not you had wandered off across the board.
+    // Clicking the page you are already on takes you back to its start — the
+    // same click, the same place, however far you had wandered.
     if (page.id === currentPageId) onReselect(page.id);
     else switchPage(page.id);
   });

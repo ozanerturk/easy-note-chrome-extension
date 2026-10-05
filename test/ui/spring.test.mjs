@@ -55,7 +55,7 @@ export default async function run(page, s) {
 
   const note = {
     id: "n1", x: 60, y: 60, width: 200, height: 150,
-    html: "<p>carry me</p>", color: "transparent", z: 1, locked: false,
+    html: "<p>carry me</p>", color: "transparent", z: 1,
     createdAt: Date.now(), editedAt: Date.now(), updatedAt: Date.now(), pageId: home,
   };
   await page.seed("notes", [note]);
@@ -169,7 +169,7 @@ export default async function run(page, s) {
     {
       id: "cap", x: 0, y: 0, width: 224, height: 226,
       html: '<img data-img-id="img-cap"><p><a href="https://example.com/c">Captured</a></p>',
-      color: "transparent", z: 1, locked: false,
+      color: "transparent", z: 1,
       createdAt: Date.now(), editedAt: Date.now(), updatedAt: Date.now(), pageId: "capture-tray",
     },
   ]);

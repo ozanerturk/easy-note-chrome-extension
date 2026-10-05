@@ -1,0 +1,99 @@
+/* A note floating over a webpage — float.html, in a frame on someone else's
+   page. Everywhere the note is not, the frame is that page showing through, so
+   nothing in here may paint a ground of its own. */
+
+html,
+body {
+  background: transparent;
+}
+
+/* A frame is only see-through while its colour scheme agrees with the one its
+   iframe element has, which frames.js pins to light. Let the two disagree —
+   a dark theme here, a dark page there — and Chrome paints the whole frame an
+   opaque white or black instead, over the page. The theme's colours are
+   variables and do not care what this says. */
+html {
+  color-scheme: light !important;
+}
+
+#float-root {
+  position: fixed;
+  inset: 0;
+}
+
+/* On the board an unfilled note is words on the canvas. Over somebody else's
+   page there is no canvas: it needs a card to be read against, and a lift to be
+   told apart from what is underneath. */
+.note,
+.note.is-clear,
+.note.is-clear:hover,
+.note.is-clear.is-active {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.note.is-clear {
+  background: var(--surface) !important;
+}
+
+/* Tucked away at the side of the page: only the top of it, as a tab, and that
+   tab is a way back. Header, footer and grip have nothing to offer there. */
+.note.is-tucked {
+  cursor: pointer;
+  /* Leaving a hover: back in, without fuss. */
+  transition: translate 0.18s ease-in;
+}
+
+.note.is-tucked > .note-header,
+.note.is-tucked > .note-footer,
+.note.is-tucked > .note-grip {
+  display: none;
+}
+
+/* The tab is cut out of the note, and the cut takes the note's own shadow with
+   it — a pale tab on a pale page, or a dark one on a dark page, was simply not
+   there. So the holder draws one around the shape that is left: a hairline of
+   light for dark pages, and a soft shadow for light ones. */
+#float-root.has-tab {
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.75))
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 3px 7px rgba(0, 0, 0, 0.3));
+}
+
+/* Reached for, it pops out a little and stays there — "I'm here" — rather
+   than swinging. The overshoot in the curve is the pop. */
+.note.is-tucked.tuck-left:hover,
+.note.is-tucked.tuck-right:hover {
+  transition: translate 0.3s cubic-bezier(0.34, 1.7, 0.64, 1);
+}
+
+.note.is-tucked.tuck-left:hover {
+  translate: 10px 0;
+}
+
+.note.is-tucked.tuck-right:hover {
+  translate: -10px 0;
+}
+
+/* Travelling to the edge or back. Declared last, and naming translate as well,
+   so a tab that is also hovered still slides. */
+.note.is-sliding,
+.note.is-sliding.is-tucked,
+.note.is-sliding.is-tucked:hover {
+  transition:
+    left 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    clip-path 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+    translate 0.18s ease-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note.is-tucked,
+  .note.is-tucked.tuck-left:hover,
+  .note.is-tucked.tuck-right:hover,
+  .note.is-sliding,
+  .note.is-sliding.is-tucked,
+  .note.is-sliding.is-tucked:hover {
+    transition: none;
+  }
+}

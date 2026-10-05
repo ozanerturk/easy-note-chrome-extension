@@ -5,7 +5,8 @@
 // import note.js or pages.js: those reach for the DOM the moment they load, so
 // the small amount of schema knowledge a clip needs is restated here instead.
 
-import { openDB, getAll, put, NOTES, IMAGES, PAGES, TRAY_ID } from "../db.js";
+import { openOnce, getAll, put, NOTES, IMAGES, PAGES, TRAY_ID } from "../db.js";
+import { textIn } from "../ocr.js";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 520;
@@ -18,11 +19,6 @@ const CHROME_HEIGHT = 76;
 const BODY_PADDING = 24;
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
-
-// The worker can be woken for several clips before it is shut down again, and
-// openDB() hands back a fresh connection every call. One per wake is enough.
-let connecting = null;
-const connect = () => (connecting ||= openDB());
 
 const newId = () =>
   crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -38,10 +34,18 @@ const escapeHtml = (text) =>
  * region looked on the page rather than to how many pixels the screen used.
  */
 export async function saveClip({ blob, width, height, scale, url, title }) {
-  await connect();
+  await openOnce();
 
   const imgId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await put(IMAGES, { id: imgId, blob });
+  // Read now, while the picture is still on screen and the reason for
+  // clipping it is fresh — not later, only if someone happens to open it. The
+  // answer is cached (see ocr.js), so this is the only time it ever runs for
+  // this image; a page that never gets opened still ends up searchable. A
+  // picture this can't read (no worker in this browser, nothing readable on
+  // it) fails the same way opening it later would: silently, with nothing
+  // else in the app any worse off for having tried early.
+  textIn(imgId).catch(() => {});
 
   const pageId = await ensureTray();
   const cssWidth = Math.max(1, width / scale);
@@ -64,7 +68,43 @@ export async function saveClip({ blob, width, height, scale, url, title }) {
     html: clipHtml(imgId, url, title),
     color: "transparent",
     z: records.reduce((top, n) => Math.max(top, n.z || 0), 0) + 1,
-    locked: false,
+    createdAt: now,
+    editedAt: now,
+    updatedAt: now,
+    pageId,
+  };
+  await put(NOTES, note);
+  return note;
+}
+
+/**
+ * Put some text in the tray — what Claude hands over through the bridge. The
+ * same shape as a clip, minus the picture: a paragraph per line, a bold title
+ * above it if there is one, and where it came from underneath.
+ */
+export async function saveText({ text, sourceUrl, title }) {
+  await openOnce();
+  const pageId = await ensureTray();
+  const records = (await getAll(NOTES)).filter((n) => !n.deleted);
+  const now = Date.now();
+
+  const lines = text.split(/\r?\n/);
+  const heading = (title || "").trim() ? `<p><strong>${escapeHtml(title.trim())}</strong></p>` : "";
+  const body = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  const safe = /^https?:\/\//i.test(sourceUrl || "") ? sourceUrl : "";
+  const source = safe
+    ? `<p><a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safe)}</a></p>`
+    : "";
+
+  const note = {
+    id: newId(),
+    x: 0,
+    y: 0,
+    width: 300,
+    height: clamp(90 + lines.length * 22, 140, 420),
+    html: heading + body + source,
+    color: "transparent",
+    z: records.reduce((top, n) => Math.max(top, n.z || 0), 0) + 1,
     createdAt: now,
     editedAt: now,
     updatedAt: now,
@@ -92,7 +132,10 @@ function clipHtml(imgId, url, title) {
 //
 // The tray is a reserved page. It is created on first use rather than at
 // install, so a profile that never clips never grows one.
-async function ensureTray() {
+//
+// Exported because a floating note made from a webpage arrives the same way and
+// for the same reason: it came from out there, and it has not been filed yet.
+export async function ensureTray() {
   const existing = (await getAll(PAGES)).find((p) => p.id === TRAY_ID);
   if (existing && !existing.deleted) return TRAY_ID;
 

@@ -463,16 +463,19 @@ body.is-resizing #sidebar {
 
 /* ----------------------------------------------------------------- search */
 
+/* Opened with nothing typed it is a view of everything, so it is sized like
+   one — a panel you look over, not a box that drops a few suggestions. */
 #search {
   position: fixed;
-  top: 14px;
+  top: 10vh;
   left: 50%;
   transform: translateX(-50%) translateY(-6px);
-  width: min(520px, 70vw);
+  width: min(640px, calc(100vw - 32px));
   z-index: 950;
-  border-radius: var(--r);
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.26);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--surface-line);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s, transform 0.12s;
@@ -487,17 +490,46 @@ body.is-resizing #sidebar {
 
 #search-input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: none;
-  border-bottom: 1px solid #eae7e1;
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   background: transparent;
+  color: var(--text);
+}
+
+#search-filters {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--surface-line);
+}
+
+#search-filters button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+#search-filters button:hover {
+  background: var(--wash-1);
+}
+
+#search-filters button.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
 #search-results {
-  max-height: 320px;
+  max-height: min(60vh, 520px);
   overflow-y: auto;
+  padding: 4px 0;
 }
 
 .search-row {
@@ -515,7 +547,7 @@ body.is-resizing #sidebar {
 
 .search-row:hover,
 .search-row.is-active {
-  background: rgba(61, 132, 214, 0.12);
+  background: var(--accent-soft);
 }
 
 .search-swatch {
@@ -543,8 +575,13 @@ body.is-resizing #sidebar {
 .search-when {
   flex: 0 0 auto;
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.38);
+  color: var(--muted);
   white-space: nowrap;
+}
+
+.search-when.is-due {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .search-page {
@@ -557,15 +594,6 @@ body.is-resizing #sidebar {
   padding: 14px;
   font-size: 12px;
   color: var(--muted);
-}
-
-.search-label {
-  padding: 9px 14px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #a8a196;
 }
 
 /* Viewport. The dot grid scrolls and scales with the view, which is what
@@ -641,7 +669,7 @@ body.is-resizing #sidebar {
   height: 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 2px;
   /* No slab. It held five buttons once and had to be a surface to hold them;
      it holds one now, and a white bar hanging over every open note was the
@@ -678,7 +706,9 @@ body.is-resizing #sidebar {
   transform: none;
 }
 
-/* Resizing, now that the note cannot use the CSS resizer. */
+/* Resizing, now that the note cannot use the CSS resizer. No mark drawn in
+   the corner — a resizable box's own corner is affordance enough — just the
+   cursor change and the hit area to drag. */
 .note-grip {
   position: absolute;
   right: 0;
@@ -686,25 +716,13 @@ body.is-resizing #sidebar {
   width: 16px;
   height: 16px;
   cursor: nwse-resize;
-  opacity: 0;
-  transition: opacity 0.12s;
 }
 
-.note-grip::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid rgba(0, 0, 0, 0.3);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.3);
-  border-bottom-right-radius: 3px;
-}
-
-.note:hover > .note-grip,
-.note.is-active > .note-grip {
-  opacity: 1;
+/* The same grip, mirrored to the bottom-left corner. */
+.note-grip-left {
+  left: 0;
+  right: auto;
+  cursor: nesw-resize;
 }
 
 .note.is-fullscreen > .note-grip,
@@ -725,13 +743,7 @@ body.is-resizing #sidebar {
   cursor: grabbing;
 }
 
-.note-tools {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-
-/* The only button left on a note. Quiet until reached for. */
+/* The only button on a note. Quiet until reached for. */
 .note-btn-more {
   font-size: 13px;
   letter-spacing: 0.5px;
@@ -811,50 +823,68 @@ body.is-resizing #sidebar {
   }
 }
 
-/* A locked note is pinned: it cannot be dragged or deleted. Resizing is still
-   allowed — the lock is about where it is, not how big. */
-.note.is-locked {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--note-edge);
-}
-
-.note.is-clear.is-locked,
-.note.is-clear.is-locked:hover {
-  box-shadow: inset 0 0 0 1px var(--note-edge);
-}
-
-.note-date {
+/* Hung just under the note rather than inside it, so appearing on hover moves
+   none of the note's own words. Still a child of the note, so reaching down
+   for its button keeps the note hovered. */
+.note-footer {
   display: none;
-  flex: 0 0 auto;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   align-items: baseline;
   gap: 8px;
-  padding: 0 12px 6px;
+  padding: 3px 2px 0;
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--muted);
+  white-space: nowrap;
   user-select: none;
 }
 
-/* The line shows on request — and on its own once something has come due,
-   because the reminder chip is also the button that stops the wiggling. */
-body.show-dates .note-date,
-.note.is-due .note-date {
+/* Where your hand is, and wherever a reminder is set — the chip is the button
+   that dismisses it, so it is never hidden while there is one to dismiss. */
+.note:hover > .note-footer,
+.note.is-active > .note-footer,
+.note.has-reminder > .note-footer {
   display: flex;
 }
 
-.note-edited {
+/* In a list, a line hanging below a card would sit on the next one, and one
+   that came and went on hover would make the column jump under the cursor. It
+   takes its own room there, and only while it has something to say. */
+.note.is-listed > .note-footer {
+  position: static;
+  padding: 0 12px 6px;
+}
+
+.note.is-listed:hover:not(.is-active):not(.has-reminder) > .note-footer {
   display: none;
 }
 
-body.show-dates .note-edited {
-  display: inline;
+.note.is-fullscreen > .note-footer {
+  display: none;
 }
 
 .note-remind {
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.note-remind:hover {
-  color: rgba(0, 0, 0, 0.65);
+.note-remind:hover,
+.note-remind-add:hover {
+  color: var(--text);
+}
+
+.note-remind-add {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.note.has-reminder .note-remind-add {
+  display: none;
 }
 
 .note.is-due .note-remind {
@@ -889,6 +919,13 @@ body.show-dates .note-edited {
   animation: none;
 }
 
+/* Found by search: the same hop, once, whether or not it has hopped before. */
+.note.is-found,
+.note.is-found.has-hopped {
+  transform-origin: 50% 100%;
+  animation: note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
 /* A note being carried already has a transform of its own. And once you have
    opened one you have plainly seen it, so it stops hopping while you are in
    it — the reminder is still due until it is dismissed. */
@@ -918,6 +955,11 @@ body.show-dates .note-edited {
 
 @media (prefers-reduced-motion: reduce) {
   .note.is-due,
+  .note.is-found,
+  .note.is-found.has-hopped,
+  /* The lift stays — it is what says the note is floating. Only the bob goes. */
+  .note.is-floating,
+  .note.is-floating::after,
   .page-row.has-due:not(.is-current) .page-name {
     animation: none;
   }
@@ -957,6 +999,15 @@ body.show-dates .note-edited {
   margin: 0;
 }
 
+/* A blank line between two written ones is part of what was written, so the
+   note has to keep it. The editor draws an empty paragraph with a <br> inside
+   and it stands up on its own; the markup we store is a bare <p>, which has no
+   line box at all — so the gap was there while the note was open and gone the
+   moment it went idle. */
+.note-body p:empty {
+  min-height: 1.4em;
+}
+
 .note-body p + p,
 .note-body p + ul,
 .note-body p + ol,
@@ -965,11 +1016,85 @@ body.show-dates .note-edited {
   margin-top: 4px;
 }
 
+/* ---------------------------------------------------------------- mini-apps */
+
+/* A note running an app has given its body away: no caret, no scrolling, no
+   text flow — the app lays itself out in whatever room the note has. Resizing
+   the note is still how you resize the app. */
+.note-body.is-app {
+  padding: 8px;
+  overflow: hidden;
+  white-space: normal;
+  cursor: inherit;
+  display: flex;
+}
+
+.app-timer {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.timer-face {
+  font-size: 26px;
+  line-height: 1;
+  /* Fixed-width digits, or the whole face shuffles sideways every second. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.timer-row {
+  display: flex;
+  gap: 4px;
+}
+
+.timer-btn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 7px;
+  color: inherit;
+  /* The note's own fill shows through: a control drawn on top of a colour it
+     cannot know about should borrow it rather than guess. */
+  background: transparent;
+  border: 1px solid var(--note-edge);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+
+.timer-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.timer-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.app-timer.is-running .timer-go {
+  font-weight: 600;
+}
+
+/* Out of time. The note keeps saying so until it is reset — the same stance as
+   a reminder, which wiggles until dismissed rather than firing once into an
+   empty room. */
+.app-timer.is-done .timer-face {
+  animation: timer-out 1.1s ease-in-out infinite;
+}
+
+@keyframes timer-out {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* Privacy blur, for screen sharing. Note content and anything that echoes it
    — search snippets, the account email — go soft. Page names stay legible so
    the app is still navigable. */
 .blur-notes .note-body,
-.blur-notes .note-date,
+.blur-notes .note-footer,
 .blur-notes .search-text,
 .blur-notes #sync-status {
   filter: blur(6px);
@@ -980,7 +1105,7 @@ body.show-dates .note-edited {
    rather than just an off switch. Hovering deliberately does not reveal —
    a stray cursor should never uncover anything on a shared screen. */
 .blur-notes .note:has(.note-body:focus) .note-body,
-.blur-notes .note:has(.note-body:focus) .note-date {
+.blur-notes .note:has(.note-body:focus) .note-footer {
   filter: none;
 }
 
@@ -1117,6 +1242,132 @@ body.show-dates .note-edited {
   color: rgba(0, 0, 0, 0.62);
 }
 
+/* ------------------------------------------------------------------ tables */
+
+/* A note has one width and no sideways scroll, so a table takes the width it
+   is given and shares it out evenly however many columns there are. Nothing
+   here sets a column width, which is what keeps that true. */
+.note-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  /* More room under it than over it: that gap is where the + for a new row
+     appears, and it has to land on the note rather than on the next line. */
+  margin: 6px 0 13px;
+}
+
+.note-table td,
+.note-table th {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 4px 7px;
+  vertical-align: top;
+}
+
+.note-table th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.note-table p {
+  margin: 0;
+}
+
+/* The cell the caret is in, and a run of cells dragged across: enough to see
+   where you are, and nothing at rest. */
+.note-table .selectedCell {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* The caret that stands beside a table rather than in it — what you get from
+   clicking under one that is the last thing in the note. ProseMirror draws it
+   as an empty element, so the line is ours to paint. */
+.note-body .ProseMirror-gapcursor {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.note-body .ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 24px;
+  border-top: 1px solid currentColor;
+  animation: gapcursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes gapcursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* The hover controls. Kept off the note, like the selection bar: anything
+   inside a note is text the note has, and would end up in what is saved. The
+   layer has no size of its own — it only holds the four controls, which place
+   themselves over whatever the canvas is showing. */
+.table-controls {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.table-ctl {
+  position: fixed;
+  z-index: 999; /* under the selection bar, over everything else */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.62);
+  background: var(--surface, #fff);
+  /* A hairline as well as the shadow: on a coloured note a soft shadow alone
+     left them looking like part of the paper rather than something to press. */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+}
+
+/* display:flex above beats the hidden attribute's own display:none, which put
+   all four controls in the top-left corner of every note ever opened. */
+.table-ctl[hidden] {
+  display: none;
+}
+
+.table-ctl:hover {
+  color: var(--text, #222);
+}
+
+.is-row-x,
+.is-col-x {
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.is-row-x:hover,
+.is-col-x:hover {
+  color: #fff;
+  background: var(--danger, #c33);
+}
+
+.is-row-plus,
+.is-col-plus {
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.is-row-plus:hover,
+.is-col-plus:hover {
+  background: var(--surface-2, #f0ede6);
+}
+
 .link-box {
   position: fixed;
   z-index: 1000;
@@ -1140,7 +1391,8 @@ body.show-dates .note-edited {
 }
 
 /* Enough to pick out what is selected, not enough to shout about it. */
-.note.is-selected {
+.note.is-selected,
+.list.is-selected {
   outline: 1px solid rgba(61, 132, 214, 0.55);
   outline-offset: 1px;
 }
@@ -1407,18 +1659,6 @@ body.show-dates .note-edited {
   font-size: 12px;
 }
 
-.palette {
-  position: fixed;
-  z-index: 1000;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 5px;
-  padding: 7px;
-  border-radius: var(--r);
-  background: #fff;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
-}
-
 .palette-dot {
   width: 20px;
   height: 20px;
@@ -1494,6 +1734,68 @@ body.show-dates .note-edited {
 
 #sync-actions button:hover {
   background: #f0eee9;
+}
+
+#bridge {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-line);
+}
+
+#bridge-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#bridge-status {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+#bridge-url-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#bridge-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: #faf9f7;
+  font-size: 11px;
+  color: var(--text);
+}
+
+#bridge-copy {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--r);
+  background: #faf9f7;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#bridge-copy:hover {
+  background: #f0eee9;
+}
+
+#bridge-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 #open-sync[data-state="on"] {
@@ -1837,6 +2139,20 @@ body.show-dates .note-edited {
   background: var(--surface-2);
 }
 
+/* A capture that is words rather than a picture. The card is the same size and
+   the same card; only what is inside it differs. */
+.tray-words {
+  display: block;
+  overflow: hidden;
+  padding: 8px 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .tray-caption {
   display: block;
   padding: 4px 6px 5px;
@@ -1885,13 +2201,6 @@ body.show-dates .note-edited {
 .blur-notes .tray-shot,
 .blur-notes .tray-caption {
   filter: blur(6px);
-}
-
-/* Held long enough to set the page's home view. A moment of accent is the
-   whole confirmation — the action is small and instantly repeatable. */
-#go-home.is-set {
-  background: var(--accent);
-  color: #fff;
 }
 
 /* ------------------------------------------------------------------ lists */
@@ -1960,6 +2269,7 @@ body.show-dates .note-edited {
   text-align: center;
 }
 
+.list-btn-add,
 .list-btn-more {
   flex: 0 0 auto;
   width: 17px;
@@ -1975,12 +2285,20 @@ body.show-dates .note-edited {
   transition: opacity 0.12s, background 0.12s;
 }
 
+.list:hover .list-btn-add,
 .list:hover .list-btn-more {
   opacity: 1;
 }
 
+.list-btn-add:hover,
 .list-btn-more:hover {
   background: var(--wash-2);
+}
+
+/* The + is drawn a size up: a glyph one stroke wide reads as faint next to the
+   ⋯ beside it, and this is the button of the two you actually reach for. */
+.list-btn-add {
+  font-size: 15px;
 }
 
 /* The stack, and the drop target. It keeps a floor of empty height so that a
@@ -2100,6 +2418,35 @@ body.show-dates .note-edited {
   background: var(--wash-2);
 }
 
+/* The answer to a sum, before it is taken: the same words in the same place,
+   only dimmed, so taking it changes nothing but the colour. Inline, in the
+   line's own font and size — not a chip, not a popup. Dimmed from whatever
+   the text colour is, so it reads on any fill and in the dark. */
+.sum-ghost {
+  display: inline;
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The "/" list in a note. Same box as the menus; the row the arrow keys are on
+   is lit the way a hovered one is, and the command it answers to sits at the
+   right, so the next time it can simply be typed. */
+.slash-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.slash-item.is-active {
+  background: var(--accent-soft);
+}
+
+.slash-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .ctx-item.is-danger {
   color: var(--danger);
 }
@@ -2109,41 +2456,24 @@ body.show-dates .note-edited {
   cursor: default;
 }
 
+/* The colours, inline at the top of a note's menu: two rows of nine. */
+.ctx-swatches {
+  display: grid;
+  grid-template-columns: repeat(9, 18px);
+  gap: 5px;
+  padding: 5px 7px 6px;
+}
+
+.ctx-swatches .palette-dot {
+  width: 18px;
+  height: 18px;
+}
+
 .ctx-sep {
   display: block;
   height: 1px;
   margin: 4px 6px;
   background: var(--surface-line);
-}
-
-/* ------------------------------------------------------ hold to set home */
-
-/* The ring fills while the button is held. Without it the wait is a button
-   that appears to be doing nothing until it suddenly is. */
-@property --hold {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-
-#go-home {
-  position: relative;
-}
-
-#go-home.is-holding::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: var(--r);
-  background: conic-gradient(var(--accent) var(--hold), transparent 0);
-  opacity: 0.55;
-  pointer-events: none;
-  animation: hold-fill 700ms linear forwards;
-}
-
-@keyframes hold-fill {
-  from { --hold: 0%; }
-  to { --hold: 100%; }
 }
 
 /* ------------------------------------------------------------------ toast */
@@ -2180,14 +2510,6 @@ body.show-dates .note-edited {
    when it happens the tip steps up rather than sitting on top of the offer. */
 #toast:has(~ #undo-bar.is-open) {
   bottom: calc(112px + var(--tray-h));
-}
-
-/* ---------------------------------------------------------- the lock mark */
-
-.note-lock-mark {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.75;
 }
 
 /* -------------------------------------------------------------- gallery */
@@ -2442,3 +2764,87 @@ body.show-dates .note-edited {
 #gallery-close {
   font-size: 13px;
 }
+
+/* A note that is floating.
+   It stays exactly where it is on the board — floating is about the pages you
+   visit, not about this one — so all it needs here is to be recognisable as
+   one. A lift off the canvas, and a bob slow enough to read as "this is
+   somewhere else too" rather than as something demanding attention. */
+.note.is-floating,
+/* An unfilled note draws no shadow at all, and gains an inset edge when it is
+   reached for — both of which out-specify a bare .is-floating and would leave
+   the one note that is floating looking like every note that is not. */
+.note.is-floating.is-clear,
+.note.is-floating.is-clear:hover,
+.note.is-floating.is-clear.is-active {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--accent-soft);
+}
+
+/* Hover.css's hvr-bob, always on: lifted eight pixels, easing down to four and
+   back. On `translate` rather than `transform`, so the hop a note does when it
+   is due or found plays on top of it instead of stopping it; on a compositor
+   layer of its own, so the travel is a glide rather than a few one-pixel steps
+   of text. Every floating note keeps the same clock — floating.js starts each
+   one that far into its cycle — so however they were floated, they rise and
+   fall together. AFLOAT_MS in floating.js is this 1.5s. */
+.note.is-floating {
+  animation: note-afloat 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate;
+  will-change: translate;
+}
+
+@keyframes note-afloat {
+  0% { translate: 0 -8px; }
+  50% { translate: 0 -4px; }
+  100% { translate: 0 -8px; }
+}
+
+/* Its shadow on the ground. It stays where the note would rest — moving down
+   exactly as far as the note moves up, so it does not ride along — and it is
+   smaller and fainter the higher the note is, wider and darker as it comes down. */
+.note.is-floating::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: calc(100% + 4px);
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: -1;
+  animation: note-afloat-shadow 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate;
+  will-change: translate, scale, opacity;
+}
+
+@keyframes note-afloat-shadow {
+  0% { translate: 0 8px; scale: 0.78; opacity: 0.5; }
+  50% { translate: 0 4px; scale: 1; opacity: 0.9; }
+  100% { translate: 0 8px; scale: 0.78; opacity: 0.5; }
+}
+
+/* Due, or found by search: the hop, once, with the bob carrying on under it.
+   The bob is listed first so it keeps its place and does not restart. */
+.note.is-floating.is-due:not(.has-hopped):not(.is-active),
+.note.is-floating.is-found,
+.note.is-floating.is-found.has-hopped {
+  animation:
+    note-afloat 1.5s ease-in-out var(--afloat-sync, 0s) infinite alternate,
+    note-wiggle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+/* A note being carried is already moving, and a note blown up to fill the
+   screen has left the board behind. Neither should also be bobbing. */
+#drag-layer .note.is-floating,
+.note.is-floating.is-fullscreen {
+  animation: none;
+}
+
+/* Carried, blown up, or a row in a list: there is no ground under it there. */
+#drag-layer .note.is-floating::after,
+.note.is-floating.is-fullscreen::after,
+.note.is-floating.is-listed::after {
+  display: none;
+}
+
+

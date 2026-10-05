@@ -17,11 +17,17 @@
     </aside>
 
     <button id="toggle-sidebar" title="Toggle sidebar">☰</button>
-    <a id="help" href="https://ozanerturk.github.io/easy-note-chrome-extension/tips.html"
+    <a id="help" href="https://easynote.tayfai.tech/tips.html"
        target="_blank" rel="noopener" title="Tips &amp; shortcuts">?</a>
 
     <div id="search">
       <input id="search-input" type="text" placeholder="Search all notes…" autocomplete="off" />
+      <div id="search-filters" role="tablist" aria-label="Show notes by">
+        <button role="tab" data-sort="recent">Recent</button>
+        <button role="tab" data-sort="reminders">Reminders</button>
+        <button role="tab" data-sort="az">A–Z</button>
+        <button role="tab" data-sort="za">Z–A</button>
+      </div>
       <div id="search-results"></div>
     </div>
 
@@ -59,7 +65,7 @@
           <span id="gallery-when"></span>
         </span>
         <span id="gallery-count"></span>
-        <button id="gallery-copy" title="Copy the text in this picture" hidden>Copy text</button>
+        <button id="gallery-download" title="Download this picture">Download</button>
         <button id="gallery-goto" title="Go to note  ⏎">Go to note</button>
         <button id="gallery-close" title="Close  Esc">✕</button>
       </div>
@@ -112,6 +118,17 @@
         <button id="sync-now" hidden>Sync now</button>
         <button id="sync-signout" hidden>Sign out</button>
       </div>
+      <div id="bridge">
+        <label id="bridge-toggle"><input type="checkbox" id="bridge-enabled"> Connect to Claude</label>
+        <div id="bridge-status">Off</div>
+        <div id="bridge-connector" hidden>
+          <div id="bridge-url-row">
+            <input id="bridge-url" readonly aria-label="Connector URL">
+            <button id="bridge-copy">Copy</button>
+          </div>
+          <div id="bridge-hint">Add this URL in Claude → Settings → Connectors.</div>
+        </div>
+      </div>
     </div>
 
     <div id="toast"></div>
@@ -126,14 +143,12 @@
       <button id="toggle-theme" title="Theme">🌗</button>
       <button id="toggle-blur" title="Blur notes for screen sharing (Alt+B)">🙈</button>
       <button id="open-sync" title="Google Drive sync">☁</button>
-      <button id="open-search" title="Search notes (⌘F)">🔍</button>
-      <button id="toggle-dates" title="Show last edited time">🕘</button>
+      <button id="open-search" title="Search notes (Space or ⌘F)">🔍</button>
       <span class="sep"></span>
       <button id="zoom-out" title="Zoom out">−</button>
       <button id="zoom-level" title="Reset to 100%">100%</button>
       <button id="zoom-in" title="Zoom in">+</button>
       <span class="sep"></span>
-      <button id="go-home" title="Home view — click to return, hold to set">🏠</button>
       <button id="fit" title="Fit all notes in view">Fit</button>
     </div>
 

@@ -8,8 +8,10 @@
 // Nothing in it ever expires. Items fade with age so the eye goes to what is
 // recent, but the tray only ever loses something because somebody said so.
 
-import { NOTES, TRAY_ID, getAll, put } from "./db.js";
-import { imageIdsIn, imageUrlFor, loadNote, updateHint } from "./note.js";
+import { NOTES, TRAY_ID, getAll, getOne, put } from "./db.js";
+import { inBounds } from "./origin.js";
+import { imageIdsIn, imageUrlFor, updateHint, NO_FILL } from "./note.js";
+import { loadNote } from "./board-note.js";
 import { currentPageId, dropTargetAt, moveNotesToPage, setDraggedNotes } from "./pages.js";
 import { offerUndo } from "./undo.js";
 import { record } from "./history.js";
@@ -20,6 +22,12 @@ const OPEN_HEIGHT = 124;
 const COLLAPSED_HEIGHT = 30;
 const THUMB_WIDTH = 132;
 const DRAG_THRESHOLD = 4;
+// The row the shot sits in is a fixed height, so its own height only ever
+// hints at whether the note is wide or tall — never its real aspect ratio,
+// which could run the card off the bottom of the strip.
+const SHOT_HEIGHT = 58;
+const SHOT_HEIGHT_MIN = 46;
+const SHOT_HEIGHT_MAX = 66;
 
 // Aging is presentation only. A capture from this morning and one from last
 // month are equally safe; the older one just stops competing for attention.
@@ -65,7 +73,14 @@ function sourceOf(note) {
   holder.innerHTML = note.html || "";
   const link = holder.querySelector("a[href]");
   const text = holder.textContent.replace(/\s+/g, " ").trim();
-  return { label: text || "Capture", href: link ? link.getAttribute("href") : "" };
+  // A note still empty — made on a page but never written in — has nothing
+  // of its own to show; the page it came from is the next best thing to
+  // tell it apart from every other blank capture.
+  const fallback = (note.sourceTitle || "").trim();
+  return {
+    label: text || fallback || "Capture",
+    href: link ? link.getAttribute("href") : note.sourceUrl || "",
+  };
 }
 
 function thumbFor(note) {
@@ -74,14 +89,38 @@ function thumbFor(note) {
   item.dataset.noteId = note.id;
   item.style.opacity = ageOpacity(note);
 
-  const shot = document.createElement("img");
-  shot.className = "tray-shot";
-  shot.alt = "";
-  shot.draggable = false;
-  const [imgId] = imageIdsIn(note.html);
-  if (imgId) imageUrlFor(imgId).then((url) => { if (url) shot.src = url; });
-
   const { label, href } = sourceOf(note);
+
+  // A capture used to always be a picture, so the card was always a thumbnail.
+  // A note made from a webpage is words, and an <img> with no src is a blank
+  // grey rectangle standing where the note should be — so a note without a
+  // picture shows what it says instead.
+  const [imgId] = imageIdsIn(note.html);
+  let shot;
+  if (imgId) {
+    shot = document.createElement("img");
+    shot.className = "tray-shot";
+    shot.alt = "";
+    shot.draggable = false;
+    shot.dataset.imgId = imgId; // so the gallery can open it before it's filed
+    imageUrlFor(imgId).then((url) => { if (url) shot.src = url; });
+  } else {
+    shot = document.createElement("div");
+    shot.className = "tray-shot tray-words";
+    shot.textContent = label;
+    // The fill the note itself was given — a note picked out in colour on the
+    // board should still be that colour here, not the plain card every other
+    // capture gets.
+    const fill = note.color || NO_FILL;
+    if (fill !== NO_FILL) shot.style.background = fill;
+  }
+  // A hint of the note's own shape, not its real size — the row only has so
+  // much room. A wide note reads a little flatter, a tall one a little deeper.
+  if (note.width && note.height) {
+    const hinted = Math.round((SHOT_HEIGHT * note.height) / note.width);
+    shot.style.height = `${Math.max(SHOT_HEIGHT_MIN, Math.min(SHOT_HEIGHT_MAX, hinted))}px`;
+  }
+
   const caption = document.createElement("span");
   caption.className = "tray-caption";
   caption.textContent = label;
@@ -230,9 +269,12 @@ function beginDrag(e, note, item) {
     if (!inside) return; // dropped nowhere; it stays in the tray
 
     const at = screenToWorld(up.clientX, up.clientY);
-    note.x = Math.round(at.x - (note.width || 200) / 2);
-    note.y = Math.round(at.y - (note.height || 150) / 2);
-    await place(note, currentPageId);
+    // Centred on the pointer, but never past the board's origin.
+    ({ x: note.x, y: note.y } = inBounds(
+      Math.round(at.x - (note.width || 200) / 2),
+      Math.round(at.y - (note.height || 150) / 2)
+    ));
+    await place(note, currentPageId, { positioned: true });
   };
 
   window.addEventListener("pointermove", onMove);
@@ -240,7 +282,28 @@ function beginDrag(e, note, item) {
   window.addEventListener("keydown", onKey, true);
 }
 
-async function place(note, pageId) {
+// FILE_CASCADE is the same idea as the floating widget's own cascade — see
+// CASCADE in float/geometry.js — for the same reason: a second thing dropped
+// in the same place as a first should not silently sit on top of it.
+const FILE_CASCADE = 28;
+
+async function place(dropped, pageId, { positioned = false } = {}) {
+  // The tray's copy is from when the tray was drawn, and a capture can float —
+  // and be written in, out on a webpage — while it sits here. Where it is going
+  // comes from the drop; everything else from the database.
+  const stored = await getOne(NOTES, dropped.id).catch(() => null);
+  const note = stored ? { ...stored, x: dropped.x, y: dropped.y } : dropped;
+  if (!positioned) {
+    // Dropped on a sidebar row rather than the canvas: there is no point on
+    // the page the drop itself names, only the page. Cascading off its
+    // origin, rather than leaving the note at whatever it was in the tray, is
+    // what keeps a second capture filed here from landing exactly on the
+    // first — invisible underneath it until someone happens to drag the top
+    // one aside.
+    const already = (await getAll(NOTES)).filter((n) => !n.deleted && n.pageId === pageId).length;
+    const step = (already % 6) * FILE_CASCADE;
+    ({ x: note.x, y: note.y } = inBounds(step, step));
+  }
   await moveNotesToPage([note], pageId);
   if (pageId === currentPageId) {
     loadNote(note);

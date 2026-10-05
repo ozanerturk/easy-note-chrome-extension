@@ -73,7 +73,7 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 
 - Left-drag empty canvas to marquee-select; click a note to select it
 - Shift-click to add or remove a note from the selection
-- ⌘A selects all, Esc clears, Delete removes the selection (locked notes survive)
+- ⌘A selects all, Esc clears, Delete removes the selection
 - Dragging any selected note moves the whole group
 - With 2+ selected, a toolbar offers align (left/centre/right, top/middle/bottom),
   distribute horizontally or vertically, and arrange into a grid
@@ -103,9 +103,6 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - The header is a popover above the active note, in the note's own colour, so
   it costs the body no room and hides the text of nothing
 - Empty a note and leave it and it removes itself
-- **Lock** (🔒) pins a note where it is and guards it from deletion, including
-  from a bulk delete and from a group drag or an align that moves its
-  neighbours. It can still be resized and edited
 - **Colour** (◑) opens an 18-swatch palette; notes start with no fill
 - **Fullscreen** (⤢, or double-click the header) expands a note; Esc or a
   backdrop click restores it to its exact previous position and size
@@ -122,27 +119,39 @@ This opens Chrome for Testing with the extension auto-loaded and a persistent
 - Drag notes onto a page in the sidebar to move them; the row fills in and says
   how many are coming before you let go
 - Delete a note with its × button; its images are cleaned up too
-- **Reminders** (🔔) — 15 or 40 minutes, 1, 2 or 3 hours, or a time picked by
-  hand. What a note is waiting for reads on the same line as its last-edited
-  time and hides with it. When the time passes the note wiggles, and keeps
-  wiggling across page switches and new tabs until it is dismissed, because
-  being due is worked out from the record rather than held in a timer. A note
-  that has come due on a page you are not looking at makes that page's name
-  wiggle instead. Clicking the reminder dismisses it
-- Last-edited time per note, toggled globally with 🕘 in the controls bar
+- **Sums** — type `120*0.15` at the end of a line and ` = 18` waits after it,
+  dimmed; Tab or Enter writes it in, Esc dismisses it. Evaluated with
+  `expr-eval`, and only ever handed digits and `+ - * / ( )`
+- **Slash commands** — type `/` in a note for the apps (a timer, for now). The
+  one you pick is put down beside the note, and only the `/timer` is taken
+  back out of it
+- **Reminders** (🔔) — now, in 15 minutes, in an hour, this evening, tomorrow,
+  in 3 days, in a week, or a time picked by hand. What a note is waiting for
+  reads on the same line as its last-edited time and hides with it. When the
+  time passes the note hops, and stays due across page switches and new tabs
+  until it is dismissed, because being due is worked out from the record
+  rather than held in a timer. A note that has come due on a page you are not
+  looking at puts a count on that page instead. Clicking the reminder
+  dismisses it
+- A due reminder is also a system notification, even with no tab open —
+  Chrome asks for the notifications permission the first time a reminder is
+  set, and without it everything above still works. Clicking the notification
+  opens a tab on the note. With the privacy blur on, it says a note is due
+  without saying what it says
+- A line under each note, shown while you hover or work in it: when it was last
+  edited, and a Remind me button. A note with a reminder keeps it showing
+- Tap Space (or ⌘F) for search: every note, by recent, reminders, A–Z or Z–A,
+  narrowed by whatever you type
 - Everything persists via IndexedDB (no 5MB ceiling like `chrome.storage.local`)
 
 ## The site
 
 `docs/` is served at
-[ozanerturk.github.io/easy-note-chrome-extension](https://ozanerturk.github.io/easy-note-chrome-extension/).
-`docs/demo/` under it is the extension itself — `newtab.html`, `js/`, `css/`
-copied verbatim by `scripts/demo.mjs`, with `demo.js` standing in for the few
-`chrome.*` calls a plain web page does not have. The release notes embed it, so
-"quick try" is the real board rather than a picture of one. The OCR models are
-left out of the copy: seven megabytes to serve for a feature that needs a
-picture on the board first, and `textIn()` already treats an engine it cannot
-start as a picture with nothing written on it.
+[easynote.tayfai.tech](https://easynote.tayfai.tech/).
+The release notes page shows `docs/demo.mp4`, the tour `npm run video` shoots
+from the real extension. The site used to serve a running copy of the app
+instead; a second deployment of the product, kept alive only to be looked at,
+was more to go wrong than it was worth.
 
 ## Structure
 
@@ -151,12 +160,15 @@ start as a picture with nothing written on it.
 - `js/boot.js` — render-blocking; applies the sidebar state before first paint
 - `js/db.js` — IndexedDB open/upgrade plus small promise helpers
 - `js/view.js` — view transform: pan, zoom, fit, focus, grid
-- `js/note.js` — note rendering, drag, resize, lock, colour, fullscreen, dates
+- `js/note.js` — note rendering, drag, resize, colour, fullscreen, dates
 - `js/editor.js` — the editor: schema, input rules, and mounting it on the
   active note
 - `js/vendor/tiptap.js` — the bundled editor library, built from
   `src/vendor/tiptap.entry.js` and committed so a clone loads as-is
 - `js/reminders.js` — when a note is due, and which pages are holding one
+- `js/worker.js` — the service worker; brings up the clipper and notifier
+- `js/notify/` — reminder notifications: `worker.js` keeps an alarm for the
+  next reminder and announces what comes due, `plan.js` decides what to say
 - `js/selection.js` — marquee, multi-select, group move, align/distribute/grid
 - `js/pages.js` — page tree, switching, drag-drop of notes between pages
 - `js/search.js` — cross-page search panel
@@ -231,9 +243,9 @@ Before a rollout:
       that shipping it was allowed.
 - [ ] `manifest.json` version bumped, and `docs/release-notes.html` says what
       changed — the What's new pill opens the hosted copy of that page.
-- [ ] `docs/demo/` rebuilt and committed. It is the app itself, copied under
-      `docs/` because GitHub Pages serves nothing above it, so a release that
-      does not commit it leaves the site demonstrating the previous version.
+- [ ] If the release changes anything the tour shows, `npm run video` re-shot
+      and `store/demo.mp4` copied to `docs/demo.mp4` — GitHub Pages serves
+      nothing above `docs/`, so the site keeps playing the old one otherwise.
 - [ ] Load `dist/easy-note-<version>.zip` unpacked once and open a new tab
       before uploading.
 
@@ -256,7 +268,7 @@ viewport. Anything that turns a mouse position into a note position goes through
 
 | Store    | Contents                                                                   |
 | -------- | -------------------------------------------------------------------------- |
-| `notes`  | `{id, pageId, x, y, width, height, html, color, z, locked, updatedAt}`       |
+| `notes`  | `{id, pageId, x, y, width, height, html, color, z, updatedAt}`               |
 | `images` | `{id, blob}` — pasted images, referenced by `data-img-id`                    |
 | `pages`  | `{id, name, parentId, order, collapsed}`                                     |
 | `meta`   | `view:<pageId>` per page, plus `prefs`, `currentPage`, `sidebar`             |

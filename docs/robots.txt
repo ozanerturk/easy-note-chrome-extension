@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ozanerturk.github.io/easy-note-chrome-extension/sitemap.xml
+Sitemap: https://easynote.tayfai.tech/sitemap.xml

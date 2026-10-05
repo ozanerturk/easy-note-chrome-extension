@@ -1,9 +1,26 @@
 import { notes } from "./store.js";
 import { NOTES, put } from "./db.js";
-import { canvas } from "./view.js";
+import { canvas, world } from "./view.js";
 import { recordMove } from "./note.js";
 
 export const selected = new Set();
+
+// Lists are picked out too — by the marquee, or Shift-clicking a list's name —
+// so a list moves with the notes around it. Its cards are never picked out on
+// their own by a marquee: they are inside the list, and they go where it goes.
+// Picking them was what used to tear them out of it on the next drag.
+export const selectedLists = new Set();
+
+export function isListSelected(id) {
+  return selectedLists.has(id);
+}
+
+/** Everything picked out, notes and lists together. */
+export function selectionSize() {
+  return selected.size + selectedLists.size;
+}
+
+const listEls = () => [...world.querySelectorAll(":scope > .list")];
 
 const marqueeBox = document.getElementById("marquee");
 const toolbar = document.getElementById("arrange");
@@ -19,19 +36,49 @@ export function selectedList() {
 
 function syncUI() {
   notes.forEach(({ el }, id) => el.classList.toggle("is-selected", selected.has(id)));
+  listEls().forEach((el) => el.classList.toggle("is-selected", selectedLists.has(el.dataset.listId)));
+  // The arrange tools line up notes; a list does not take part in them.
   toolbar.classList.toggle("is-visible", selected.size >= 2);
   countLabel.textContent = `${selected.size} selected`;
 }
 
 export function clearSelection() {
-  if (!selected.size) return;
+  if (!selectionSize()) return;
   selected.clear();
+  selectedLists.clear();
   syncUI();
 }
 
 export function selectOnly(id) {
   selected.clear();
+  selectedLists.clear();
   selected.add(id);
+  syncUI();
+}
+
+export function selectOnlyList(id) {
+  selected.clear();
+  selectedLists.clear();
+  selectedLists.add(id);
+  syncUI();
+}
+
+export function toggleListSelect(id) {
+  if (selectedLists.has(id)) selectedLists.delete(id);
+  else selectedLists.add(id);
+  syncUI();
+}
+
+export function forgetListSelection(id) {
+  if (selectedLists.delete(id)) syncUI();
+}
+
+// A paste, or anything else that hands you back a batch: the notes it made are
+// the ones now selected, so the next thing you do lands on them.
+export function selectNotes(ids) {
+  selected.clear();
+  selectedLists.clear();
+  ids.forEach((id) => selected.add(id));
   syncUI();
 }
 
@@ -42,7 +89,11 @@ export function toggleSelect(id) {
 }
 
 export function selectAll() {
-  notes.forEach((_, id) => selected.add(id));
+  // The loose notes and the lists; a list's cards come with it.
+  notes.forEach(({ el }, id) => {
+    if (!el.classList.contains("is-listed")) selected.add(id);
+  });
+  listEls().forEach((el) => selectedLists.add(el.dataset.listId));
   syncUI();
 }
 
@@ -61,6 +112,7 @@ export function beginMarquee(e) {
     startY: e.clientY,
     additive: e.shiftKey || e.metaKey || e.ctrlKey,
     base: new Set(selected),
+    baseLists: new Set(selectedLists),
     moved: false,
   };
 }
@@ -95,11 +147,20 @@ function moveMarquee(e) {
   // getBoundingClientRect already accounts for the world transform, so the
   // hit test stays correct at any zoom.
   selected.clear();
-  if (marquee.additive) marquee.base.forEach((id) => selected.add(id));
-  notes.forEach(({ el }, id) => {
+  selectedLists.clear();
+  if (marquee.additive) {
+    marquee.base.forEach((id) => selected.add(id));
+    marquee.baseLists.forEach((id) => selectedLists.add(id));
+  }
+  const hit = (el) => {
     const b = el.getBoundingClientRect();
-    const hit = b.right >= r.left && b.left <= r.right && b.bottom >= r.top && b.top <= r.bottom;
-    if (hit) selected.add(id);
+    return b.right >= r.left && b.left <= r.right && b.bottom >= r.top && b.top <= r.bottom;
+  };
+  notes.forEach(({ el }, id) => {
+    if (!el.classList.contains("is-listed") && hit(el)) selected.add(id);
+  });
+  listEls().forEach((el) => {
+    if (hit(el)) selectedLists.add(el.dataset.listId);
   });
   syncUI();
 }
@@ -119,9 +180,8 @@ function endMarquee(e) {
 function boxes() {
   // A note in a list is not on the canvas in any sense an arrange can use: it
   // has no position of its own, and writing one would scatter the board behind
-  // the list without anything visibly happening. A marquee dragged across a
-  // list still selects its cards — that is fine, and useful — they simply do
-  // not take part in lining things up.
+  // the list without anything visibly happening. A marquee no longer picks
+  // cards, but Shift-clicking one still can, and it sits out the arranging.
   return selectedList()
     .filter(({ note }) => !note.listId)
     .map(({ note, el }) => ({
@@ -136,12 +196,8 @@ function boxes() {
     }));
 }
 
-// A locked note keeps its place. It still counts towards working out where
-// the others go — lining things up against something pinned is half the point
-// of pinning it — but nothing in here moves it.
 function commit(list, label) {
   list.forEach(({ note, el }) => {
-    if (note.locked) return;
     el.style.left = `${note.x}px`;
     el.style.top = `${note.y}px`;
     put(NOTES, note).catch(() => {});
@@ -158,7 +214,6 @@ export function align(mode) {
     const max = Math.max(...list.map((b) => b.note.x + b.w));
     const mid = (min + max) / 2;
     list.forEach((b) => {
-      if (b.note.locked) return;
       if (mode === "left") b.note.x = min;
       else if (mode === "right") b.note.x = max - b.w;
       else b.note.x = mid - b.w / 2;
@@ -168,7 +223,6 @@ export function align(mode) {
     const max = Math.max(...list.map((b) => b.note.y + b.h));
     const mid = (min + max) / 2;
     list.forEach((b) => {
-      if (b.note.locked) return;
       if (mode === "top") b.note.y = min;
       else if (mode === "bottom") b.note.y = max - b.h;
       else b.note.y = mid - b.h / 2;
@@ -198,7 +252,7 @@ export function distribute(axis) {
 
   let cursor = start;
   list.forEach((b) => {
-    if (!b.note.locked) b.note[pos] = cursor;
+    b.note[pos] = cursor;
     cursor += b[size] + gap;
   });
   commit(list, "the spacing");
@@ -219,7 +273,6 @@ export function arrangeGrid() {
   const originY = Math.min(...list.map((b) => b.note.y));
 
   list.forEach((b, i) => {
-    if (b.note.locked) return; // its cell stays empty rather than moving it
     b.note.x = originX + (i % cols) * colW;
     b.note.y = originY + Math.floor(i / cols) * rowH;
   });

@@ -169,7 +169,100 @@ export default async function run(page, s) {
   check("a refused read still pastes, by command", !!viaCommand && viaCommand.text.includes("menu paste"),
     JSON.stringify(viaCommand));
   check("and the command paste keeps the formatting", viaCommand.bold === 1, JSON.stringify(viaCommand));
+
+  /* --------------------------------------------------- copying notes whole */
+
+  await page.evaluate(`(() => { delete navigator.clipboard.read; return true; })()`);
+  await page.reset(); // an empty board, so the notes on it can simply be counted
+
+  await write(page, 400, 300, "first note");
+  await write(page, 700, 300, "second note");
+  await page.drag(350, 250, 620, 260); // a marquee across both
+
+  check("two notes are selected", (await count(page, ".note.is-selected")) === 2);
+
+  await page.key("c", "KeyC", MOD.ctrl);
+  await page.settle(500);
+  const copied = await clipboardHtml(page);
+  check("copying notes puts the records on the clipboard", copied.includes("data-easynote-notes"),
+    copied.slice(0, 80));
+  check("and the words with them, for everything else",
+    copied.includes("first note") && copied.includes("second note"));
+
+  await page.move(500, 560);
+  await pasteHtml(page, copied);
+  await page.settle(500);
+
+  let board = await boxes(page);
+  check("pasting notes makes notes, not one note holding both", board.length === 4,
+    `${board.length} notes`);
+  const fresh = board.filter((n) => n.y > 500);
+  check("they land under the cursor", fresh.length === 2 &&
+    fresh.every((n) => Math.abs(n.y - 560) < 40), JSON.stringify(fresh));
+  check("keeping the gap they were copied with",
+    fresh.length === 2 && Math.abs(Math.abs(fresh[0].x - fresh[1].x) - 300) < 4,
+    JSON.stringify(fresh.map((n) => n.x)));
+  check("and their size", fresh.every((n) => n.w === 200 && n.h === 150),
+    JSON.stringify(fresh.map((n) => [n.w, n.h])));
+  check("the words come back", fresh.map((n) => n.text).sort().join("|") === "first note|second note",
+    JSON.stringify(fresh.map((n) => n.text)));
+  check("the copies are saved", (await page.stored()).filter((n) => !n.deleted).length === 4);
+  check("and are the ones now selected", (await count(page, ".note.is-selected")) === 2);
+
+  await page.key("z", "KeyZ", MOD.ctrl);
+  await page.settle(500);
+  check("one undo takes the whole paste back", (await count(page, ".note")) === 2,
+    `${await count(page, ".note")} notes`);
+
+  // A cut is a copy that also clears the board.
+  await page.drag(350, 250, 620, 260);
+  await page.key("x", "KeyX", MOD.ctrl);
+  await page.settle(600);
+  check("a cut takes the notes off the board", (await count(page, ".note")) === 0,
+    `${await count(page, ".note")} notes`);
+
+  await page.move(600, 400);
+  await pasteHtml(page, await clipboardHtml(page));
+  await page.settle(500);
+  board = await boxes(page);
+  check("and the cut notes paste back", board.length === 2 &&
+    board.map((n) => n.text).sort().join("|") === "first note|second note",
+    JSON.stringify(board.map((n) => n.text)));
 }
+
+// A note with words in it, left alone afterwards.
+const write = async (page, x, y, text) => {
+  await page.click(x, y, 2);
+  await page.waitFor(`document.activeElement && document.activeElement.isContentEditable`);
+  await page.type(text);
+  await page.key("Escape", "Escape");
+  await page.settle(200);
+};
+
+const count = (page, selector) => page.evaluate(`document.querySelectorAll('${selector}').length`);
+
+const boxes = (page) =>
+  page.evaluate(`[...document.querySelectorAll('.note')].map((n) => {
+    const r = n.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+      text: n.querySelector('.note-body').textContent.trim() };
+  })`);
+
+const clipboardHtml = (page) =>
+  page.evaluate(`(async () => {
+    for (const item of await navigator.clipboard.read()) {
+      if (item.types.includes('text/html')) return (await item.getType('text/html')).text();
+    }
+    return '';
+  })()`);
+
+const pasteHtml = (page, html) =>
+  page.evaluate(`(() => {
+    const dt = new DataTransfer();
+    dt.setData('text/html', ${JSON.stringify(html)});
+    dt.setData('text/plain', 'ignored');
+    document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  })()`);
 
 const rightClick = async (page, x, y) => {
   await page.cdp.send("Input.dispatchMouseEvent", {

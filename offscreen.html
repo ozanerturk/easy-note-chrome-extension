@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Easy Note</title>
+  </head>
+  <body>
+    <!-- No UI: the service worker cannot touch the system clipboard, and
+         cannot run OCR's worker either, so this document exists only to do
+         both on that worker's behalf. -->
+    <script type="module" src="js/clip/offscreen.js"></script>
+  </body>
+</html>

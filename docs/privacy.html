@@ -94,9 +94,10 @@
     <p class="lede">
       Easy Note is a notes app that replaces your new tab page. Your notes are
       yours: they stay on your computer unless you deliberately turn on Google
-      Drive sync, and they are never sent anywhere else.
+      Drive sync or the optional connection to Claude, and they are never sent
+      anywhere else.
     </p>
-    <p class="stamp" style="margin-top:14px">Last updated 19 August 2026 · Version 3.0.0</p>
+    <p class="stamp" style="margin-top:14px">Last updated 6 October 2026 · Version 3.6.0</p>
   </div>
 </header>
 
@@ -106,7 +107,7 @@
     <h2>The short version</h2>
     <ul>
       <li>Everything you write is stored <strong>on your own computer</strong>, in the browser.</li>
-      <li>There is <strong>no Easy Note server</strong>. Nothing is uploaded to us, because there is no “us” to upload to.</li>
+      <li>Nothing is uploaded to us. The only Easy Note server is a small relay that exists for the optional <strong>Connect to Claude</strong> feature, which is <strong>off by default</strong>; it does not store or log your notes (see below).</li>
       <li>If you sign in with Google, your notes are copied to a <strong>private folder in your own Google Drive</strong> so they reach your other computers.</li>
       <li>There is <strong>no advertising, no tracking and no analytics</strong> inside the extension.</li>
       <li>Nothing is ever sold or shared.</li>
@@ -165,18 +166,43 @@
   <section>
     <h2>Who your data is shared with</h2>
     <p>
-      Nobody. The extension talks to exactly two addresses, both Google's, and
-      only on your behalf once you have signed in:
+      Nobody. Unless you turn on Connect to Claude, the extension talks to
+      exactly two addresses, both Google's, and only on your behalf once you
+      have signed in:
     </p>
     <ul>
       <li><code>www.googleapis.com</code> — to read and write your notes in your own Drive app folder</li>
       <li><code>oauth2.googleapis.com</code> — to revoke the access token when you sign out</li>
     </ul>
     <p>
-      There are no other network requests, no third-party services, no
+      With Connect to Claude on, it also keeps a connection open to
+      <code>relay.easynote.tayfai.tech</code>, and that relay may read your Easy Note
+      folder in your Drive on your behalf (see the next section). There are
+      no other network requests, no third-party services, no
       advertising networks and no data brokers. Your notes are never sold,
       rented, or used to train anything.
     </p>
+  </section>
+
+  <section>
+    <h2>Connect to Claude (optional, off by default)</h2>
+    <p>
+      If you turn on <strong>Connect to Claude</strong> in the sync panel, Easy
+      Note keeps a connection open to a small relay at
+      <code>relay.easynote.tayfai.tech</code>, so that Claude, once you have
+      added the connector and signed in with the same Google account, can
+      search your notes, read one, or add a line to your Capture tray while
+      Chrome is open. It cannot edit or delete anything.
+    </p>
+    <ul>
+      <li><strong>What passes through the relay.</strong> A request from Claude, and the answer — the matching notes, the one note you asked for, or your reminders. The relay hands it on and forgets it: it does not store or log note content, search words or what Claude asked for.</li>
+      <li><strong>When Chrome is closed.</strong> Claude can still search and read your notes, and ask what is due. The relay then reads the copy that Easy Note's Google Drive sync keeps in your own Drive, answers from it, and keeps nothing of it. That copy is only as recent as your last sync, and the answer says so. Adding to the Capture tray needs Chrome open.</li>
+      <li><strong>What the relay keeps.</strong> What it needs to sign you in and to do the above: your Google account's identifier (not your email address), a scrambled (hashed) copy of the long-lived sign-in token, the name and return address of the Claude connector, and an <strong>encrypted copy of the access Google gave it to the Easy Note folder in your Drive</strong>. That last one is the only thing it keeps that could be used to read your notes. It is used only when Claude asks while Chrome is closed, and it is deleted when you switch Connect to Claude off, when you remove Easy Note's access in your Google account, and after 90 days without use.</li>
+      <li><strong>What Claude receives.</strong> Whatever it asks for and your browser returns. What Claude does with it is governed by your agreement with Anthropic, not by this policy.</li>
+      <li><strong>Whose notes.</strong> The relay only passes a request to the Easy Note that is signed in with the same Google account that signed in to Claude, and refuses connections that cannot prove they belong to that account.</li>
+      <li><strong>Locked notes.</strong> A note you locked in an earlier version of Easy Note is never shared with Claude, whether your browser answers or the relay reads your Drive copy.</li>
+      <li><strong>Turning it off.</strong> Switch it off in the sync panel and the connection closes straight away. You can also remove the connector in Claude.</li>
+    </ul>
   </section>
 
   <section>
