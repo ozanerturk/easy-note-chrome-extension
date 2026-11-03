@@ -18,7 +18,7 @@
     "jose": "^6.2.12",
     "pino": "^10.4.0",
     "ws": "^8.22.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
